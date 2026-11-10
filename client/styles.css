@@ -6523,3 +6523,113 @@ input.thread-title.editing {
 .note textarea {
   padding: 4px 14px 12px;
 }
+
+/* ---------- screenshots on steps ---------- */
+.shot-thumb {
+  position: relative;
+  display: block;
+  padding: 0;
+  border: 1px solid var(--border-2);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface-2);
+  cursor: zoom-in;
+  aspect-ratio: 16 / 10;
+}
+.shot-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+.shot-thumb.loading {
+  background: linear-gradient(100deg, var(--surface-2) 40%, var(--surface-3) 50%, var(--surface-2) 60%) 0 0 / 200% 100%;
+  animation: shimmer-bg 1.4s linear infinite;
+}
+@keyframes shimmer-bg {
+  to {
+    background-position: -200% 0;
+  }
+}
+.shot-thumb:hover {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--border-2));
+}
+.shot-count {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+}
+.turn-shot {
+  margin: 4px 14px 2px;
+  width: calc(100% - 28px);
+  aspect-ratio: auto;
+  height: 110px;
+}
+.thread-cover {
+  pointer-events: auto;
+  width: 220px;
+  box-shadow: var(--shadow);
+}
+.shot-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 600;
+  display: grid;
+  place-items: center;
+  padding: 64px 72px 32px;
+  background: rgba(6, 7, 10, 0.86);
+  backdrop-filter: blur(6px);
+  animation: aw-in 0.2s var(--ease);
+}
+.shot-viewer > img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 10px;
+  box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.7);
+  cursor: default;
+}
+.shot-viewer-bar {
+  position: absolute;
+  top: 14px;
+  left: 20px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #eceae4;
+  font-size: 14px;
+}
+.shot-viewer-bar .ellipsis {
+  flex: 1;
+  min-width: 0;
+}
+.shot-viewer-bar .icon-btn {
+  color: #eceae4;
+}
+.shot-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  cursor: pointer;
+}
+.shot-nav.left {
+  left: 16px;
+}
+.shot-nav.right {
+  right: 16px;
+}

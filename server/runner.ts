@@ -4,6 +4,7 @@ import path from 'node:path';
 import type { Board, Branch, PendingPermission, Position, TurnEvent, TurnNode } from '../shared/types.ts';
 import * as g from './git.ts';
 import { commitMessage, threadTitle } from './tutor.ts';
+import { capture } from './shots.ts';
 import { ensureSessionAt } from './sessions.ts';
 import { HOME, getBoard, getBranch, getTurn, save, state } from './store.ts';
 
@@ -206,6 +207,16 @@ async function run(board: Board, branch: Branch, node: TurnNode, parent: TurnNod
       }
     }
     touch(node);
+    // The app changed: snap the preview so the step shows what it looks like now.
+    const changedFiles = !!node.diffStat?.files || node.events.some((e) => e.t === 'tool' && ['Edit', 'Write', 'MultiEdit', 'NotebookEdit'].includes(e.name));
+    if (board.previewUrl && node.status === 'done' && changedFiles)
+      capture(board.previewUrl).then(
+        (id) => {
+          node.shots = [...(node.shots ?? []), id].slice(-12);
+          touch(node);
+        },
+        () => {},
+      );
     // First step of a new thread: give the thread a short title, like Claude Code does.
     if (!node.parentId && !node.title && node.status === 'done')
       threadTitle(node.prompt, lastAgentText(node), branch.cwd).then((t) => {

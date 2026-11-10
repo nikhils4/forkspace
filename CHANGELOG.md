@@ -3,6 +3,11 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.11.0
+
+- Screenshots on threads: set your app's address in board settings and Forkspace snaps it after each step that changes files. The newest becomes the thread's cover above its title, so you can see what each thread built
+- Add your own: paste (⌘V) onto a selected step, drop an image on a card, or Add screenshot… in the card menu. Click any preview to see it big
+
 ## 0.10.1
 
 - Sticky notes, reworked: they always sit above cards, new ones land in free space, and they look like paper

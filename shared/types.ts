@@ -15,6 +15,8 @@ export interface Board {
   relPath?: string;
   isolation: Isolation;
   permissionMode: PermissionMode;
+  /** Your app's address while it runs (http://localhost:3000). Snapped after steps that change files. */
+  previewUrl?: string;
   model?: string;
   createdAt: number;
   links: Link[];
@@ -96,6 +98,8 @@ export interface Position {
 
 export interface TurnNode {
   kind: 'turn';
+  /** Screenshots attached to this step, oldest first. */
+  shots?: string[];
   /** On a thread's first step: the thread's title (from Claude Code, written for you, or yours). */
   title?: string;
   /** Subject of this step's checkpoint commit. */
@@ -154,7 +158,7 @@ export interface State {
 
 export type ClientMsg =
   | { type: 'createBoard'; reqId: string; name: string; cwd: string; isolation: Isolation; permissionMode: PermissionMode }
-  | { type: 'updateBoard'; id: string; patch: Partial<Pick<Board, 'name' | 'permissionMode' | 'model' | 'links' | 'learn'>> }
+  | { type: 'updateBoard'; id: string; patch: Partial<Pick<Board, 'name' | 'permissionMode' | 'model' | 'links' | 'learn' | 'previewUrl'>> }
   | { type: 'explain'; reqId: string; nodeId: string; path?: string }
   | { type: 'listSessions'; reqId: string; boardId: string }
   | { type: 'importSessions'; reqId: string; boardId: string; sessionIds: string[]; at: Position }
@@ -180,6 +184,8 @@ export type ClientMsg =
   | { type: 'remoteInfo'; reqId: string }
   | { type: 'awayInfo'; reqId: string }
   | { type: 'ping'; reqId: string }
+  | { type: 'captureShot'; reqId: string; nodeId: string }
+  | { type: 'removeShot'; nodeId: string; shotId: string }
   | { type: 'setTitle'; nodeId: string; title: string }
   | { type: 'termOpen'; reqId: string; boardId: string; branchId?: string; cols: number; rows: number }
   | { type: 'termList'; reqId: string; boardId: string }

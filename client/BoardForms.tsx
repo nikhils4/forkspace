@@ -140,7 +140,8 @@ export function NewBoard({ onClose, onCreated }: { onClose: () => void; onCreate
 export function BoardSettings({ board, onClose }: { board: Board; onClose: () => void }) {
   const [name, setName] = useState(board.name);
   const [model, setModel] = useState(board.model ?? '');
-  const update = (patch: Partial<Pick<Board, 'name' | 'permissionMode' | 'model' | 'learn'>>) => send({ type: 'updateBoard', id: board.id, patch });
+  const [preview, setPreview] = useState(board.previewUrl ?? '');
+  const update = (patch: Partial<Pick<Board, 'name' | 'permissionMode' | 'model' | 'learn' | 'previewUrl'>>) => send({ type: 'updateBoard', id: board.id, patch });
   const learn = { on: board.learn?.on !== false, level: board.learn?.level ?? ('growing' as LearnLevel) };
 
   return (
@@ -179,6 +180,19 @@ export function BoardSettings({ board, onClose }: { board: Board; onClose: () =>
             onBlur={() => update({ model: model.trim() || undefined })}
           />
           <span className="field-hint">For example opus, sonnet or haiku. Applies to new steps.</span>
+        </label>
+        <label className="field">
+          <span className="field-label">Your app's address</span>
+          <input
+            value={preview}
+            placeholder="http://localhost:3000"
+            autoCapitalize="off"
+            autoCorrect="off"
+            inputMode="url"
+            onChange={(e) => setPreview(e.target.value)}
+            onBlur={() => preview.trim() !== (board.previewUrl ?? '') && update({ previewUrl: preview.trim() })}
+          />
+          <span className="field-hint">While your app runs, Forkspace takes a screenshot after each step that changes files, so every thread shows what it built.</span>
         </label>
         <div className="danger-zone">
           <div>

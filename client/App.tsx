@@ -5,6 +5,7 @@ import { BoardSettings, MODES, NewBoard } from './BoardForms.tsx';
 import { Canvas } from './Canvas.tsx';
 import { Chat } from './Chat.tsx';
 import { AwayLink, AwayScreen, goAway } from './Away.tsx';
+import { ShotViewer } from './Shots.tsx';
 import { ContextMenu, type MenuItem } from './ContextMenu.tsx';
 // The terminal (xterm) loads only when you open it.
 const TerminalPanel = lazy(() => import('./Terminal.tsx').then((m) => ({ default: m.TerminalPanel })));
@@ -460,6 +461,7 @@ function Shell() {
         {openNode && <Drawer node={openNode} onClose={() => setOpenId(null)} onReply={(id) => (setTargetId(id), setTimeout(() => composerFocus.current?.focus(), 0))} />}
         {sheets}
       <AwayScreen onGoTo={goTo} />
+      <ShotViewer />
       </div>
     );
   }
@@ -586,6 +588,7 @@ function Shell() {
       {openNode && <Drawer node={openNode} onClose={() => setOpenId(null)} onReply={(id) => (setTargetId(id), setTimeout(() => composerFocus.current?.focus(), 0))} />}
       {sheets}
       <AwayScreen onGoTo={goTo} />
+      <ShotViewer />
     </div>
   );
 }

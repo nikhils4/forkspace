@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Board, NoteNode, TurnNode } from '../shared/types.ts';
 import { composerFocus } from './Composer.tsx';
 import { ContextMenu, type MenuItem } from './ContextMenu.tsx';
+import { pickShot, snapPreview, uploadShot } from './Shots.tsx';
 import { Icon } from './icons.tsx';
 import { CARD_W, heights } from './layout.ts';
 import { NOTE_COLORS, NoteCard, TurnCard, branchColor } from './nodes.tsx';
@@ -60,6 +61,19 @@ export function Canvas({
     return false;
   };
 
+  /** Every screenshot in a thread, oldest first: the newest becomes the thread's cover. */
+  const threadShots = (rootId: string) => {
+    const out: { id: string; node: TurnNode; at: number }[] = [];
+    const walk = (id: string) => {
+      const t = store.nodes[id];
+      if (!isTurn(t)) return;
+      (t.shots ?? []).forEach((s, i) => out.push({ id: s, node: t, at: (t.finishedAt ?? t.createdAt) + i }));
+      for (const n of items) if (isTurn(n) && n.parentId === id) walk(n.id);
+    };
+    walk(rootId);
+    return out.length ? out.sort((a, b) => a.at - b.at).map(({ id, node }) => ({ id, node })) : undefined;
+  };
+
   const [rfNodes, setRfNodes] = useState<Node[]>([]);
   useEffect(() => {
     setRfNodes((prev) => {
@@ -75,7 +89,7 @@ export function Canvas({
           // Notes always sit above cards, so a new one never hides behind them.
           return { ...base, data: { node: n }, width: w, height: h, style: { width: w, height: h }, zIndex: 1000 };
         }
-        return { ...base, data: { node: n, onOpen: openDetails, onReply, isTarget: n.id === targetId, faded: belowCompleted(n) }, width: CARD_W };
+        return { ...base, data: { node: n, onOpen: openDetails, onReply, isTarget: n.id === targetId, faded: belowCompleted(n), cover: n.parentId ? undefined : threadShots(n.id) }, width: CARD_W };
       });
     });
   }, [items, targetId, openDetails, onReply]);
@@ -378,6 +392,8 @@ export function Canvas({
         },
       },
       { label: 'Copy prompt', icon: 'copy', onClick: () => copy(node.prompt, 'Prompt') },
+      ...(board.previewUrl ? [{ label: 'Screenshot my app now', icon: 'external' as const, onClick: () => snapPreview(node.id) }] : []),
+      { label: 'Add screenshot…', icon: 'file', hint: '⌘V', onClick: () => pickShot(node.id) },
       {
         label: 'Open in editor',
         icon: 'code',
@@ -403,6 +419,22 @@ export function Canvas({
   useEffect(() => {
     if (!active) setMenu(null);
   }, [active]);
+
+  // Paste a screenshot (⌘V) onto the selected step, or the one you're replying to.
+  useEffect(() => {
+    if (!active) return;
+    const onPaste = (e: ClipboardEvent) => {
+      if ((e.target as HTMLElement)?.closest?.('input, textarea, [contenteditable]')) return;
+      const file = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith('image/'));
+      if (!file) return;
+      const sel = rfNodes.find((n) => n.selected && isTurn(store.nodes[n.id]))?.id ?? targetId;
+      if (!sel || !isTurn(store.nodes[sel])) return toast('Select a step first, then paste the screenshot.');
+      e.preventDefault();
+      uploadShot(sel, file).catch((err: Error) => toast(err.message, 'error'));
+    };
+    addEventListener('paste', onPaste);
+    return () => removeEventListener('paste', onPaste);
+  });
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -430,6 +462,18 @@ export function Canvas({
           swallowClick.current = false;
           e.stopPropagation();
         }
+      }}
+      onDragOver={(e) => {
+        if ([...e.dataTransfer.items].some((i) => i.type.startsWith('image/'))) e.preventDefault();
+      }}
+      onDrop={(e) => {
+        const file = [...e.dataTransfer.files].find((f) => f.type.startsWith('image/'));
+        if (!file) return;
+        e.preventDefault();
+        // Dropped on a card: attach to it.
+        const id = ((e.target as HTMLElement).closest('.react-flow__node-turn') as HTMLElement | null)?.dataset.id;
+        if (!id) return toast('Drop the screenshot onto a card.');
+        uploadShot(id, file).catch((err: Error) => toast(err.message, 'error'));
       }}
       onContextMenu={(e) => {
         // Right-click on a card or the canvas. Typing areas keep the browser's own menu.

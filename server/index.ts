@@ -18,6 +18,7 @@ import { checkToken, getPublicUrl, getToken, isLocalRequest, newPairCode, redeem
 import * as push from './push.ts';
 import { enableTailscaleServe, tailscaleInfo } from './remote.ts';
 import { awayStatus, noteDevice, setAway } from './away.ts';
+import { capture, deleteShot, readShot, saveShot } from './shots.ts';
 import { attachTerminal, closeBoardTerminals, closeTerminal, listTerminals, openTerminal, resizeTerminal, setTerminalEmitter, setTerminalRemoteAllowed, terminalRemoteAllowed, terminalSupported, writeTerminal } from './terminal.ts';
 import { answer, isRunning, pruneBranches, setActivityHook, setEmitter, setNotifier, startTurn, stop, touch } from './runner.ts';
 import { explain, onActivity, organizeConcepts, setTutorTouch, threadTitle } from './tutor.ts';
@@ -83,6 +84,7 @@ const server = http.createServer((req, res) => {
     return;
   }
   if (url.pathname.startsWith('/api/workspace/')) return workspaceApi(req, res, url);
+  if (url.pathname.startsWith('/api/shots')) return shotsApi(req, res, url);
   let file = path.join(DIST, path.normalize(url.pathname).replace(/^(\.\.[/\\])+/, ''));
   if (!file.startsWith(DIST) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
     if (url.pathname.startsWith('/assets/')) {
@@ -163,6 +165,38 @@ async function workspaceApi(req: http.IncomingMessage, res: http.ServerResponse,
     json(400, { error: String(err?.message ?? err) });
   }
 }
+
+// ---- screenshots on steps (images are too big for the socket) ----
+async function shotsApi(req: http.IncomingMessage, res: http.ServerResponse, url: URL) {
+  const json = (code: number, body: unknown) => {
+    res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+    res.end(JSON.stringify(body));
+  };
+  if (!checkToken((req.headers.authorization ?? '').replace(/^Bearer /, ''))) return json(401, { error: 'Sign in first.' });
+  try {
+    if (req.method === 'POST' && url.pathname === '/api/shots') {
+      const node = getTurn(url.searchParams.get('node') ?? '');
+      if (!node) return json(404, { error: 'Step not found' });
+      const id = saveShot(await readBody(req, 13 * 1024 * 1024));
+      node.shots = [...(node.shots ?? []), id].slice(-12);
+      save();
+      broadcast({ type: 'node', node });
+      return json(200, { id });
+    }
+    const id = url.pathname.split('/')[3] ?? '';
+    const shot = req.method === 'GET' ? readShot(id) : null;
+    if (!shot) return json(404, { error: 'Not found' });
+    res.writeHead(200, { 'content-type': shot.type, 'cache-control': 'private, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' });
+    res.end(shot.bytes);
+  } catch (err: any) {
+    json(400, { error: String(err?.message ?? err) });
+  }
+}
+
+/** Forget the screenshots of steps that are going away. */
+const dropShots = (ids: Iterable<string>) => {
+  for (const id of ids) for (const s of getTurn(id)?.shots ?? []) deleteShot(s);
+};
 
 // ---- websocket ----
 // Agents can run commands on this machine, so every connection must carry the access key.
@@ -308,6 +342,11 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       if (typeof p.permissionMode === 'string' && MODES.has(p.permissionMode)) board.permissionMode = p.permissionMode as Board['permissionMode'];
       if ('model' in p) board.model = typeof p.model === 'string' && p.model.trim() ? p.model.trim().slice(0, 80) : undefined;
       if (p.learn && typeof p.learn === 'object') board.learn = { on: (p.learn as any).on !== false, level: (p.learn as any).level ?? 'growing' };
+      if ('previewUrl' in p) {
+        const u = typeof p.previewUrl === 'string' ? p.previewUrl.trim() : '';
+        if (u && !/^https?:\/\/[^\s]+$/i.test(u)) throw new Error('Use a full address, like http://localhost:3000');
+        board.previewUrl = u || undefined;
+      }
       if (Array.isArray(p.links))
         board.links = p.links
           .filter((l: any) => l && typeof l.id === 'string' && typeof l.source === 'string' && typeof l.target === 'string')
@@ -319,6 +358,7 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
     case 'deleteBoard': {
       closeBoardTerminals(msg.id);
       const ids = state.nodes.filter((n) => n.boardId === msg.id).map((n) => n.id);
+      dropShots(ids);
       ids.forEach(stop);
       state.nodes = state.nodes.filter((n) => n.boardId !== msg.id);
       await pruneBranches();
@@ -332,6 +372,7 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       if (!board) throw new Error('Board not found');
       const ids = state.nodes.filter((n) => n.boardId === msg.id).map((n) => n.id);
       ids.forEach(stop);
+      dropShots(ids);
       state.nodes = state.nodes.filter((n) => n.boardId !== msg.id);
       board.links = [];
       await pruneBranches();
@@ -391,6 +432,7 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
     case 'deleteNodes': {
       const ids = new Set(msg.ids.flatMap(subtree));
       for (const id of ids) if (isRunning(id)) stop(id);
+      dropShots(ids);
       state.nodes = state.nodes.filter((n) => !ids.has(n.id));
       for (const b of state.boards) {
         const before = b.links.length;
@@ -514,6 +556,26 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       if (msg.type === 'termInput') return writeTerminal(msg.id, msg.data);
       if (msg.type === 'termResize') return resizeTerminal(msg.id, msg.cols, msg.rows);
       return closeTerminal(msg.id);
+    }
+    case 'captureShot': {
+      const t = getTurn(msg.nodeId);
+      const board = t && getBoard(t.boardId);
+      if (!t || !board) throw new Error('Step not found');
+      if (!board.previewUrl) throw new Error('Set your app\'s address in board settings first.');
+      const id = await capture(board.previewUrl);
+      t.shots = [...(t.shots ?? []), id].slice(-12);
+      save();
+      broadcast({ type: 'node', node: t });
+      return { id };
+    }
+    case 'removeShot': {
+      const t = getTurn(msg.nodeId);
+      if (!t || !t.shots?.includes(msg.shotId)) return;
+      t.shots = t.shots.filter((s) => s !== msg.shotId);
+      deleteShot(msg.shotId);
+      save();
+      broadcast({ type: 'node', node: t });
+      return;
     }
     case 'setTitle': {
       const t = getTurn(msg.nodeId);

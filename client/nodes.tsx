@@ -1,6 +1,7 @@
 import { Handle, NodeResizer, Position, useStore as useRFStore, type NodeProps } from '@xyflow/react';
 import { memo, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
+import { ShotThumb, openShots } from './Shots.tsx';
 import type { NoteNode, PendingPermission, TurnEvent, TurnNode } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
 import { send, useStore, toast } from './store.ts';
@@ -238,13 +239,15 @@ export interface TurnData extends Record<string, unknown> {
   isTarget: boolean;
   /** An earlier step was marked complete: this one fades back too. */
   faded?: boolean;
+  /** On a thread's first card: every screenshot in the thread, newest last. */
+  cover?: { id: string; node: TurnNode }[];
 }
 
 /**
  * One circle per thread, floating above its first card and joined to it by a short line.
  * Click it when the thread is finished: it fills with a green tick and the whole thread fades back.
  */
-function ThreadDone({ node }: { node: TurnNode }) {
+function ThreadDone({ node, cover }: { node: TurnNode; cover?: { id: string; node: TurnNode }[] }) {
   const on = !!node.completed;
   return (
     <div className={`thread-done nodrag ${on ? 'on' : ''}`}>
@@ -261,6 +264,12 @@ function ThreadDone({ node }: { node: TurnNode }) {
         <Icon name="check" size={13} strokeWidth={3} />
       </button>
       <span className="thread-done-line" />
+      {!!cover?.length && (
+        <>
+          <ShotThumb id={cover[cover.length - 1].id} className="thread-cover" count={cover.length} onOpen={() => openShots(cover)} />
+          <span className="thread-done-line short" />
+        </>
+      )}
       <ThreadTitle node={node} />
       <span className="thread-done-line short" />
     </div>
@@ -345,7 +354,7 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
   if (far)
     return (
       <>
-      {root && <ThreadDone node={node} />}
+      {root && <ThreadDone node={node} cover={data.cover} />}
       <div className={`turn far status-${node.status} ${isTarget ? 'target' : ''} ${dim}`} style={{ ['--branch' as any]: color }}>
         <Handle type="target" position={Position.Top} />
         <div className="far-status">
@@ -365,7 +374,7 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
 
   return (
     <>
-    {root && <ThreadDone node={node} />}
+    {root && <ThreadDone node={node} cover={data.cover} />}
     <div className={`turn status-${node.status} ${isTarget ? 'target' : ''} ${isFresh(node.createdAt) ? 'fresh' : ''} ${dim}`} style={{ ['--branch' as any]: color }}>
       <Handle type="target" position={Position.Top} />
       {live && <div className="turn-progress" />}
@@ -387,6 +396,14 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
       </div>
 
       <div className="turn-prompt">{node.prompt}</div>
+      {!!node.shots?.length && (
+        <ShotThumb
+          id={node.shots[node.shots.length - 1]}
+          className="turn-shot"
+          count={node.shots.length}
+          onOpen={() => openShots(node.shots!.map((id) => ({ id, node })))}
+        />
+      )}
 
       {live ? (
         <div className="turn-live">
