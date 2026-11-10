@@ -1,0 +1,850 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Forkspace · Every Claude Code agent on one canvas</title>
+    <meta name="description" content="Open source control center for Claude Code agents. Branch any conversation from any step, and the code branches with it. Run many agents at once and approve them from your phone." />
+    <meta property="og:title" content="Forkspace" />
+    <meta property="og:description" content="Every Claude Code agent on one canvas. Branch from any step. Approve from your phone." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/assets/canvas.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/svg+xml" href="/assets/icon.svg" />
+    <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
+    <meta name="theme-color" content="#0b0c10" />
+    <style>
+      :root {
+        --bg: #0b0c10;
+        --bg-2: #101117;
+        --surface: #15161d;
+        --surface-2: #1b1c25;
+        --border: rgba(255, 255, 255, 0.08);
+        --border-2: rgba(255, 255, 255, 0.14);
+        --text: #ecedf2;
+        --text-2: #a4a7b7;
+        --text-3: #6c6f82;
+        --accent: #8b9cff;
+        --grad: linear-gradient(135deg, #9aa8ff 0%, #6a5cff 100%);
+        --warn: #f5a524;
+        --ok: #3ecf8e;
+        --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', Inter, 'Segoe UI', Roboto, sans-serif;
+        --mono: 'SF Mono', ui-monospace, 'JetBrains Mono', Menlo, monospace;
+        --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 16px/1.6 var(--font);
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      img {
+        display: block;
+        max-width: 100%;
+        height: auto;
+      }
+      .wrap {
+        width: min(1160px, 100% - 32px);
+        margin: 0 auto;
+      }
+
+      /* nav */
+      nav {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background: color-mix(in srgb, var(--bg) 80%, transparent);
+        backdrop-filter: saturate(160%) blur(16px);
+        -webkit-backdrop-filter: saturate(160%) blur(16px);
+        border-bottom: 1px solid transparent;
+        transition: border-color 0.2s;
+      }
+      nav.scrolled {
+        border-bottom-color: var(--border);
+      }
+      .nav-in {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        height: 64px;
+      }
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 650;
+        font-size: 17px;
+        letter-spacing: -0.01em;
+      }
+      .logo img {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+      }
+      .spacer {
+        flex: 1;
+      }
+      .nav-link {
+        color: var(--text-2);
+        font-size: 14.5px;
+        font-weight: 500;
+        padding: 8px 12px;
+        border-radius: 8px;
+        transition: color 0.15s;
+      }
+      .nav-link:hover {
+        color: var(--text);
+      }
+
+      /* buttons */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        height: 44px;
+        padding: 0 20px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 15px;
+        border: 1px solid var(--border-2);
+        background: var(--surface-2);
+        transition:
+          transform 0.12s,
+          filter 0.15s,
+          background 0.15s;
+        white-space: nowrap;
+      }
+      .btn:hover {
+        background: #23242f;
+      }
+      .btn:active {
+        transform: scale(0.97);
+      }
+      .btn.primary {
+        background: var(--grad);
+        border-color: transparent;
+        color: #fff;
+        box-shadow:
+          0 1px 0 rgba(255, 255, 255, 0.25) inset,
+          0 10px 30px -8px rgba(106, 92, 255, 0.7);
+      }
+      .btn.primary:hover {
+        filter: brightness(1.08);
+      }
+      .btn.sm {
+        height: 36px;
+        padding: 0 14px;
+        font-size: 14px;
+        border-radius: 10px;
+      }
+      .btn svg {
+        flex-shrink: 0;
+      }
+
+      /* hero */
+      .hero {
+        position: relative;
+        padding: 84px 0 0;
+        text-align: center;
+      }
+      .hero::before {
+        content: '';
+        position: absolute;
+        inset: -120px 0 auto 0;
+        height: 720px;
+        background:
+          radial-gradient(600px 340px at 50% 20%, rgba(124, 108, 255, 0.28), transparent 70%),
+          radial-gradient(500px 300px at 75% 40%, rgba(45, 212, 230, 0.08), transparent 70%);
+        pointer-events: none;
+        z-index: -1;
+      }
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 12px 5px 6px;
+        border-radius: 999px;
+        border: 1px solid var(--border-2);
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--text-2);
+        font-size: 13.5px;
+        font-weight: 500;
+      }
+      .eyebrow b {
+        background: var(--grad);
+        color: #fff;
+        border-radius: 999px;
+        padding: 1px 9px;
+        font-size: 12px;
+        font-weight: 650;
+      }
+      h1 {
+        font-size: clamp(40px, 7vw, 76px);
+        line-height: 1.02;
+        letter-spacing: -0.045em;
+        font-weight: 750;
+        margin: 22px auto 0;
+        max-width: 900px;
+      }
+      h1 .grad {
+        background: linear-gradient(120deg, #c3cbff 0%, #8b9cff 40%, #7a5cff 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      .lede {
+        font-size: clamp(17px, 2.1vw, 20px);
+        color: var(--text-2);
+        max-width: 640px;
+        margin: 22px auto 0;
+        line-height: 1.55;
+      }
+      .ctas {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-top: 34px;
+      }
+      .shot {
+        position: relative;
+        margin: 64px auto 0;
+        border-radius: 18px;
+        padding: 6px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.03));
+        box-shadow:
+          0 50px 120px -30px rgba(106, 92, 255, 0.45),
+          0 30px 60px -30px rgba(0, 0, 0, 0.8);
+      }
+      .shot img {
+        border-radius: 13px;
+        width: 100%;
+      }
+      .shot::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: -2px;
+        height: 30%;
+        background: linear-gradient(to bottom, transparent, var(--bg));
+        border-radius: 0 0 18px 18px;
+        pointer-events: none;
+      }
+
+      /* sections */
+      section {
+        padding: 110px 0 0;
+      }
+      .kicker {
+        color: var(--accent);
+        font-size: 13px;
+        font-weight: 650;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      h2 {
+        font-size: clamp(30px, 4.4vw, 46px);
+        line-height: 1.08;
+        letter-spacing: -0.035em;
+        font-weight: 720;
+        margin: 12px 0 0;
+      }
+      .sub {
+        color: var(--text-2);
+        font-size: 17.5px;
+        max-width: 560px;
+        margin: 16px 0 0;
+      }
+      .center {
+        text-align: center;
+      }
+      .center .sub {
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      .features {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+        margin-top: 48px;
+      }
+      .feature {
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, var(--surface), var(--bg-2));
+        border-radius: 20px;
+        padding: 28px;
+        transition:
+          border-color 0.2s,
+          transform 0.2s var(--ease);
+      }
+      .feature:hover {
+        border-color: var(--border-2);
+        transform: translateY(-2px);
+      }
+      .f-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 13px;
+        display: grid;
+        place-items: center;
+        background: rgba(139, 156, 255, 0.12);
+        color: var(--accent);
+        margin-bottom: 20px;
+      }
+      .feature h3 {
+        font-size: 19px;
+        letter-spacing: -0.015em;
+        margin: 0 0 8px;
+      }
+      .feature p {
+        margin: 0;
+        color: var(--text-2);
+        font-size: 15.5px;
+      }
+
+      /* branch diagram */
+      .tree {
+        margin-top: 56px;
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        background: radial-gradient(500px 260px at 30% 0%, rgba(124, 108, 255, 0.12), transparent 70%), var(--bg-2);
+        padding: 36px;
+        display: grid;
+        grid-template-columns: 1.1fr 1fr;
+        gap: 36px;
+        align-items: center;
+      }
+      .tree svg {
+        width: 100%;
+        height: auto;
+      }
+      .tree ol {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+      }
+      .tree li {
+        display: flex;
+        gap: 14px;
+      }
+      .tree li span {
+        flex-shrink: 0;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        font-size: 13px;
+        font-weight: 700;
+        background: var(--surface-2);
+        border: 1px solid var(--border-2);
+      }
+      .tree li b {
+        display: block;
+        font-size: 16.5px;
+        margin-bottom: 2px;
+      }
+      .tree li p {
+        margin: 0;
+        color: var(--text-2);
+        font-size: 15px;
+      }
+
+      /* phone */
+      .phone-grid {
+        display: grid;
+        grid-template-columns: 1fr 1.1fr;
+        gap: 56px;
+        align-items: center;
+      }
+      .phones {
+        position: relative;
+        height: 640px;
+      }
+      .phone {
+        position: absolute;
+        width: 290px;
+        border-radius: 46px;
+        padding: 10px;
+        background: linear-gradient(160deg, #2a2b36, #121318);
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+          0 40px 80px -20px rgba(0, 0, 0, 0.8),
+          0 20px 80px -30px rgba(106, 92, 255, 0.5);
+      }
+      .phone img {
+        border-radius: 37px;
+      }
+      .phone.a {
+        left: 0;
+        top: 40px;
+        transform: rotate(-4deg);
+      }
+      .phone.b {
+        right: 0;
+        top: 0;
+        transform: rotate(3deg);
+        z-index: 1;
+      }
+      .checks {
+        list-style: none;
+        padding: 0;
+        margin: 28px 0 0;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .checks li {
+        display: flex;
+        gap: 12px;
+        color: var(--text-2);
+      }
+      .checks li b {
+        color: var(--text);
+        font-weight: 600;
+      }
+      .checks svg {
+        color: var(--ok);
+        flex-shrink: 0;
+        margin-top: 4px;
+      }
+
+      /* install */
+      .install {
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        background: var(--bg-2);
+        padding: 40px;
+        display: grid;
+        grid-template-columns: 1fr 1.25fr;
+        gap: 40px;
+        align-items: center;
+      }
+      .req {
+        list-style: none;
+        padding: 0;
+        margin: 22px 0 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        color: var(--text-2);
+        font-size: 15px;
+      }
+      .req li::before {
+        content: '';
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent);
+        margin-right: 10px;
+        vertical-align: 2px;
+      }
+      .term {
+        border-radius: 16px;
+        border: 1px solid var(--border-2);
+        background: #07080b;
+        overflow: hidden;
+        box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.9);
+      }
+      .term-bar {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--border);
+      }
+      .term-bar i {
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        background: #2a2b33;
+      }
+      .copy {
+        margin-left: auto;
+        border: 1px solid var(--border-2);
+        background: transparent;
+        color: var(--text-2);
+        font: 500 12.5px var(--font);
+        border-radius: 8px;
+        padding: 4px 10px;
+        cursor: pointer;
+      }
+      .copy:hover {
+        color: var(--text);
+      }
+      pre {
+        margin: 0;
+        padding: 20px 22px 24px;
+        font: 14px/1.85 var(--mono);
+        color: #d6d8e2;
+        overflow-x: auto;
+      }
+      pre .c {
+        color: var(--text-3);
+      }
+      pre .p {
+        color: var(--accent);
+        user-select: none;
+      }
+
+      code {
+        font-family: var(--mono);
+        font-size: 0.88em;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 1px 6px;
+      }
+
+      /* final cta */
+      .final {
+        text-align: center;
+        padding: 120px 0 100px;
+      }
+      .final .icon {
+        width: 72px;
+        height: 72px;
+        border-radius: 20px;
+        margin: 0 auto 26px;
+        box-shadow: 0 20px 60px -10px rgba(106, 92, 255, 0.7);
+      }
+
+      footer {
+        border-top: 1px solid var(--border);
+        padding: 28px 0 calc(28px + env(safe-area-inset-bottom));
+        color: var(--text-3);
+        font-size: 13.5px;
+      }
+      .foot-in {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      footer a:hover {
+        color: var(--text);
+      }
+
+      /* reveal */
+      .reveal {
+        opacity: 0;
+        transform: translateY(18px);
+        transition:
+          opacity 0.7s var(--ease),
+          transform 0.7s var(--ease);
+      }
+      .reveal.in {
+        opacity: 1;
+        transform: none;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .reveal {
+          opacity: 1;
+          transform: none;
+          transition: none;
+        }
+      }
+
+      @media (max-width: 900px) {
+        .features {
+          grid-template-columns: 1fr;
+        }
+        .tree,
+        .phone-grid,
+        .install {
+          grid-template-columns: 1fr;
+        }
+        .tree,
+        .install {
+          padding: 24px;
+        }
+        .phones {
+          height: 520px;
+          max-width: 420px;
+          margin: 0 auto;
+          width: 100%;
+        }
+        .phone {
+          width: 230px;
+          border-radius: 38px;
+          padding: 8px;
+        }
+        .phone img {
+          border-radius: 31px;
+        }
+        section {
+          padding-top: 84px;
+        }
+      }
+      @media (max-width: 520px) {
+        .hero {
+          padding-top: 56px;
+        }
+        .nav-link.hide-sm {
+          display: none;
+        }
+        .shot {
+          margin-top: 44px;
+          border-radius: 12px;
+          padding: 4px;
+        }
+        .shot img {
+          border-radius: 9px;
+        }
+        .phones {
+          height: 440px;
+        }
+        .phone {
+          width: 190px;
+        }
+        .phone.a {
+          left: 4px;
+        }
+        .phone.b {
+          right: 4px;
+        }
+        pre {
+          font-size: 12.5px;
+          padding: 16px;
+        }
+        .ctas .btn {
+          width: 100%;
+          justify-content: center;
+        }
+        .ctas {
+          flex-direction: column;
+          align-items: stretch;
+          max-width: 340px;
+          margin-left: auto;
+          margin-right: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav id="nav">
+      <div class="wrap nav-in">
+        <a class="logo" href="/"><img src="/assets/icon.svg" alt="" />Forkspace</a>
+        <span class="spacer"></span>
+        <a class="nav-link hide-sm" href="#how">How it works</a>
+        <a class="nav-link hide-sm" href="#install">Install</a>
+        <a class="btn sm" href="https://github.com/nikhils4/forkspace">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.39-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z" /></svg>
+          GitHub
+        </a>
+      </div>
+    </nav>
+
+    <header class="hero">
+      <div class="wrap">
+        <span class="eyebrow"><b>Open source</b> For Claude Code · MIT</span>
+        <h1>Every agent.<br /><span class="grad">One canvas.</span></h1>
+        <p class="lede">Run many Claude Code agents side by side. Branch any conversation from any step, and the code branches with it. Approve from your phone.</p>
+        <div class="ctas">
+          <a class="btn primary" href="#install">Get started</a>
+          <a class="btn" href="https://github.com/nikhils4/forkspace">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.39-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z" /></svg>
+            Star on GitHub
+          </a>
+        </div>
+        <div class="shot reveal">
+          <picture>
+            <source srcset="/assets/canvas.webp" type="image/webp" />
+            <img src="/assets/canvas.png" width="2880" height="1800" alt="Forkspace canvas with three agent steps on one branch, a forked branch running beside them, and sticky notes" fetchpriority="high" />
+          </picture>
+        </div>
+      </div>
+    </header>
+
+    <section>
+      <div class="wrap">
+        <div class="center reveal">
+          <div class="kicker">Why Forkspace</div>
+          <h2>Built for how coding with agents really goes</h2>
+          <p class="sub">You try something, it half works, you want to go back two steps and try again. Tabs can't do that. A canvas can.</p>
+        </div>
+        <div class="features">
+          <div class="feature reveal">
+            <div class="f-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v12M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 9a9 9 0 0 1-9 9" /></svg>
+            </div>
+            <h3>Branch from any step</h3>
+            <p>Go back to any earlier step and try a different idea. Each branch gets its own git worktree, so branches never step on each other.</p>
+          </div>
+          <div class="feature reveal">
+            <div class="f-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" /></svg>
+            </div>
+            <h3>Every agent, one view</h3>
+            <p>One board per project. See what is running, what is done, and what needs you, across all of them at once.</p>
+          </div>
+          <div class="feature reveal">
+            <div class="f-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h14a2 2 0 0 1 2 2v10l-6 6H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM21 15h-4a2 2 0 0 0-2 2v4" /></svg>
+            </div>
+            <h3>Notes anywhere</h3>
+            <p>Drop sticky notes next to the work and link them to any step. Your thinking stays where the decisions happened.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="how">
+      <div class="wrap">
+        <div class="reveal">
+          <div class="kicker">How it works</div>
+          <h2>Every reply is a step you can return to</h2>
+        </div>
+        <div class="tree reveal">
+          <svg viewBox="0 0 460 320" role="img" aria-label="A conversation that splits into two branches from the second step">
+            <defs>
+              <linearGradient id="gA" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9aa8ff" /><stop offset="1" stop-color="#6a5cff" /></linearGradient>
+            </defs>
+            <g fill="none" stroke-width="2.5" stroke-linecap="round">
+              <path d="M120 62 V 128" stroke="#8b9cff" />
+              <path d="M120 170 V 236" stroke="#8b9cff" />
+              <path d="M120 150 C 220 150, 300 150, 330 228" stroke="#f5a524" stroke-dasharray="7 6" />
+            </g>
+            <g font-family="-apple-system, BlinkMacSystemFont, Inter, sans-serif" font-size="13" font-weight="600">
+              <rect x="20" y="20" width="200" height="42" rx="12" fill="#1b1c25" stroke="rgba(255,255,255,.14)" />
+              <circle cx="40" cy="41" r="4" fill="#3ecf8e" />
+              <text x="54" y="46" fill="#ecedf2">Add Stripe checkout</text>
+              <rect x="20" y="128" width="200" height="42" rx="12" fill="#1b1c25" stroke="rgba(255,255,255,.14)" />
+              <circle cx="40" cy="149" r="4" fill="#3ecf8e" />
+              <text x="54" y="154" fill="#ecedf2">Use Stripe Elements</text>
+              <rect x="20" y="236" width="200" height="42" rx="12" fill="#1b1c25" stroke="#f5a524" />
+              <circle cx="40" cy="257" r="4" fill="#f5a524" />
+              <text x="54" y="262" fill="#ecedf2">Test declined cards</text>
+              <rect x="240" y="228" width="200" height="58" rx="12" fill="#1b1c25" stroke="rgba(245,165,36,.6)" />
+              <circle cx="260" cy="249" r="4" fill="#8b9cff" />
+              <text x="274" y="254" fill="#ecedf2">Add Apple Pay instead</text>
+              <text x="274" y="273" fill="#6c6f82" font-weight="500" font-size="11.5">own worktree · own branch</text>
+              <rect x="278" y="138" width="44" height="22" rx="11" fill="#0b0c10" stroke="rgba(245,165,36,.5)" />
+              <text x="300" y="153" fill="#f5a524" font-size="11.5" text-anchor="middle">fork</text>
+            </g>
+          </svg>
+          <ol>
+            <li>
+              <span>1</span>
+              <div><b>Point a board at a folder</b><p>Any project on your Mac. Forkspace runs the same Claude Code you already use.</p></div>
+            </li>
+            <li>
+              <span>2</span>
+              <div><b>Describe a task</b><p>The agent works on its own card. Tools, edits and cost stream in live.</p></div>
+            </li>
+            <li>
+              <span>3</span>
+              <div><b>Reply, or branch from any step</b><p>Continue the latest step, or pick an earlier one to try another approach. A checkpoint after every step means nothing gets lost.</p></div>
+            </li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap phone-grid">
+        <div class="phones reveal" aria-hidden="true">
+          <div class="phone a">
+            <picture><source srcset="/assets/phone-agents.webp" type="image/webp" /><img src="/assets/phone-agents.webp" width="1179" height="2556" alt="" loading="lazy" /></picture>
+          </div>
+          <div class="phone b">
+            <picture><source srcset="/assets/phone-chat.webp" type="image/webp" /><img src="/assets/phone-chat.webp" width="1179" height="2556" alt="" loading="lazy" /></picture>
+          </div>
+        </div>
+        <div class="reveal">
+          <div class="kicker">On your phone</div>
+          <h2>Step away. Stay in the loop.</h2>
+          <p class="sub">Install Forkspace on your phone. Get a notification when an agent needs you, tap Allow, keep walking. Agents keep running on your Mac.</p>
+          <ul class="checks">
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg><span><b>Private.</b> Reach your Mac through Tailscale. Nothing is open to the internet.</span></li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg><span><b>Paired.</b> Every device signs in with a one-time 6-digit code.</span></li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg><span><b>Made for touch.</b> Read any branch as a chat and switch branches with a tap.</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="install">
+      <div class="wrap">
+        <div class="install reveal">
+          <div>
+            <div class="kicker">Install</div>
+            <h2>Running in a minute</h2>
+            <ul class="req">
+              <li>macOS, Linux or Windows with Node 20+ and git</li>
+              <li>Claude Code signed in, or an <code>ANTHROPIC_API_KEY</code></li>
+              <li>Then open localhost:4747 and install it as an app</li>
+            </ul>
+          </div>
+          <div class="term">
+            <div class="term-bar"><i></i><i></i><i></i><button class="copy" id="copy">Copy</button></div>
+<pre id="cmd"><span class="p">$ </span>git clone https://github.com/nikhils4/forkspace
+<span class="p">$ </span>cd forkspace && npm install
+<span class="p">$ </span>npm start
+<span class="c">  Forkspace → http://localhost:4747</span></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="final">
+      <div class="wrap reveal">
+        <img class="icon" src="/assets/icon.svg" alt="" />
+        <h2>Stop juggling tabs.</h2>
+        <p class="sub" style="margin: 14px auto 32px">Free and open source. Your code never leaves your machine.</p>
+        <div class="ctas" style="margin-top: 0">
+          <a class="btn primary" href="https://github.com/nikhils4/forkspace">Get Forkspace on GitHub</a>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <div class="wrap foot-in">
+        <span>Forkspace · MIT License</span>
+        <span class="spacer"></span>
+        <a href="https://github.com/nikhils4/forkspace">GitHub</a>
+        <a href="https://github.com/nikhils4/forkspace/issues">Issues</a>
+        <span>An independent project. Not made by Anthropic.</span>
+      </div>
+    </footer>
+
+    <script>
+      const nav = document.getElementById('nav');
+      addEventListener('scroll', () => nav.classList.toggle('scrolled', scrollY > 8), { passive: true });
+      const io = new IntersectionObserver(
+        (es) => es.forEach((e) => e.isIntersecting && (e.target.classList.add('in'), io.unobserve(e.target))),
+        { threshold: 0.12 },
+      );
+      document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+      document.getElementById('copy').addEventListener('click', async (e) => {
+        const text = 'git clone https://github.com/nikhils4/forkspace\ncd forkspace && npm install\nnpm start';
+        try {
+          await navigator.clipboard.writeText(text);
+          e.target.textContent = 'Copied';
+        } catch {
+          e.target.textContent = 'Select and copy';
+        }
+        setTimeout(() => (e.target.textContent = 'Copy'), 1800);
+      });
+    </script>
+  </body>
+</html>

@@ -1,5 +1,7 @@
 # Forkspace
 
+![Forkspace canvas](site/assets/canvas.webp)
+
 A canvas control center for Claude Code agents.
 
 Every prompt becomes a card on an infinite canvas. Reply to a card to keep going. Reply to an **earlier** card to fork the conversation from that exact point, and the code forks with it. Run as many agents as you want side by side, approve their tool calls right on the cards, and drop sticky notes anywhere.
@@ -17,7 +19,7 @@ Every prompt becomes a card on an infinite canvas. Reply to a card to keep going
 Requires Node 20+ and git.
 
 ```bash
-git clone <this repo> forkspace && cd forkspace
+git clone https://github.com/nikhils4/forkspace && cd forkspace
 npm install
 npm start            # builds and serves http://localhost:4747
 ```
