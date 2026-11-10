@@ -3,6 +3,10 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.5.1
+
+- Explain this step (right-click a card) now shows it's working and opens the explanation when it's ready
+
 ## 0.5.0
 
 - Away mode is now a full screen: a calm moving wallpaper, the time, what your agents are doing, and a welcome back summary
