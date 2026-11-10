@@ -3,6 +3,11 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.12.1
+
+- Scrolling and zooming work over notes and cards too: notes grow to fit their content, and scroll areas inside cards hand the wheel to the canvas when there's nothing left to scroll. Pinch or ⌘-scroll always zooms
+- The details panel, the selected card and the terminal stay in sync: open details on a card and it becomes the selected one; select another card (or send a prompt) and the open panel follows
+
 ## 0.12.0
 
 - Notes folder: move notes you want to keep for later (on-call steps, setup commands) off the canvas with the folder button. Find them under Notes in the sidebar, next to Concepts

@@ -38,6 +38,31 @@ export function toolSummary(name: string, input: any): string {
 
 export const money = (n?: number) => (n == null ? '' : n < 0.01 ? '<$0.01' : `$${n.toFixed(2)}`);
 
+/**
+ * Lets a scrollable area inside a card or note scroll its own content when it can, and hands the
+ * wheel to the canvas otherwise (pan, and pinch or ⌘-scroll always zooms). Never blocks the canvas.
+ */
+export function OwnScroll({ as: Tag = 'div', className, children, ...rest }: { as?: 'div' | 'pre'; className?: string; children?: React.ReactNode } & React.HTMLAttributes<HTMLElement>) {
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const h = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) return; // zoom: always the canvas
+      const down = e.deltaY > 0;
+      const can = down ? el.scrollTop + el.clientHeight < el.scrollHeight - 1 : e.deltaY < 0 && el.scrollTop > 0;
+      if (can) e.stopPropagation(); // this box scrolls; the canvas stays put
+    };
+    el.addEventListener('wheel', h, { passive: true });
+    return () => el.removeEventListener('wheel', h);
+  }, []);
+  return (
+    <Tag ref={ref as any} className={className} {...rest}>
+      {children}
+    </Tag>
+  );
+}
+
 export function StatusDot({ status }: { status: TurnNode['status'] }) {
   return <span className={`dot ${status}`} aria-label={STATUS_LABEL[status]} />;
 }
@@ -203,7 +228,9 @@ export function Permission({ node, p }: { node: TurnNode; p: PendingPermission }
           Allow <b>{p.toolName}</b>?
         </span>
       </div>
-      <pre className="perm-input nowheel">{short(toolSummary(p.toolName, p.input) || JSON.stringify(p.input, null, 2))}</pre>
+      <OwnScroll as="pre" className="perm-input">
+        {short(toolSummary(p.toolName, p.input) || JSON.stringify(p.input, null, 2))}
+      </OwnScroll>
       <div className="perm-actions">
         <button className="btn primary" onClick={() => reply('allow')}>
           Allow
@@ -457,11 +484,11 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
         </button>
       )}
       {steps && (
-        <div className="turn-body nowheel">
+        <OwnScroll className="turn-body">
           {tools.map((e) => (
             <ToolLine key={e.id} e={e} cwd={branch?.cwd} />
           ))}
-        </div>
+        </OwnScroll>
       )}
 
       {node.pending && <Permission node={node} p={node.pending} />}
@@ -549,6 +576,22 @@ export const NoteCard = memo(function NoteCard({ data, selected }: NodeProps & {
   useEffect(() => {
     if (editing) setTimeout(() => area.current?.focus(), 0);
   }, [editing]);
+  // Notes grow to fit what's in them, so nothing hides inside and the wheel always moves the canvas.
+  const view = useRef<HTMLDivElement>(null);
+  const grownFor = useRef('');
+  useEffect(() => {
+    const el = editing ? area.current : view.current;
+    const box = el?.closest('.note') as HTMLElement | null;
+    if (!el || !box) return;
+    const extra = el.scrollHeight - el.clientHeight;
+    const key = `${text.length}|${node.images?.length ?? 0}|${editing}`;
+    if (extra > 2 && grownFor.current !== key) {
+      grownFor.current = key;
+      // scrollHeight and clientHeight are layout sizes (not affected by zoom), same units as the node.
+      const h = Math.min(1200, Math.round((node.height ?? 160) + extra + 8));
+      send({ type: 'move', moves: [{ id: node.id, position: node.position, width: node.width ?? 220, height: h }] });
+    }
+  }, [text, editing, node.images?.length, node.height]);
 
   const save = (patch: Partial<NoteNode>) => send({ type: 'upsertNote', note: { ...node, ...patch } });
   const commit = (v: string) => {
@@ -697,7 +740,7 @@ export const NoteCard = memo(function NoteCard({ data, selected }: NodeProps & {
       {editing ? (
         <textarea
           ref={area}
-          className="nodrag nowheel"
+          className="nodrag"
           value={text}
           placeholder={'Write anything…\n- [ ] makes a checklist'}
           onBlur={() => {
@@ -743,7 +786,7 @@ export const NoteCard = memo(function NoteCard({ data, selected }: NodeProps & {
           }}
         />
       ) : (
-        <div className="note-view nowheel" onClick={() => setEditing(true)} title="Click to edit">
+        <div ref={view} className="note-view" onClick={() => setEditing(true)} title="Click to edit">
           {text.trim() ? <NoteText text={text} onToggle={toggle} /> : <span className="note-placeholder">Write anything…</span>}
         </div>
       )}

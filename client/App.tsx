@@ -72,7 +72,7 @@ function Shell() {
     }
   });
   const [targets, setTargets] = useState<Record<string, string | null>>({});
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenIdRaw] = useState<string | null>(null);
   const [focus, setFocus] = useState<{ id: string; n: number } | null>(null);
   const [sheet, setSheet] = useState<null | 'new' | 'board' | 'devices' | 'boards' | 'learn' | 'import'>(null);
   // Desktop: the main area shows a board, or the Concepts page.
@@ -107,6 +107,21 @@ function Shell() {
   const view: View = (board && views[board.id]) || (mobile ? 'chat' : 'canvas');
   const targetId = board ? (targets[board.id] ?? null) : null;
   const target = targetId && isTurn(store.nodes[targetId]) ? (store.nodes[targetId] as TurnNode) : undefined;
+
+  // The details panel, the selected card and the terminal follow each other:
+  // opening details on a card selects it (the terminal follows the selection), and
+  // selecting another card (clicking it, or sending a prompt) moves an open panel to it.
+  const setOpenId = useCallback(
+    (id: string | null) => {
+      setOpenIdRaw(id);
+      const n = id ? store.nodes[id] : undefined;
+      if (n && isTurn(n) && !isLive(n) && n.boardId === board?.id && n.sessionId && n.id !== targetId) setTargets((x) => ({ ...x, [n.boardId]: n.id }));
+    },
+    [store.nodes, board?.id, targetId],
+  );
+  useEffect(() => {
+    if (targetId && openId && openId !== targetId && isTurn(store.nodes[targetId])) setOpenIdRaw(targetId);
+  }, [targetId]);
 
   useEffect(() => {
     if (board) ls.set('forkspace:board', board.id);
