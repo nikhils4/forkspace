@@ -9,21 +9,21 @@ import { getBoard, getBranch, state } from './store.ts';
 // teaches the most useful idea in it. Same SDK and same sign-in as the agents themselves.
 
 const MODEL = process.env.FORKSPACE_MENTOR_MODEL || 'haiku';
-const MIN_GAP_MS = 45_000;
+const MIN_GAP_MS = 90_000;
 /** The background mentor teaches at most this many concepts per step. Explain is never limited. */
-const MAX_PER_STEP = 2;
+const MAX_PER_STEP = 1;
 
 type Touch = (node: TurnNode) => void;
 let touch: Touch = () => {};
 export const setTutorTouch = (fn: Touch) => (touch = fn);
 
-// One voice for everyone: plain words, every term explained. No levels, no categories.
+// One voice for everyone: plain words, straight to the point. No levels, no categories.
 const PLAIN =
-  'Write for someone new to coding, the way you would explain it to a friend. ' +
-  'Start with an everyday comparison (a recipe, a notebook, a shopping list, a sticky note). ' +
-  'Then one sentence on what it does in this code. ' +
-  'No jargon. If a technical word cannot be avoided, say what it means right away in plain words. ' +
-  'Short sentences, about 12 words each. Never use words like "leverage", "utilize", "idempotent" or "abstraction" without explaining them.';
+  'Write in plain, simple words, the way a good senior engineer explains something to a teammate. ' +
+  'Say what the idea is and why it matters in this code. ' +
+  'Use an everyday comparison only when it truly makes the idea clearer. Most of the time, a direct explanation is better. ' +
+  'If a technical word cannot be avoided, say what it means in a few words. ' +
+  'Short sentences. No filler, no restating the obvious.';
 
 const LESSON_SCHEMA = {
   type: 'object',
@@ -38,7 +38,7 @@ const LESSON_SCHEMA = {
           area: { type: 'string', enum: [...CONCEPT_AREAS], description: 'Where in tech this concept belongs.' },
           related: { type: 'array', items: { type: 'string' }, maxItems: 4, description: 'Keys of already-known concepts this one connects to. Only use keys from the list given.' },
           title: { type: 'string', description: 'The idea in plain words a beginner would understand. At most 5 words.' },
-          body: { type: 'string', description: 'An everyday comparison, then what it does here. At most 40 words. Simple words, short sentences.' },
+          body: { type: 'string', description: 'What the idea is and why it matters here. At most 40 words. Simple words, short sentences. A comparison only if it really helps.' },
           file: { type: 'string', description: 'Relative path of the file this is about, if any.' },
           snippet: { type: 'string', description: 'Up to 6 lines copied from the actual change that show the concept.' },
         },
@@ -56,7 +56,7 @@ const EXPLAIN_SCHEMA = {
     area: { type: 'string', enum: [...CONCEPT_AREAS], description: 'Where in tech this concept belongs.' },
     related: { type: 'array', items: { type: 'string' }, maxItems: 4, description: 'Keys of known concepts this connects to, from the list given.' },
     title: { type: 'string', description: 'The idea in plain words a beginner would understand. At most 6 words.' },
-    body: { type: 'string', description: 'An everyday comparison first, then what happened in this step. At most 70 words. Simple words, short sentences, every term explained.' },
+    body: { type: 'string', description: 'The idea, then how it shows up in this step. At most 70 words. Simple words, short sentences. A comparison only if it really helps.' },
     snippet: { type: 'string', description: 'Up to 8 lines from the change worth looking at.' },
   },
   required: ['key', 'area', 'title', 'body'],
@@ -166,10 +166,10 @@ export function onActivity(node: TurnNode, final = false) {
   watches.set(node.id, w);
   const fresh = node.events.slice(w.cursor);
   const edits = fresh.filter((e) => e.t === 'tool' && e.result != null && ['Edit', 'Write', 'MultiEdit', 'Bash'].includes(e.name)).length;
-  // Calm by design: a couple of ideas per step is plenty to read while the agent works.
+  // Calm by design: one idea per step, and only one worth knowing.
   const taught = (node.lessons ?? []).filter((l) => !l.asked).length;
   if (taught >= MAX_PER_STEP) return;
-  const due = final ? fresh.length > 0 && taught === 0 : edits >= 2 && Date.now() - w.lastAt > MIN_GAP_MS;
+  const due = final ? fresh.length > 0 && taught === 0 : edits >= 3 && Date.now() - w.lastAt > MIN_GAP_MS;
   if (!due) return;
   if (w.busy) {
     w.pending = true;
@@ -194,7 +194,7 @@ async function teach(board: Board, node: TurnNode, w: Watch, final: boolean) {
       (known.size ? `Concepts the developer already learned (key (title)). Never teach any of these again, under any name: ${knownList(known)}\n\n` : '') +
       `${PLAIN}\n\n` +
       `Pick the single programming concept in this activity that is most worth understanding, the idea behind the code rather than a summary of what changed. ` +
-      `If nothing here teaches a real concept (trivial reads, boilerplate), return an empty list.`;
+      `Be picky: only teach an idea a developer would be glad to understand, something non-obvious with real value. Skip small things, routine edits, renames, config, imports, boilerplate and anything most developers already know. When in doubt, return an empty list.`;
     const res = await ask<{ concepts: { key: string; area: string; related?: string[]; title: string; body: string; file?: string; snippet?: string }[] }>(prompt, SYSTEM, LESSON_SCHEMA, branch?.cwd ?? board.cwd);
     // Belt and braces: drop anything that is already known by key or by title.
     const titles = new Set([...known.values()].map(conceptKey));

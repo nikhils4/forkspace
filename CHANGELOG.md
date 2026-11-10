@@ -3,6 +3,11 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.13.4
+
+- Concepts are plainer and more direct: a comparison only when it really helps
+- Fewer, better concepts: at most one per step, and only ideas worth knowing; small and routine things are skipped
+
 ## 0.13.3
 
 - With the details panel open, the message box moves into the space left of it, so the mic and send buttons stay clickable
