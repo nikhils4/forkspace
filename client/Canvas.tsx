@@ -72,7 +72,8 @@ export function Canvas({
         if (n.kind === 'note') {
           const w = n.width ?? 220;
           const h = n.height ?? 160;
-          return { ...base, data: { node: n }, width: w, height: h, style: { width: w, height: h } };
+          // Notes always sit above cards, so a new one never hides behind them.
+          return { ...base, data: { node: n }, width: w, height: h, style: { width: w, height: h }, zIndex: 1000 };
         }
         return { ...base, data: { node: n, onOpen: openDetails, onReply, isTarget: n.id === targetId, faded: belowCompleted(n) }, width: CARD_W };
       });
@@ -186,7 +187,22 @@ export function Canvas({
     return rf.screenToFlowPosition({ x: (r?.left ?? 0) + (r?.width ?? 800) / 2 - 110, y: (r?.top ?? 0) + (r?.height ?? 600) / 2 - 80 });
   };
 
-  const addNote = (pos = centerPos()) => {
+  /** Nearest spot to `pos` where a new note doesn't cover a card or another note. */
+  const freeSpot = (pos: { x: number; y: number }, w = 220, h = 160) => {
+    const boxes = rf.getNodes().map((n) => ({ x: n.position.x, y: n.position.y, w: n.measured?.width ?? n.width ?? CARD_W, h: n.measured?.height ?? n.height ?? 300 }));
+    const clear = (x: number, y: number) => boxes.every((b) => x + w + 16 < b.x || x > b.x + b.w + 16 || y + h + 16 < b.y || y > b.y + b.h + 16);
+    if (clear(pos.x, pos.y)) return pos;
+    for (let r = 1; r < 40; r++)
+      for (let a = 0; a < 16; a++) {
+        const x = pos.x + Math.cos((a / 16) * Math.PI * 2) * r * 48;
+        const y = pos.y + Math.sin((a / 16) * Math.PI * 2) * r * 48;
+        if (clear(x, y)) return { x: Math.round(x), y: Math.round(y) };
+      }
+    return pos;
+  };
+
+  const addNote = (at?: { x: number; y: number }) => {
+    const pos = freeSpot(at ?? centerPos());
     const note: NoteNode = { kind: 'note', id: uid(), boardId: board.id, text: '', color: NOTE_COLORS[0], position: pos, width: 220, height: 160, createdAt: Date.now() };
     send({ type: 'upsertNote', note });
   };

@@ -51,7 +51,7 @@ Maintainers: add a section to CHANGELOG.md, then `npm run release -- 0.3.0` (or 
 - **Board:** one project folder.
 - **Step:** one prompt and everything the agent did for it.
 - **Reply** to the latest step to continue. **Branch** from any earlier step to try another idea. The agent remembers the conversation up to that step and nothing after it.
-- **Notes:** double-click the canvas (or press `n`). Drag between dots to link anything.
+- **Notes:** double-click the canvas (or press `n`). They sit above cards and land in free space. Write `- [ ] task` for a checklist you can tick, `# ` for a heading, `**bold**`. Drag between dots to link anything.
 - **Complete:** each thread has a circle above its first card. Click it when the thread is finished: it fills with a green tick and the whole thread fades back, so what's left stands out.
 
 ### Three views

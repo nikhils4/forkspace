@@ -1,5 +1,6 @@
 import { Handle, NodeResizer, Position, useStore as useRFStore, type NodeProps } from '@xyflow/react';
 import { memo, useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import type { NoteNode, PendingPermission, TurnEvent, TurnNode } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
 import { send, useStore, toast } from './store.ts';
@@ -475,50 +476,171 @@ export interface NoteData extends Record<string, unknown> {
   node: NoteNode;
 }
 
+/** Renders a note: checklists you can tick, bullets, headings and **bold**. */
+function NoteText({ text, onToggle }: { text: string; onToggle: (line: number) => void }) {
+  const bold = (t: string) => t.split(/(\*\*[^*]+\*\*)/g).map((p, i) => (p.startsWith('**') && p.endsWith('**') ? <b key={i}>{p.slice(2, -2)}</b> : p));
+  return (
+    <div className="note-text">
+      {text.split('\n').map((line, i) => {
+        const task = line.match(/^\s*[-*] \[( |x|X)\] ?(.*)$/);
+        if (task)
+          return (
+            <label key={i} className={`note-task ${task[1] !== ' ' ? 'done' : ''}`} onClick={(e) => e.stopPropagation()}>
+              <input type="checkbox" className="nodrag" checked={task[1] !== ' '} onChange={() => onToggle(i)} />
+              <span>{bold(task[2])}</span>
+            </label>
+          );
+        const bullet = line.match(/^\s*[-*] (.*)$/);
+        if (bullet)
+          return (
+            <div key={i} className="note-bullet">
+              {bold(bullet[1])}
+            </div>
+          );
+        const head = line.match(/^#{1,3} (.*)$/);
+        if (head)
+          return (
+            <div key={i} className="note-head">
+              {bold(head[1])}
+            </div>
+          );
+        return line.trim() ? (
+          <div key={i} className="note-line">
+            {bold(line)}
+          </div>
+        ) : (
+          <div key={i} className="note-gap" />
+        );
+      })}
+    </div>
+  );
+}
+
+/** A small, steady tilt per note so a board of notes feels like paper, not a grid. */
+const tilt = (id: string) => ((id.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 7) - 3) * 0.3;
+
 export const NoteCard = memo(function NoteCard({ data, selected }: NodeProps & { data: NoteData }) {
   const { node } = data;
   const [text, setText] = useState(node.text);
+  const [editing, setEditing] = useState(() => !node.text && Date.now() - node.createdAt < 5000);
   const timer = useRef<number | undefined>(undefined);
-  const editing = useRef(false);
+  const area = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    if (!editing.current) setText(node.text);
+    if (!editing) setText(node.text);
   }, [node.text]);
+  useEffect(() => {
+    if (editing) setTimeout(() => area.current?.focus(), 0);
+  }, [editing]);
 
   const save = (patch: Partial<NoteNode>) => send({ type: 'upsertNote', note: { ...node, ...patch } });
+  const commit = (v: string) => {
+    clearTimeout(timer.current);
+    if (v !== node.text) save({ text: v });
+  };
+  const toggle = (line: number) => {
+    const lines = text.split('\n');
+    lines[line] = lines[line].replace(/\[( |x|X)\]/, (_, c) => (c === ' ' ? '[x]' : '[ ]'));
+    const v = lines.join('\n');
+    setText(v);
+    save({ text: v });
+  };
+  const tasks = text.match(/^\s*[-*] \[( |x|X)\]/gm) ?? [];
+  const doneCount = tasks.filter((t) => /\[(x|X)\]/.test(t)).length;
 
   return (
-    <div className={`note ${selected ? 'selected' : ''} ${isFresh(node.createdAt) ? 'fresh' : ''}`} style={{ background: node.color }}>
+    <div
+      className={`note ${selected ? 'selected' : ''} ${editing ? 'editing' : ''} ${isFresh(node.createdAt) ? 'fresh' : ''}`}
+      style={{ ['--paper' as any]: node.color, ['--tilt' as any]: `${editing || selected ? 0 : tilt(node.id)}deg` }}
+    >
       <NodeResizer
         isVisible={selected}
-        minWidth={160}
-        minHeight={100}
+        minWidth={170}
+        minHeight={110}
         lineClassName="note-resize-line"
         handleClassName="note-resize-handle"
         onResizeEnd={(_, p) => send({ type: 'move', moves: [{ id: node.id, position: { x: p.x, y: p.y }, width: p.width, height: p.height }] })}
       />
       <Handle type="target" position={Position.Top} />
       <div className="note-bar">
+        <span className="note-grip" title="Drag to move">
+          <i />
+          <i />
+          <i />
+        </span>
+        <span className="spacer" />
         {NOTE_COLORS.map((c) => (
           <button key={c} className={`swatch nodrag ${c === node.color ? 'on' : ''}`} style={{ background: c }} onClick={() => save({ color: c })} aria-label="Note colour" />
         ))}
+        <button
+          className="note-tool nodrag"
+          title="Add a checklist item"
+          aria-label="Add a checklist item"
+          onClick={() => {
+            const v = text && !text.endsWith('\n') ? `${text}\n- [ ] ` : `${text}- [ ] `;
+            setText(v);
+            setEditing(true);
+          }}
+        >
+          <Icon name="check" size={12} strokeWidth={2.5} />
+        </button>
+        <button className="note-tool nodrag" title="Delete note" aria-label="Delete note" onClick={() => send({ type: 'deleteNodes', ids: [node.id] })}>
+          <Icon name="trash" size={12} />
+        </button>
       </div>
-      <textarea
-        className="nodrag nowheel"
-        value={text}
-        placeholder="Write anything…"
-        onFocus={() => (editing.current = true)}
-        onBlur={() => {
-          editing.current = false;
-          if (text !== node.text) save({ text });
-        }}
-        onChange={(e) => {
-          setText(e.target.value);
-          clearTimeout(timer.current);
-          const v = e.target.value;
-          timer.current = window.setTimeout(() => save({ text: v }), 600);
-        }}
-      />
+      {editing ? (
+        <textarea
+          ref={area}
+          className="nodrag nowheel"
+          value={text}
+          placeholder={'Write anything…\n- [ ] makes a checklist'}
+          onBlur={() => {
+            setEditing(false);
+            commit(text);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              e.stopPropagation();
+              (e.target as HTMLTextAreaElement).blur();
+              return;
+            }
+            // Lists continue on Enter; an empty item ends the list.
+            if (e.key === 'Enter' && !e.shiftKey) {
+              const el = e.currentTarget;
+              const before = text.slice(0, el.selectionStart);
+              const line = before.slice(before.lastIndexOf('\n') + 1);
+              const m = line.match(/^(\s*[-*] (\[[ xX]\] )?)(.*)$/);
+              if (!m) return;
+              e.preventDefault();
+              const prefix = m[1].replace(/\[[xX]\]/, '[ ]');
+              const v = !m[3].trim() ? text.slice(0, el.selectionStart - line.length) + text.slice(el.selectionStart) : `${before}\n${prefix}${text.slice(el.selectionStart)}`;
+              const caret = !m[3].trim() ? el.selectionStart - line.length : before.length + 1 + prefix.length;
+              // Update the text and put the cursor right after the new bullet in the same moment,
+              // so fast typing never lands in the wrong place.
+              flushSync(() => setText(v));
+              el.setSelectionRange(caret, caret);
+            }
+          }}
+          onChange={(e) => {
+            setText(e.target.value);
+            clearTimeout(timer.current);
+            const v = e.target.value;
+            timer.current = window.setTimeout(() => save({ text: v }), 700);
+          }}
+        />
+      ) : (
+        <div className="note-view nowheel" onClick={() => setEditing(true)} title="Click to edit">
+          {text.trim() ? <NoteText text={text} onToggle={toggle} /> : <span className="note-placeholder">Write anything…</span>}
+        </div>
+      )}
+      {tasks.length > 0 && (
+        <div className="note-foot">
+          <span className="note-progress">
+            <i style={{ width: `${(doneCount / tasks.length) * 100}%` }} />
+          </span>
+          {doneCount} of {tasks.length} done
+        </div>
+      )}
       <Handle type="source" position={Position.Bottom} />
     </div>
   );

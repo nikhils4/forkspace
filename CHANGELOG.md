@@ -3,6 +3,12 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.10.1
+
+- Sticky notes, reworked: they always sit above cards, new ones land in free space, and they look like paper
+- Checklists in notes: write "- [ ] task" and tick it off, with a progress line; lists continue when you press Enter
+- Headings, bullets and **bold** in notes; colours, a checklist button and delete on hover
+
 ## 0.10.0
 
 - Every thread has a title, in a box between its circle and its first card. Imported threads keep their Claude Code title; new ones get a short title when the first step finishes. Click a title to rename it
