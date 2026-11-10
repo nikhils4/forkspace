@@ -27,6 +27,14 @@ function sniff(b: Buffer): 'png' | 'jpg' | 'webp' | 'gif' | null {
   return null;
 }
 
+/** The media type of image bytes, or an error if they aren't an image. */
+export function imageType(bytes: Buffer) {
+  if (bytes.length > MAX_BYTES) throw new Error('That image is too big (12 MB at most).');
+  const kind = sniff(bytes);
+  if (!kind) throw new Error('That is not an image Forkspace can read (PNG, JPEG, WebP or GIF).');
+  return TYPES[kind];
+}
+
 export function saveShot(bytes: Buffer): string {
   if (bytes.length > MAX_BYTES) throw new Error('That image is too big (12 MB at most).');
   const kind = sniff(bytes);

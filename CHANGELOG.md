@@ -3,6 +3,11 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.11.1
+
+- Images in notes: paste or drop an image on a note and choose Add image, or Turn into text to type out what's written in it (lists and checkboxes included)
+- Notes grow to fit what you add
+
 ## 0.11.0
 
 - Screenshots on threads: set your app's address in board settings and Forkspace snaps it after each step that changes files. The newest becomes the thread's cover above its title, so you can see what each thread built

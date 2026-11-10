@@ -439,3 +439,37 @@ export async function threadTitle(prompt: string, summary: string, cwd: string):
   } catch {}
   return fallbackTitle(prompt);
 }
+
+// ---- read the text in an image (for notes: "Turn into text") ----
+
+/** Copy out the text in an image, keeping lines and lists. Uses the same small model as concepts. */
+export async function readImageText(bytes: Buffer, mediaType: string, cwd: string): Promise<string> {
+  async function* input() {
+    yield {
+      type: 'user' as const,
+      parent_tool_use_id: null,
+      message: {
+        role: 'user' as const,
+        content: [
+          { type: 'image' as const, source: { type: 'base64' as const, media_type: mediaType as 'image/png', data: bytes.toString('base64') } },
+          {
+            type: 'text' as const,
+            text:
+              'Copy out all the text in this image, exactly, in reading order. Keep line breaks. ' +
+              'Write lists as "- item", checkboxes as "- [ ] item" or "- [x] item", and headings as "# Heading". ' +
+              'Return only the text, with no comments. If there is no text, return nothing.',
+          },
+        ],
+      },
+    };
+  }
+  const q = query({
+    prompt: input() as any,
+    options: { model: MODEL, cwd, tools: [], settingSources: [], persistSession: false, maxTurns: 1, systemPrompt: 'You copy text out of images accurately.' },
+  });
+  let text = '';
+  for await (const msg of q as AsyncIterable<any>) {
+    if (msg.type === 'result' && msg.subtype === 'success') text = String(msg.result ?? '');
+  }
+  return text.replace(/^```\w*\n?|```$/g, '').trim();
+}

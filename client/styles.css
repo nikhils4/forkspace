@@ -6633,3 +6633,81 @@ input.thread-title.editing {
 .shot-nav.right {
   right: 16px;
 }
+
+/* ---------- images in notes ---------- */
+.note-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 12px 10px;
+}
+.note-image {
+  width: 72px;
+  height: 54px;
+  aspect-ratio: auto;
+  border-color: rgba(0, 0, 0, 0.18);
+  border-radius: 7px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+.note-ask {
+  position: absolute;
+  inset: 30px 8px 8px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--paper) 82%, #fff);
+  box-shadow: 0 8px 24px -10px rgba(0, 0, 0, 0.35);
+  color: #23201a;
+  animation: pop 0.2s var(--ease);
+}
+.note-ask img {
+  max-width: 100%;
+  max-height: 45%;
+  min-height: 36px;
+  object-fit: contain;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+.note-ask-q {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.note-ask-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5px;
+}
+.note-ask-row button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--paper);
+  background: #23201a;
+  cursor: pointer;
+}
+.note-ask-row button.ghost {
+  width: 26px;
+  padding: 0;
+  justify-content: center;
+  color: #23201a;
+  background: rgba(0, 0, 0, 0.08);
+}
+.note-ask-reading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+}

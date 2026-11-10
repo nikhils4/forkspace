@@ -144,6 +144,8 @@ export interface NoteNode {
   width?: number;
   height?: number;
   createdAt: number;
+  /** Images pasted or dropped into the note (screenshot ids). */
+  images?: string[];
 }
 
 export type CanvasNode = TurnNode | NoteNode;

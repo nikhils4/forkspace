@@ -427,6 +427,7 @@ export function Canvas({
       if ((e.target as HTMLElement)?.closest?.('input, textarea, [contenteditable]')) return;
       const file = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith('image/'));
       if (!file) return;
+      if (rfNodes.some((n) => n.selected && store.nodes[n.id]?.kind === 'note')) return; // the note asks for itself
       const sel = rfNodes.find((n) => n.selected && isTurn(store.nodes[n.id]))?.id ?? targetId;
       if (!sel || !isTurn(store.nodes[sel])) return toast('Select a step first, then paste the screenshot.');
       e.preventDefault();

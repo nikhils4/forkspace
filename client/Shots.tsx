@@ -36,6 +36,26 @@ export function useShot(id: string | undefined) {
   return url;
 }
 
+/** Step screenshots as viewer items. */
+export const stepShots = (list: { id: string; node: TurnNode }[]): ShotItem[] =>
+  list.map(({ id, node }) => ({ id, label: node.prompt, remove: () => send({ type: 'removeShot', nodeId: node.id, shotId: id }) }));
+
+const auth = () => ({ authorization: `Bearer ${getToken() ?? ''}` });
+
+/** Keep an image in a note. */
+export async function uploadNoteImage(noteId: string, file: Blob) {
+  const r = await fetch(`/api/shots?note=${encodeURIComponent(noteId)}`, { method: 'POST', body: file, headers: auth() });
+  if (!r.ok) throw new Error((await r.json().catch(() => null))?.error ?? 'Could not add the image.');
+}
+
+/** Read the text in an image (nothing is kept). */
+export async function readImageText(file: Blob): Promise<string> {
+  const r = await fetch('/api/shots/read', { method: 'POST', body: file, headers: auth() });
+  const data = await r.json().catch(() => null);
+  if (!r.ok) throw new Error(data?.error ?? 'Could not read the image.');
+  return String(data?.text ?? '');
+}
+
 export async function uploadShot(nodeId: string, file: Blob) {
   if (!file.type.startsWith('image/')) throw new Error('That is not an image.');
   const r = await fetch(`/api/shots?node=${encodeURIComponent(nodeId)}`, { method: 'POST', body: file, headers: { authorization: `Bearer ${getToken() ?? ''}` } });
@@ -83,10 +103,11 @@ export function ShotThumb({ id, className = '', onOpen, count }: { id: string; c
 }
 
 // ---- full-size viewer, shared by every preview ----
-type Open = { shots: { id: string; node: TurnNode }[]; at: number } | null;
+export type ShotItem = { id: string; label: string; remove: () => void };
+type Open = { shots: ShotItem[]; at: number } | null;
 let openState: Open = null;
 const subs = new Set<(o: Open) => void>();
-export function openShots(shots: { id: string; node: TurnNode }[], at = shots.length - 1) {
+export function openShots(shots: ShotItem[], at = shots.length - 1) {
   openState = { shots, at };
   subs.forEach((f) => f(openState));
 }
@@ -116,7 +137,7 @@ export function ShotViewer() {
   return createPortal(
     <div className="shot-viewer" onClick={() => setO(null)}>
       <div className="shot-viewer-bar" onClick={(e) => e.stopPropagation()}>
-        <span className="ellipsis">{cur.node.prompt}</span>
+        <span className="ellipsis">{cur.label}</span>
         <span className="faint small">
           {o.at + 1} of {o.shots.length}
         </span>
@@ -125,7 +146,7 @@ export function ShotViewer() {
           title="Remove this screenshot"
           aria-label="Remove screenshot"
           onClick={() => {
-            send({ type: 'removeShot', nodeId: cur.node.id, shotId: cur.id });
+            cur.remove();
             const rest = o.shots.filter((s) => s.id !== cur.id);
             setO(rest.length ? { shots: rest, at: Math.min(o.at, rest.length - 1) } : null);
           }}

@@ -1,7 +1,7 @@
 import { Handle, NodeResizer, Position, useStore as useRFStore, type NodeProps } from '@xyflow/react';
 import { memo, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { ShotThumb, openShots } from './Shots.tsx';
+import { ShotThumb, openShots, readImageText, stepShots, uploadNoteImage } from './Shots.tsx';
 import type { NoteNode, PendingPermission, TurnEvent, TurnNode } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
 import { send, useStore, toast } from './store.ts';
@@ -266,7 +266,7 @@ function ThreadDone({ node, cover }: { node: TurnNode; cover?: { id: string; nod
       <span className="thread-done-line" />
       {!!cover?.length && (
         <>
-          <ShotThumb id={cover[cover.length - 1].id} className="thread-cover" count={cover.length} onOpen={() => openShots(cover)} />
+          <ShotThumb id={cover[cover.length - 1].id} className="thread-cover" count={cover.length} onOpen={() => openShots(stepShots(cover))} />
           <span className="thread-done-line short" />
         </>
       )}
@@ -401,7 +401,7 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
           id={node.shots[node.shots.length - 1]}
           className="turn-shot"
           count={node.shots.length}
-          onOpen={() => openShots(node.shots!.map((id) => ({ id, node })))}
+          onOpen={() => openShots(stepShots(node.shots!.map((id) => ({ id, node }))))}
         />
       )}
 
@@ -562,11 +562,89 @@ export const NoteCard = memo(function NoteCard({ data, selected }: NodeProps & {
     setText(v);
     save({ text: v });
   };
+  // An image arrived (paste or drop): ask what to do with it.
+  const [incoming, setIncoming] = useState<{ file: Blob; url: string } | null>(null);
+  const [reading, setReading] = useState(false);
+  const caretAt = useRef<number | null>(null);
+  const offer = (file: Blob) => {
+    caretAt.current = editing && area.current ? area.current.selectionStart : null;
+    setIncoming((old) => {
+      if (old) URL.revokeObjectURL(old.url);
+      return { file, url: URL.createObjectURL(file) };
+    });
+  };
+  const dismiss = () => {
+    if (incoming) URL.revokeObjectURL(incoming.url);
+    setIncoming(null);
+    setReading(false);
+  };
+  /** Grow the note so what was just added fits (never shrinks what you sized yourself). */
+  const fit = (v: string, images: number) => {
+    const lines = v.split('\n').reduce((n, l) => n + Math.max(1, Math.ceil(l.length / 30)), 0);
+    const want = 46 + lines * 21 + (images ? 70 : 0) + (/\[( |x|X)\]/.test(v) ? 28 : 0);
+    const h = node.height ?? 160;
+    return want > h ? { height: Math.min(640, want) } : {};
+  };
+  const asImage = async () => {
+    if (!incoming) return;
+    try {
+      const grow = fit(text, (node.images?.length ?? 0) + 1);
+      if (grow.height) send({ type: 'move', moves: [{ id: node.id, position: node.position, width: node.width ?? 220, height: grow.height }] });
+      await uploadNoteImage(node.id, incoming.file);
+    } catch (e: any) {
+      toast(e.message, 'error');
+    }
+    dismiss();
+  };
+  const asText = async () => {
+    if (!incoming) return;
+    setReading(true);
+    try {
+      const got = (await readImageText(incoming.file)).trim();
+      if (!got) toast('No text found in that image.');
+      else {
+        const at = caretAt.current;
+        const v = at != null ? text.slice(0, at) + got + text.slice(at) : text.trim() ? `${text.replace(/\s+$/, '')}\n${got}` : got;
+        setText(v);
+        save({ text: v, ...fit(v, node.images?.length ?? 0) });
+      }
+    } catch (e: any) {
+      toast(e.message, 'error');
+    }
+    dismiss();
+  };
+  // Pasting while the note is selected (not typing in it).
+  useEffect(() => {
+    if (!selected || editing) return;
+    const onPaste = (e: ClipboardEvent) => {
+      const file = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith('image/'));
+      if (!file) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      offer(file);
+    };
+    addEventListener('paste', onPaste, true);
+    return () => removeEventListener('paste', onPaste, true);
+  }, [selected, editing]);
+
   const tasks = text.match(/^\s*[-*] \[( |x|X)\]/gm) ?? [];
   const doneCount = tasks.filter((t) => /\[(x|X)\]/.test(t)).length;
 
   return (
     <div
+      onDragOver={(e) => {
+        if ([...e.dataTransfer.items].some((i) => i.type.startsWith('image/'))) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }}
+      onDrop={(e) => {
+        const file = [...e.dataTransfer.files].find((f) => f.type.startsWith('image/'));
+        if (!file) return;
+        e.preventDefault();
+        e.stopPropagation();
+        offer(file);
+      }}
       className={`note ${selected ? 'selected' : ''} ${editing ? 'editing' : ''} ${isFresh(node.createdAt) ? 'fresh' : ''}`}
       style={{ ['--paper' as any]: node.color, ['--tilt' as any]: `${editing || selected ? 0 : tilt(node.id)}deg` }}
     >
@@ -612,8 +690,16 @@ export const NoteCard = memo(function NoteCard({ data, selected }: NodeProps & {
           value={text}
           placeholder={'Write anything…\n- [ ] makes a checklist'}
           onBlur={() => {
+            if (incoming) return; // the choice below is still open
             setEditing(false);
             commit(text);
+          }}
+          onPaste={(e) => {
+            const file = [...e.clipboardData.files].find((f) => f.type.startsWith('image/'));
+            if (!file) return;
+            e.preventDefault();
+            e.stopPropagation();
+            offer(file);
           }}
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
@@ -648,6 +734,52 @@ export const NoteCard = memo(function NoteCard({ data, selected }: NodeProps & {
       ) : (
         <div className="note-view nowheel" onClick={() => setEditing(true)} title="Click to edit">
           {text.trim() ? <NoteText text={text} onToggle={toggle} /> : <span className="note-placeholder">Write anything…</span>}
+        </div>
+      )}
+      {!!node.images?.length && (
+        <div className="note-images">
+          {node.images.map((id, i) => (
+            <ShotThumb
+              key={id}
+              id={id}
+              className="note-image"
+              onOpen={() =>
+                openShots(
+                  node.images!.map((x) => ({
+                    id: x,
+                    label: node.text.split('\n')[0].replace(/^#+\s*/, '') || 'Note',
+                    remove: () => send({ type: 'upsertNote', note: { ...node, images: node.images!.filter((y) => y !== x) } }),
+                  })),
+                  i,
+                )
+              }
+            />
+          ))}
+        </div>
+      )}
+      {incoming && (
+        <div className="note-ask nodrag" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.preventDefault()}>
+          <img src={incoming.url} alt="" />
+          {reading ? (
+            <div className="note-ask-reading">
+              <span className="mentor-orb small" /> <span className="shimmer-text">Reading the text…</span>
+            </div>
+          ) : (
+            <>
+              <span className="note-ask-q">Add this image?</span>
+              <div className="note-ask-row">
+                <button onClick={asImage}>
+                  <Icon name="file" size={12} /> Add image
+                </button>
+                <button onClick={asText}>
+                  <Icon name="spark" size={12} /> Turn into text
+                </button>
+                <button className="ghost" onClick={dismiss} aria-label="Cancel">
+                  <Icon name="x" size={12} />
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
       {tasks.length > 0 && (

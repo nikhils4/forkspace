@@ -18,10 +18,10 @@ import { checkToken, getPublicUrl, getToken, isLocalRequest, newPairCode, redeem
 import * as push from './push.ts';
 import { enableTailscaleServe, tailscaleInfo } from './remote.ts';
 import { awayStatus, noteDevice, setAway } from './away.ts';
-import { capture, deleteShot, readShot, saveShot } from './shots.ts';
+import { capture, deleteShot, imageType, readShot, saveShot } from './shots.ts';
 import { attachTerminal, closeBoardTerminals, closeTerminal, listTerminals, openTerminal, resizeTerminal, setTerminalEmitter, setTerminalRemoteAllowed, terminalRemoteAllowed, terminalSupported, writeTerminal } from './terminal.ts';
 import { answer, isRunning, pruneBranches, setActivityHook, setEmitter, setNotifier, startTurn, stop, touch } from './runner.ts';
-import { explain, onActivity, organizeConcepts, setTutorTouch, threadTitle } from './tutor.ts';
+import { explain, onActivity, organizeConcepts, readImageText, setTutorTouch, threadTitle } from './tutor.ts';
 import { flush, getBoard, getBranch, getNode, getTurn, save, state, subtree } from './store.ts';
 
 const PORT = Number(process.env.PORT || 4747);
@@ -174,6 +174,21 @@ async function shotsApi(req: http.IncomingMessage, res: http.ServerResponse, url
   };
   if (!checkToken((req.headers.authorization ?? '').replace(/^Bearer /, ''))) return json(401, { error: 'Sign in first.' });
   try {
+    // Notes: "Turn into text" reads an image without keeping it.
+    if (req.method === 'POST' && url.pathname === '/api/shots/read') {
+      const bytes = await readBody(req, 13 * 1024 * 1024);
+      return json(200, { text: await readImageText(bytes, imageType(bytes), os.homedir()) });
+    }
+    // Notes: "Add image" keeps it in the note.
+    if (req.method === 'POST' && url.pathname === '/api/shots' && url.searchParams.get('note')) {
+      const note = getNode(url.searchParams.get('note')!);
+      if (!note || note.kind !== 'note') return json(404, { error: 'Note not found' });
+      const id = saveShot(await readBody(req, 13 * 1024 * 1024));
+      note.images = [...(note.images ?? []), id].slice(-12);
+      save();
+      broadcast({ type: 'node', node: note });
+      return json(200, { id });
+    }
     if (req.method === 'POST' && url.pathname === '/api/shots') {
       const node = getTurn(url.searchParams.get('node') ?? '');
       if (!node) return json(404, { error: 'Step not found' });
@@ -195,7 +210,10 @@ async function shotsApi(req: http.IncomingMessage, res: http.ServerResponse, url
 
 /** Forget the screenshots of steps that are going away. */
 const dropShots = (ids: Iterable<string>) => {
-  for (const id of ids) for (const s of getTurn(id)?.shots ?? []) deleteShot(s);
+  for (const id of ids) {
+    const n = getNode(id);
+    for (const s of (n?.kind === 'turn' ? n.shots : n?.images) ?? []) deleteShot(s);
+  }
 };
 
 // ---- websocket ----
@@ -409,7 +427,11 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
         width: num(n.width, 220),
         height: num(n.height, 160),
         createdAt: Number.isFinite(n.createdAt) ? n.createdAt : Date.now(),
+        // Only images this note already has: a client can remove one, never point at someone else's.
+        images: Array.isArray(n.images) ? n.images.filter((x: unknown) => typeof x === 'string' && (i >= 0 ? ((state.nodes[i] as any).images ?? []).includes(x) : false)) : (i >= 0 ? (state.nodes[i] as any).images : undefined),
       };
+      // Images taken out of the note are deleted.
+      if (i >= 0) for (const old of (state.nodes[i] as any).images ?? []) if (!note.images?.includes(old)) deleteShot(old);
       if (i >= 0) state.nodes[i] = note;
       else state.nodes.push(note);
       save();
