@@ -9,7 +9,9 @@ import { getBoard, getBranch, state } from './store.ts';
 // teaches the most useful idea in it. Same SDK and same sign-in as the agents themselves.
 
 const MODEL = process.env.FORKSPACE_MENTOR_MODEL || 'haiku';
-const MIN_GAP_MS = 12_000;
+const MIN_GAP_MS = 45_000;
+/** The background mentor teaches at most this many concepts per step. Explain is never limited. */
+const MAX_PER_STEP = 2;
 
 type Touch = (node: TurnNode) => void;
 let touch: Touch = () => {};
@@ -17,8 +19,11 @@ export const setTutorTouch = (fn: Touch) => (touch = fn);
 
 // One voice for everyone: plain words, every term explained. No levels, no categories.
 const PLAIN =
-  'Write for a developer who may not know this idea yet. Use plain, everyday words. ' +
-  'If you must use a technical term, explain it in the same sentence. No jargon left unexplained. Short sentences.';
+  'Write for someone new to coding, the way you would explain it to a friend. ' +
+  'Start with an everyday comparison (a recipe, a notebook, a shopping list, a sticky note). ' +
+  'Then one sentence on what it does in this code. ' +
+  'No jargon. If a technical word cannot be avoided, say what it means right away in plain words. ' +
+  'Short sentences, about 12 words each. Never use words like "leverage", "utilize", "idempotent" or "abstraction" without explaining them.';
 
 const LESSON_SCHEMA = {
   type: 'object',
@@ -32,8 +37,8 @@ const LESSON_SCHEMA = {
           key: { type: 'string', description: 'The textbook name of the idea, lowercase, 1 to 3 words, like "memoization", "http caching", "recursion". Never the title or a sentence. Reuse an existing key exactly when it is the same idea.' },
           area: { type: 'string', enum: [...CONCEPT_AREAS], description: 'Where in tech this concept belongs.' },
           related: { type: 'array', items: { type: 'string' }, maxItems: 4, description: 'Keys of already-known concepts this one connects to. Only use keys from the list given.' },
-          title: { type: 'string', description: 'The concept, named simply. At most 6 words.' },
-          body: { type: 'string', description: 'What it is and why it matters here. At most 45 words. Plain language.' },
+          title: { type: 'string', description: 'The idea in plain words a beginner would understand. At most 5 words.' },
+          body: { type: 'string', description: 'An everyday comparison, then what it does here. At most 40 words. Simple words, short sentences.' },
           file: { type: 'string', description: 'Relative path of the file this is about, if any.' },
           snippet: { type: 'string', description: 'Up to 6 lines copied from the actual change that show the concept.' },
         },
@@ -50,8 +55,8 @@ const EXPLAIN_SCHEMA = {
     key: { type: 'string', description: 'The textbook name of the main idea, lowercase, 1 to 3 words, like "memoization". Never the title. If it is the same idea as a known concept, use that exact key.' },
     area: { type: 'string', enum: [...CONCEPT_AREAS], description: 'Where in tech this concept belongs.' },
     related: { type: 'array', items: { type: 'string' }, maxItems: 4, description: 'Keys of known concepts this connects to, from the list given.' },
-    title: { type: 'string', description: 'At most 7 words.' },
-    body: { type: 'string', description: 'At most 90 words. Short sentences, plain language, every term explained.' },
+    title: { type: 'string', description: 'The idea in plain words a beginner would understand. At most 6 words.' },
+    body: { type: 'string', description: 'An everyday comparison first, then what happened in this step. At most 70 words. Simple words, short sentences, every term explained.' },
     snippet: { type: 'string', description: 'Up to 8 lines from the change worth looking at.' },
   },
   required: ['key', 'area', 'title', 'body'],
@@ -161,7 +166,10 @@ export function onActivity(node: TurnNode, final = false) {
   watches.set(node.id, w);
   const fresh = node.events.slice(w.cursor);
   const edits = fresh.filter((e) => e.t === 'tool' && e.result != null && ['Edit', 'Write', 'MultiEdit', 'Bash'].includes(e.name)).length;
-  const due = final ? fresh.length > 0 : edits >= 2 && Date.now() - w.lastAt > MIN_GAP_MS;
+  // Calm by design: a couple of ideas per step is plenty to read while the agent works.
+  const taught = (node.lessons ?? []).filter((l) => !l.asked).length;
+  if (taught >= MAX_PER_STEP) return;
+  const due = final ? fresh.length > 0 && taught === 0 : edits >= 2 && Date.now() - w.lastAt > MIN_GAP_MS;
   if (!due) return;
   if (w.busy) {
     w.pending = true;
@@ -254,7 +262,7 @@ export async function explain(node: TurnNode, file?: string): Promise<Lesson> {
   }
   if (!res?.title) throw new Error('The mentor could not explain that right now. Try again.');
   const key = shortKey(res.key, res.title);
-  const lesson: Lesson = { id: nanoid(8), kind: 'concept', title: res.title, body: res.body, snippet: res.snippet, file, at: Date.now(), key, area: area(res.area), related: cleanRelated(res.related, known, key) };
+  const lesson: Lesson = { id: nanoid(8), kind: 'concept', title: res.title, body: res.body, snippet: res.snippet, file, at: Date.now(), key, area: area(res.area), related: cleanRelated(res.related, known, key), asked: true };
   node.lessons = [...(node.lessons ?? []), lesson];
   touch(node);
   return lesson;

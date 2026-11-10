@@ -50,6 +50,8 @@ export interface Lesson {
   area?: string;
   /** Keys of other concepts this one connects to. */
   related?: string[];
+  /** You asked for this one (Explain), rather than the mentor offering it. */
+  asked?: boolean;
 }
 
 /** A user-drawn connection (note to node, node to node). */

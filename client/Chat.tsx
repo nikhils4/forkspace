@@ -84,7 +84,7 @@ function Turn({ t, isLast, forkHere, openDetails }: { t: TurnNode; isLast: boole
           {(lessons.length > 0 || t.learning || explaining) && (
             <div className="msg-lessons">
               {lessons.map((l, i) => (
-                <LessonCard key={l.id} lesson={l} compact={i < lessons.length - 1} />
+                <LessonCard key={l.id} lesson={l} compact={i > 0} />
               ))}
               {(t.learning || explaining) && <MentorWorking label={explaining ? 'Explaining…' : undefined} />}
             </div>

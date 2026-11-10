@@ -3,6 +3,12 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.9.1
+
+- Concepts in even simpler words: an everyday comparison first, then what it means in your code
+- Calmer while agents work: at most two concepts per step, a concept you're reading never folds away or moves, and new ones wait quietly with a New tag
+- The floating concepts box in Code shows one at a time, with a "new" button when more arrive
+
 ## 0.9.0
 
 - A terminal in the app: the Terminal button (or Ctrl+`) opens a real shell at the bottom, in the folder of the branch you're on. Tabs, resizable, keeps running when hidden

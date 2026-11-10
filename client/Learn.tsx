@@ -9,16 +9,25 @@ import { plain } from './tree.ts';
 // One idea only: concepts. A title, a plain explanation, and the real code behind it.
 
 export function ConceptCard({ lesson, onOpenFile, compact }: { lesson: Lesson; onOpenFile?: (path: string) => void; compact?: boolean }) {
-  const [open, setOpen] = useState(!compact);
+  // Decided once, when the card appears. After that only you open or close it: nothing new
+  // arriving ever folds away the one you're reading. One you just asked for opens itself.
+  const [open, setOpen] = useState(() => !compact || (!!lesson.asked && Date.now() - lesson.at < 15_000));
   const [code, setCode] = useState(false);
-  // Promoted to the top of a stack (the one above was dismissed): open it.
-  useEffect(() => setOpen(!compact), [compact]);
+  const [seen, setSeen] = useState(open);
 
   return (
     <div className={`concept ${open ? 'open' : ''} ${isFresh(lesson.at) ? 'fresh' : ''}`}>
-      <button className="concept-head" onClick={() => setOpen(!open)} aria-expanded={open}>
+      <button
+        className="concept-head"
+        onClick={() => {
+          setOpen(!open);
+          setSeen(true);
+        }}
+        aria-expanded={open}
+      >
         <span className="mentor-orb small" />
         <span className="concept-title">{lesson.title}</span>
+        {!seen && Date.now() - lesson.at < 10 * 60_000 && <span className="concept-new">New</span>}
         <Icon name="chevronDown" size={14} className="concept-chev" />
       </button>
       <div className="fold">
@@ -63,10 +72,26 @@ export function MentorWorking({ label = 'Finding a concept…' }: { label?: stri
 
 /** Floating stack of the newest concepts, over the code. */
 export function MentorDock({ turns, onOpenFile }: { turns: TurnNode[]; onOpenFile: (p: string) => void }) {
-  const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [min, setMin] = useState(false);
-  const all = turns.flatMap((t) => t.lessons ?? []).sort((a, b) => b.at - a.at);
-  const shown = all.filter((l) => !hidden.has(l.id)).slice(0, 3);
+  const all = turns.flatMap((t) => t.lessons ?? []).sort((a, b) => a.at - b.at);
+  // The one you're reading stays put. New ones wait behind a "new" button until you want them.
+  const [readId, setReadId] = useState<string | null>(null);
+  const [seenCount, setSeenCount] = useState(0);
+  useEffect(() => {
+    if (!readId && all.length) {
+      setReadId(all[all.length - 1].id);
+      setSeenCount(all.length);
+    }
+  }, [all.length, readId]);
+  const idx = Math.max(0, all.findIndex((l) => l.id === readId));
+  const current = all[idx];
+  const fresh = Math.max(0, all.length - seenCount);
+  const go = (i: number) => {
+    const l = all[Math.max(0, Math.min(all.length - 1, i))];
+    if (!l) return;
+    setReadId(l.id);
+    setSeenCount((c) => Math.max(c, all.findIndex((x) => x.id === l.id) + 1));
+  };
   const working = turns.some((t) => t.learning);
   if (!all.length && !working) return null;
 
@@ -88,15 +113,27 @@ export function MentorDock({ turns, onOpenFile }: { turns: TurnNode[]; onOpenFil
           <Icon name="chevronDown" size={14} />
         </button>
       </div>
-      {working && <MentorWorking />}
-      {shown.map((l, i) => (
-        <div key={l.id} className="dock-item">
-          <ConceptCard lesson={l} onOpenFile={onOpenFile} compact={i > 0} />
-          <button className="dock-x" onClick={() => setHidden(new Set([...hidden, l.id]))} aria-label="Dismiss">
-            <Icon name="x" size={12} />
+      {current ? <ConceptCard key={current.id} lesson={current} onOpenFile={onOpenFile} /> : working && <MentorWorking />}
+      {all.length > 0 && (
+        <div className="dock-nav">
+          <button className="icon-btn sm" disabled={idx <= 0} onClick={() => go(idx - 1)} aria-label="Previous concept">
+            <Icon name="chevronLeft" size={14} />
           </button>
+          <span className="faint small">
+            {idx + 1} of {all.length}
+          </span>
+          <button className="icon-btn sm" disabled={idx >= all.length - 1} onClick={() => go(idx + 1)} aria-label="Next concept">
+            <Icon name="chevronRight" size={14} />
+          </button>
+          <span className="spacer" />
+          {working && current && <span className="faint small shimmer-text">Finding one more…</span>}
+          {fresh > 0 && (
+            <button className="dock-new" onClick={() => go(all.length - 1)}>
+              {fresh} new
+            </button>
+          )}
         </div>
-      ))}
+      )}
     </div>
   );
 }

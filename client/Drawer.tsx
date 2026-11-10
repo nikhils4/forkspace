@@ -24,11 +24,13 @@ export function Drawer({ node, onClose, onReply }: { node: TurnNode; onClose: ()
   const [long, setLong] = useState(false);
   const concepts = useRef<HTMLDivElement>(null);
 
-  // A new concept arrived (Explain, or the mentor): show it.
+  // New concepts never pull you away from what you're reading: they just appear, folded,
+  // at the end. Only one you asked for (Explain) brings the Summary tab forward.
   const count = node.lessons?.length ?? 0;
   const seenCount = useRef(count);
   useEffect(() => {
-    if (count > seenCount.current) {
+    const newest = node.lessons?.[count - 1];
+    if (count > seenCount.current && newest?.asked) {
       setTab('summary');
       setTimeout(() => concepts.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
     }
@@ -136,7 +138,7 @@ export function Drawer({ node, onClose, onReply }: { node: TurnNode; onClose: ()
                   <span className="mentor-orb small" /> Concepts in this step
                 </div>
                 {count ? (
-                  [...(node.lessons ?? [])].reverse().map((l, i) => <LessonCard key={l.id} lesson={l} compact={i > 0} />)
+                  (node.lessons ?? []).map((l, i) => <LessonCard key={l.id} lesson={l} compact={i > 0} />)
                 ) : (
                   <div className="faint small">None yet. Right-click the card and choose Explain this step.</div>
                 )}
