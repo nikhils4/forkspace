@@ -1,4 +1,5 @@
 import { Handle, NodeResizer, Position, useStore as useRFStore, type NodeProps } from '@xyflow/react';
+import { CardComments, startComment } from './Comments.tsx';
 import { memo, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Markdown } from './Markdown.tsx';
@@ -441,9 +442,15 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
 
       {node.pending && <Permission node={node} p={node.pending} />}
 
+      <CardComments node={node} />
+
       <div className="turn-foot nodrag">
         <button className="btn ghost sm" onClick={() => onOpen(node.id)}>
           Details
+        </button>
+        <button className="btn ghost sm icon-only" onClick={() => startComment(node.id)} title="Add a comment (only for you)" aria-label="Add a comment">
+          <Icon name="comment" size={13} />
+          {node.comments?.length ? <span className="cmt-count">{node.comments.length}</span> : null}
         </button>
         <span className="spacer" />
         {live ? (

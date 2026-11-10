@@ -106,8 +106,17 @@ export interface Attachment {
   size: number;
 }
 
+/** Your own comment on a card. Never sent to the agent unless you put it in a prompt. */
+export interface CardComment {
+  id: string;
+  text: string;
+  at: number;
+}
+
 export interface TurnNode {
   kind: 'turn';
+  /** Your comments on this card. */
+  comments?: CardComment[];
   /** Images and files sent with the prompt. */
   attachments?: Attachment[];
   /** Screenshots attached to this step, oldest first. */
@@ -208,6 +217,7 @@ export type ClientMsg =
   | { type: 'captureShot'; reqId: string; nodeId: string }
   | { type: 'removeShot'; nodeId: string; shotId: string }
   | { type: 'setTitle'; nodeId: string; title: string }
+  | { type: 'setComments'; nodeId: string; comments: CardComment[] }
   | { type: 'termOpen'; reqId: string; boardId: string; branchId?: string; cols: number; rows: number }
   | { type: 'termList'; reqId: string; boardId: string }
   | { type: 'termAttach'; reqId: string; id: string }

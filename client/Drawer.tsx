@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Attachments } from './Shots.tsx';
+import { CardComments } from './Comments.tsx';
 import type { TurnNode } from '../shared/types.ts';
 import { ContextMenu, type MenuItem } from './ContextMenu.tsx';
 import { Icon } from './icons.tsx';
@@ -99,6 +100,7 @@ export function Drawer({ node, onClose, onReply }: { node: TurnNode; onClose: ()
           {node.prompt}
         </div>
         <Attachments list={node.attachments} label={node.prompt} />
+        <CardComments node={node} roomy />
 
         <div className="drawer-outcome">
           {node.diffStat?.files ? (

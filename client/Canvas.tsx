@@ -10,6 +10,7 @@ import {
   type Node,
   type NodeChange,
 } from '@xyflow/react';
+import { startComment } from './Comments.tsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Board, NoteNode, TurnNode } from '../shared/types.ts';
 import { composerFocus } from './Composer.tsx';
@@ -381,6 +382,7 @@ export function Canvas({
     if (live) out.push({ label: 'Stop', icon: 'stop', onClick: () => send({ type: 'stop', nodeId: node.id }) });
     else if (node.sessionId) out.push({ label: isHead ? 'Reply' : 'Branch from here', icon: isHead ? 'chat' : 'branch', hint: 'R', onClick: () => onReply(node.id) });
     out.push(
+      { label: 'Add comment', icon: 'comment', onClick: () => startComment(node.id) },
       { label: 'Open details', icon: 'external', onClick: () => openDetails(node.id) },
       { label: 'Center', icon: 'canvas', onClick: () => centerOn(node.id) },
       'sep',
@@ -502,7 +504,7 @@ export function Canvas({
           const node = store.nodes[n.id];
           if (!isTurn(node)) return; // notes: clicking is for typing, don't move the view
           // Buttons, links, checkboxes and approvals inside the card do their own thing.
-          if ((e.target as HTMLElement).closest('button, a, input, textarea, .perm, .shot-thumb')) {
+          if ((e.target as HTMLElement).closest('button, a, input, textarea, .perm, .shot-thumb, .card-comments')) {
             if (!isLive(node) && node.sessionId) setTargetId(n.id);
             return;
           }

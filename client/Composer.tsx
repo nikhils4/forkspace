@@ -26,6 +26,13 @@ type Pending = { key: string; name: string; size: number; preview?: string; att?
 
 export const composerFocus = { current: null as HTMLTextAreaElement | null };
 
+/** Put text into the message box (after what's there) and focus it. */
+let inserter: ((t: string) => void) | null = null;
+export function composerInsert(t: string) {
+  if (!inserter) return;
+  inserter(t);
+}
+
 export function Composer({ target, board, onSubmit, onClear, drawerOpen }: { target?: TurnNode; board: Board; onSubmit: (p: string, attachments: Attachment[]) => Promise<boolean>; onClear: () => void; drawerOpen?: boolean }) {
   const { branches } = useStore();
   const mobile = useIsMobile();
@@ -48,6 +55,21 @@ export function Composer({ target, board, onSubmit, onClear, drawerOpen }: { tar
     return () => ro.disconnect();
   }, []);
   useEffect(() => writeDraft(draftKey(board.id), text), [text, board.id]);
+  useEffect(() => {
+    inserter = (t) => {
+      setText((cur) => (cur.trim() ? `${cur.replace(/\s+$/, '')}\n\n${t}` : t));
+      setTimeout(() => {
+        const el = ref.current;
+        if (!el) return;
+        el.focus();
+        el.setSelectionRange(el.value.length, el.value.length);
+      }, 0);
+      toast('Added to your prompt');
+    };
+    return () => {
+      inserter = null;
+    };
+  }, []);
 
   // The details panel floats over the right side: the box moves into the space left of it
   // (narrower, centred there) so the mic and send buttons never hide behind the panel.

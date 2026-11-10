@@ -3,6 +3,12 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.15.0
+
+- Comments on cards: your own quick notes on any step, as many as you like. Add one from the comment button on the card or by right-clicking it
+- Each comment can go straight into your next prompt, be copied, edited (double-click) or deleted; "All to prompt" adds them as a list
+- Comments also show in the details panel; they never go to the agent unless you put them in a prompt
+
 ## 0.14.1
 
 - Terminal: clicking another card reuses the open terminal if nothing was run in it, instead of adding a new tab
