@@ -24,7 +24,7 @@ npm start            # builds and serves http://localhost:4747
 
 Auth: set `ANTHROPIC_API_KEY`, or Forkspace uses your existing Claude Code login on this machine.
 
-For development with hot reload: `npm run dev`, then open http://localhost:5173.
+For development with hot reload (Node 22.18+): `npm run dev`, then open http://localhost:5173.
 
 ## How it works
 
