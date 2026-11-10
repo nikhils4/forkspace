@@ -842,6 +842,50 @@
         color: var(--accent);
         font-weight: 600;
       }
+      .note.concept {
+        text-align: left;
+        cursor: pointer;
+        font: inherit;
+        color: inherit;
+        display: block;
+        width: 100%;
+      }
+      .concept-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .concept-tap {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--accent);
+        opacity: 0.8;
+      }
+      .concept-code {
+        margin: 0;
+        min-height: 0;
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+        font: 12.5px/1.65 var(--mono);
+        color: #d6d8e2;
+        background: rgba(0, 0, 0, 0.35);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 0 14px;
+        white-space: pre-wrap;
+        transition:
+          max-height 0.5s var(--ease),
+          opacity 0.4s,
+          margin 0.4s,
+          padding 0.4s;
+      }
+      .note.concept.open .concept-code {
+        max-height: 220px;
+        opacity: 1;
+        margin-top: 14px;
+        padding: 12px 14px;
+      }
       .levels {
         display: flex;
         justify-content: center;
@@ -1385,7 +1429,7 @@
           </div>
           <div class="callout c2" style="transition-delay: 0.15s">
             <span class="ic" style="background: rgba(139, 156, 255, 0.16)"><span class="orb"></span></span>
-            <span>A mentor beside you<small>Explains the idea behind each edit</small></span>
+            <span>Learn as you go<small>The concept behind each change</small></span>
           </div>
           <div class="callout c3" style="transition-delay: 0.3s">
             <span class="ic" style="background: rgba(245, 165, 36, 0.16); color: var(--warn)">
@@ -1437,7 +1481,7 @@
             <span class="story-num">3</span>
             <div class="kicker">Learn</div>
             <h2>Get better while you ship.</h2>
-            <p class="sub">A mentor explains every change, in your own code.</p>
+            <p class="sub">Learn the concept behind every change.</p>
             <div class="story-inline"><img src="/assets/chat-learn.webp" width="2880" height="1800" alt="Chat view with mentor notes and a quick check" loading="lazy" /></div>
           </div>
         </div>
@@ -1455,41 +1499,38 @@
     <section id="learn">
       <div class="wrap">
         <div class="center reveal">
-          <div class="kicker">Learn mode</div>
+          <div class="kicker">Concepts</div>
           <h2>Not a spectator.<br /><span class="grad-text">A better engineer.</span></h2>
-          <p class="sub">Real notes from a real run. Try the question.</p>
+          <p class="sub">Real concepts from a real run. Tap one.</p>
         </div>
         <div class="notes">
-          <div class="note reveal" style="--k: #f5a524; --d: 0s">
-            <div class="note-kind"><i>!</i> Watch out</div>
-            <h3>Number('') quietly returns 0</h3>
-            <p>An empty input sneaks through as zero. So the agent checks first.</p>
-          </div>
-          <div class="note reveal" style="--k: #8b9cff; --d: 0.12s">
-            <div class="note-kind"><i>✳</i> Concept</div>
-            <h3>Fail loudly instead of silent Infinity</h3>
-            <p><code>1 / 0</code> gives Infinity, not an error. So the agent throws one.</p>
-            <div class="quiz" id="quiz">
-              <span class="try-hint">Try it</span>
-              <b>What does 5 / 0 return?</b>
-              <button data-right="0">Throws a RangeError</button>
-              <button data-right="1">Returns Infinity</button>
-              <button data-right="0">Returns NaN</button>
-              <div class="quiz-why"><b>Right.</b> It never throws. That's why the check matters.</div>
-            </div>
-          </div>
-          <div class="note reveal" style="--k: #3ecf8e; --d: 0.24s">
-            <div class="note-kind"><i>▦</i> Pattern</div>
-            <h3>Use never for always-exit helpers</h3>
-            <p><code>fail(): never</code> tells TypeScript this call never comes back.</p>
-          </div>
+          <button class="note concept reveal" style="--d: 0s">
+            <span class="concept-top"><span class="orb"></span><span class="concept-tap">See the code</span></span>
+            <h3>Recursion: a function calling itself</h3>
+            <p>The function calls itself on a simpler version of the problem. A negative exponent becomes a positive one, and that case does the real work.</p>
+            <pre class="concept-code">if (exp &lt; 0) return 1 / power(base, -exp);
+let result = 1;
+for (let i = 0; i &lt; exp; i++) result *= base;
+return result;</pre>
+          </button>
+          <button class="note concept reveal" style="--d: 0.12s">
+            <span class="concept-top"><span class="orb"></span><span class="concept-tap">See the code</span></span>
+            <h3>Memoization: remembering past answers</h3>
+            <p>Save answers you already worked out. Same inputs again? Return the saved one and skip the work. It never forgets, so memory grows.</p>
+            <pre class="concept-code">const key = `${base}^${exp}`;
+const cached = powerCache.get(key);
+if (cached !== undefined) return cached;</pre>
+          </button>
+          <button class="note concept reveal" style="--d: 0.24s">
+            <span class="concept-top"><span class="orb"></span><span class="concept-tap">See the code</span></span>
+            <h3>Power by repeated multiplication</h3>
+            <p>Start at 1 and multiply by the base, once per step. A negative exponent flips the answer, so divide 1 by the result.</p>
+            <pre class="concept-code">let result = 1;
+for (let i = 0; i &lt; Math.abs(exp); i++) result *= base;
+return exp &lt; 0 ? 1 / result : result;</pre>
+          </button>
         </div>
-        <div class="levels reveal" id="levels">
-          <button class="level" data-t="An empty box becomes the number 0. The agent catches that."><b>New</b></button>
-          <button class="level on" data-t="Number('') coerces to 0. Guard with trim(), then isFinite()."><b>Growing</b></button>
-          <button class="level" data-t="isFinite over isNaN closes the Infinity hole too."><b>Expert</b></button>
-        </div>
-        <p class="level-text" id="level-text">Number('') coerces to 0. Guard with trim(), then isFinite().</p>
+        <p class="center reveal" style="color: var(--text-3); font-size: 14px; margin-top: 28px">Every concept is saved, so you can come back to it.</p>
       </div>
     </section>
 
@@ -1688,36 +1729,13 @@
         }),
       );
 
-      // ---- the quiz is real ----
-      const quiz = $('#quiz');
-      quiz.addEventListener('click', (e) => {
-        const b = e.target.closest('button');
-        if (!b) return;
-        if (b.dataset.right === '1') {
-          b.classList.add('right');
-          $$('button', quiz).forEach((x) => (x.disabled = true));
-          $('.quiz-why', quiz).classList.add('show');
-          $('.try-hint', quiz).textContent = 'Nice';
-        } else {
-          b.classList.remove('wrong');
-          void b.offsetWidth;
-          b.classList.add('wrong');
-          $('.try-hint', quiz).textContent = 'Not quite. Try again';
-        }
-      });
-
-      // ---- the same note at three levels ----
-      const levelText = $('#level-text');
-      $('#levels').addEventListener('click', (e) => {
-        const b = e.target.closest('.level');
-        if (!b) return;
-        $$('.level').forEach((x) => x.classList.toggle('on', x === b));
-        levelText.style.opacity = 0;
-        setTimeout(() => {
-          levelText.textContent = b.dataset.t;
-          levelText.style.opacity = 1;
-        }, 200);
-      });
+      // ---- tap a concept to see the code behind it ----
+      $$('.note.concept').forEach((c) =>
+        c.addEventListener('click', () => {
+          c.classList.toggle('open');
+          $('.concept-tap', c).textContent = c.classList.contains('open') ? 'Hide the code' : 'See the code';
+        }),
+      );
 
       // ---- terminal types itself when it comes into view ----
       const lines = [

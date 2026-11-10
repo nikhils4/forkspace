@@ -115,6 +115,45 @@ export function Canvas({
     send({ type: 'upsertNote', note });
   };
 
+  /** Lay every thread out as a neat tree: children side by side under their parent, threads left to right. */
+  const tidy = () => {
+    const turns = items.filter(isTurn);
+    if (!turns.length) return;
+    const kids = new Map<string, TurnNode[]>();
+    for (const t of turns) if (t.parentId) kids.set(t.parentId, [...(kids.get(t.parentId) ?? []), t]);
+    for (const list of kids.values()) list.sort((a, b) => a.createdAt - b.createdAt);
+    const GAP_X = 56;
+    const GAP_Y = 64;
+    const h = (id: string) => heights.get(id) ?? 300;
+    const width = new Map<string, number>();
+    const measure = (t: TurnNode): number => {
+      const ch = kids.get(t.id) ?? [];
+      const w = ch.length ? Math.max(CARD_W, ch.reduce((sum, c) => sum + measure(c), 0) + GAP_X * (ch.length - 1)) : CARD_W;
+      width.set(t.id, w);
+      return w;
+    };
+    const moves: { id: string; position: { x: number; y: number } }[] = [];
+    const place = (t: TurnNode, left: number, y: number) => {
+      const w = width.get(t.id)!;
+      moves.push({ id: t.id, position: { x: Math.round(left + (w - CARD_W) / 2), y: Math.round(y) } });
+      let x = left;
+      for (const c of kids.get(t.id) ?? []) {
+        place(c, x, y + h(t.id) + GAP_Y);
+        x += width.get(c.id)! + GAP_X;
+      }
+    };
+    const roots = turns.filter((t) => !t.parentId).sort((a, b) => a.createdAt - b.createdAt);
+    const start = { x: Math.min(...roots.map((r) => r.position.x)), y: Math.min(...roots.map((r) => r.position.y)) };
+    let x = start.x;
+    for (const r of roots) {
+      measure(r);
+      place(r, x, start.y);
+      x += width.get(r.id)! + GAP_X * 2.5;
+    }
+    send({ type: 'move', moves });
+    setTimeout(() => rf.fitView({ padding: 0.15, duration: 500, maxZoom: 1 }), 120);
+  };
+
   const deleteSelected = () => {
     const sel = rfNodes.filter((n) => n.selected).map((n) => n.id);
     if (!sel.length) return;
@@ -195,6 +234,9 @@ export function Canvas({
       <div className="canvas-tools">
         <button className="fab" onClick={() => addNote()} title="New note (N)" aria-label="New note">
           <Icon name="note" size={18} />
+        </button>
+        <button className="fab" onClick={tidy} title="Tidy up: arrange every branch neatly" aria-label="Tidy up">
+          <Icon name="grid" size={18} />
         </button>
         <button className="fab" onClick={() => rf.fitView({ padding: 0.15, duration: 400, maxZoom: 1 })} title="Fit everything" aria-label="Fit everything">
           <Icon name="canvas" size={18} />

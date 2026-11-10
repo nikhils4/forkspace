@@ -86,7 +86,7 @@ function Turn({ t, isLast, forkHere, openDetails }: { t: TurnNode; isLast: boole
               {lessons.map((l, i) => (
                 <LessonCard key={l.id} lesson={l} compact={i < lessons.length - 1} />
               ))}
-              {(t.learning || explaining) && <MentorWorking label={explaining ? 'Explaining this step…' : undefined} />}
+              {(t.learning || explaining) && <MentorWorking label={explaining ? 'Explaining…' : undefined} />}
             </div>
           )}
           <div className="msg-meta">
@@ -103,13 +103,12 @@ function Turn({ t, isLast, forkHere, openDetails }: { t: TurnNode; isLast: boole
               !isLast &&
               t.sessionId && (
                 <button className="btn ghost xs" onClick={forkHere} title="Start a new branch from this point">
-                  <Icon name="branch" size={12} /> Branch
-                  <span className="hide-sm">&nbsp;here</span>
+                  <Icon name="branch" size={12} /> Branch<span className="hide-sm">{' here'}</span>
                 </button>
               )
             )}
             {!live && t.events.length > 0 && (
-              <button className="btn ghost xs" onClick={explainStep} disabled={explaining} title="Have the mentor explain this step">
+              <button className="btn ghost xs" onClick={explainStep} disabled={explaining} title="Learn the concept behind this step">
                 <Icon name="spark" size={12} /> Explain
               </button>
             )}

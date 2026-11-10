@@ -1,7 +1,7 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { nanoid } from 'nanoid';
 import path from 'node:path';
-import type { Board, Branch, LearnLevel, Lesson, TurnEvent, TurnNode } from '../shared/types.ts';
+import type { Board, Branch, Lesson, TurnEvent, TurnNode } from '../shared/types.ts';
 import * as g from './git.ts';
 import { getBoard, getBranch, state } from './store.ts';
 
@@ -15,50 +15,37 @@ type Touch = (node: TurnNode) => void;
 let touch: Touch = () => {};
 export const setTutorTouch = (fn: Touch) => (touch = fn);
 
-const LEVEL: Record<LearnLevel, string> = {
-  new: 'The reader is new to programming. Use everyday words, one idea at a time, and define any jargon you use.',
-  growing: 'The reader can code but is still growing. Name the concept properly and explain why it matters here.',
-  expert: 'The reader is experienced. Skip basics. Focus on trade-offs, edge cases and the non-obvious choice the agent made.',
-};
+// One voice for everyone: plain words, every term explained. No levels, no categories.
+const PLAIN =
+  'Write for a developer who may not know this idea yet. Use plain, everyday words. ' +
+  'If you must use a technical term, explain it in the same sentence. No jargon left unexplained. Short sentences.';
 
 const LESSON_SCHEMA = {
   type: 'object',
   properties: {
-    lessons: {
+    concepts: {
       type: 'array',
-      maxItems: 2,
+      maxItems: 1,
       items: {
         type: 'object',
         properties: {
-          kind: { type: 'string', enum: ['concept', 'why', 'pattern', 'watch'] },
-          title: { type: 'string', description: 'At most 6 words.' },
-          body: { type: 'string', description: 'At most 60 words, plain language, no markdown headings.' },
+          title: { type: 'string', description: 'The concept, named simply. At most 6 words.' },
+          body: { type: 'string', description: 'What it is and why it matters here. At most 45 words. Plain language.' },
           file: { type: 'string', description: 'Relative path of the file this is about, if any.' },
-          snippet: { type: 'string', description: 'Up to 6 lines copied from the actual change that show the idea.' },
-          check: {
-            type: 'object',
-            description: 'Optional quick question to check understanding. Use for at most one lesson.',
-            properties: {
-              question: { type: 'string' },
-              options: { type: 'array', items: { type: 'string' }, minItems: 2, maxItems: 4 },
-              answer: { type: 'integer', description: 'Index of the correct option.' },
-              why: { type: 'string', description: 'One sentence on why that answer is right.' },
-            },
-            required: ['question', 'options', 'answer'],
-          },
+          snippet: { type: 'string', description: 'Up to 6 lines copied from the actual change that show the concept.' },
         },
-        required: ['kind', 'title', 'body'],
+        required: ['title', 'body'],
       },
     },
   },
-  required: ['lessons'],
+  required: ['concepts'],
 };
 
 const EXPLAIN_SCHEMA = {
   type: 'object',
   properties: {
     title: { type: 'string', description: 'At most 7 words.' },
-    body: { type: 'string', description: 'At most 140 words. Short paragraphs or a few "- " bullets. Plain language.' },
+    body: { type: 'string', description: 'At most 90 words. Short sentences, plain language, every term explained.' },
     snippet: { type: 'string', description: 'Up to 8 lines from the change worth looking at.' },
   },
   required: ['title', 'body'],
@@ -172,19 +159,18 @@ async function teach(board: Board, node: TurnNode, w: Watch, final: boolean) {
   node.learning = true;
   touch(node);
   try {
-    const level = board.learn?.level ?? 'growing';
     const known = learnedTitles(board.id);
     const prompt =
       `The developer asked the agent: "${clip(node.prompt, 400)}"\n\n` +
       `What the agent just did:\n\n${describe(events, branch)}\n\n` +
       (known.length ? `Already taught on this project (do not repeat): ${known.join('; ')}\n\n` : '') +
-      `${LEVEL[level]}\n\n` +
-      `Pick the one or two ideas from this activity that are most worth learning: a concept, why the agent chose this approach, a pattern worth reusing, or something to watch out for. ` +
-      `If nothing here is worth teaching (trivial reads, boilerplate), return an empty list.`;
-    const res = await ask<{ lessons: Omit<Lesson, 'id' | 'at'>[] }>(prompt, SYSTEM, LESSON_SCHEMA, branch?.cwd ?? board.cwd);
-    const fresh = (res?.lessons ?? []).filter((l) => l?.title && l?.body && !known.includes(l.title));
+      `${PLAIN}\n\n` +
+      `Pick the single programming concept in this activity that is most worth understanding, the idea behind the code rather than a summary of what changed. ` +
+      `If nothing here teaches a real concept (trivial reads, boilerplate), return an empty list.`;
+    const res = await ask<{ concepts: { title: string; body: string; file?: string; snippet?: string }[] }>(prompt, SYSTEM, LESSON_SCHEMA, branch?.cwd ?? board.cwd);
+    const fresh = (res?.concepts ?? []).filter((l) => l?.title && l?.body && !known.includes(l.title));
     if (fresh.length) {
-      node.lessons = [...(node.lessons ?? []), ...fresh.map((l) => ({ ...l, check: validCheck(l.check), id: nanoid(8), at: Date.now() }))];
+      node.lessons = [...(node.lessons ?? []), ...fresh.map((l) => ({ ...l, kind: 'concept' as const, id: nanoid(8), at: Date.now() }))];
     }
   } catch (err) {
     console.error('[mentor]', (err as Error).message);
@@ -200,20 +186,12 @@ async function teach(board: Board, node: TurnNode, w: Watch, final: boolean) {
   }
 }
 
-function validCheck(c: Lesson['check']): Lesson['check'] {
-  if (!c || !Array.isArray(c.options) || c.options.length < 2) return undefined;
-  if (typeof c.answer !== 'number' || c.answer < 0 || c.answer >= c.options.length) return undefined;
-  return c;
-}
-
 // ---- on demand: "Explain this step" / "Explain this change" ----
 
 export async function explain(node: TurnNode, file?: string): Promise<Lesson> {
   const board = getBoard(node.boardId);
   const branch = getBranch(node.branchId);
   if (!board || !branch) throw new Error('Board not found');
-  const level = board.learn?.level ?? 'growing';
-
   let subject: string;
   if (file) {
     const abs = path.resolve(branch.cwd, file);
@@ -230,13 +208,13 @@ export async function explain(node: TurnNode, file?: string): Promise<Lesson> {
   }
 
   const res = await ask<{ title: string; body: string; snippet?: string }>(
-    `The developer asked the agent: "${clip(node.prompt, 400)}"\n\n${subject}\n\n${LEVEL[level]}`,
+    `The developer asked the agent: "${clip(node.prompt, 400)}"\n\n${subject}\n\nTeach the concept behind it. ${PLAIN}`,
     SYSTEM,
     EXPLAIN_SCHEMA,
     branch.cwd,
   );
   if (!res?.title) throw new Error('The mentor could not explain that right now. Try again.');
-  const lesson: Lesson = { id: nanoid(8), kind: 'explain', title: res.title, body: res.body, snippet: res.snippet, file, at: Date.now() };
+  const lesson: Lesson = { id: nanoid(8), kind: 'concept', title: res.title, body: res.body, snippet: res.snippet, file, at: Date.now() };
   node.lessons = [...(node.lessons ?? []), lesson];
   touch(node);
   return lesson;

@@ -253,7 +253,7 @@ function Shell() {
       { id: 'a-devices', group: 'Actions', label: 'Devices and phone', icon: 'phone', run: () => (mobile ? setTab('devices') : setSheet('devices')) },
     );
     if (board) paletteItems.push({ id: 'a-settings', group: 'Actions', label: 'Board settings', icon: 'settings', run: () => setSheet('board') });
-    paletteItems.push({ id: 'a-learn', group: 'Actions', label: 'What I’ve learned', icon: 'spark', run: () => (mobile ? setTab('learn') : setSheet('learn')) });
+    paletteItems.push({ id: 'a-learn', group: 'Actions', label: 'Concepts I’ve learned', icon: 'spark', run: () => (mobile ? setTab('learn') : setSheet('learn')) });
     for (const b of store.boards) paletteItems.push({ id: `b-${b.id}`, group: 'Boards', label: b.name, hint: b.cwd.replace(store.home, '~'), icon: 'grid', run: () => (setBoardId(b.id), setTab('board')) });
     if (board)
       for (const t of leaves(store.nodes, board.id))
@@ -291,7 +291,7 @@ function Shell() {
       )}
       {sheet === 'board' && board && <BoardSettings board={board} onClose={() => setSheet(null)} />}
       {sheet === 'learn' && (
-        <Sheet title="Learning" onClose={() => setSheet(null)} wide>
+        <Sheet title="Concepts" onClose={() => setSheet(null)} wide>
           <LearnLibrary
             onOpen={(t) => {
               setSheet(null);
@@ -357,7 +357,7 @@ function Shell() {
           {tab === 'learn' && (
             <div className="page">
               <div className="page-inner">
-                <h1 className="page-title">Learning</h1>
+                <h1 className="page-title">Concepts</h1>
                 <LearnLibrary
                   onOpen={(t) => {
                     goTo(t);
@@ -441,7 +441,7 @@ function Shell() {
         <div className="side-foot">
           <InstallButton />
           <button className="side-link" onClick={() => setSheet('learn')}>
-            <Icon name="spark" size={15} /> Learning
+            <Icon name="spark" size={15} /> Concepts
             {lessonCount > 0 && <span className="count">{lessonCount}</span>}
           </button>
           <button className="side-link" onClick={() => setSheet('devices')}>
@@ -468,7 +468,7 @@ function Shell() {
             <button
               className={`pill learn-pill ${learnOn ? 'on' : ''}`}
               onClick={() => send({ type: 'updateBoard', id: board.id, patch: { learn: { on: !learnOn, level: board.learn?.level ?? 'growing' } } })}
-              title={learnOn ? 'Learn mode is on: a mentor explains what agents do' : 'Turn on Learn mode'}
+              title={learnOn ? 'Learning concepts as agents work' : 'Learn concepts as agents work'}
             >
               <span className="mentor-orb small" />
               Learn {learnOn ? 'on' : 'off'}

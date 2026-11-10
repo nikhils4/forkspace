@@ -3713,3 +3713,278 @@ kbd {
 .mobile .stage > .composer .composer-box {
   background: color-mix(in srgb, var(--surface) 97%, transparent);
 }
+
+/* =========================================================
+   Concepts (simplified learning)
+   ========================================================= */
+.concept {
+  border-radius: 14px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 8%, var(--surface)), var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  overflow: hidden;
+  animation: lesson-in 0.5s var(--ease);
+}
+.concept-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px 11px 14px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  min-width: 0;
+}
+.concept-title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.35;
+}
+.concept-chev {
+  color: var(--text-3);
+  flex-shrink: 0;
+  transition: transform 0.2s var(--ease);
+}
+.concept.open .concept-chev {
+  transform: rotate(180deg);
+}
+.concept-body {
+  padding: 0 14px 13px 33px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13.5px;
+}
+.concept-body .md {
+  line-height: 1.6;
+  color: var(--text);
+}
+.concept-code-toggle {
+  align-self: flex-start;
+  padding: 0;
+  font-size: 12.5px;
+}
+.concept-snippet {
+  margin: 0;
+  font-size: 11.5px;
+  max-height: 180px;
+}
+.concept-file {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--border-2);
+  background: var(--bg-2);
+  border-radius: 7px;
+  padding: 3px 9px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+.concept-file:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+.lib-count {
+  font-size: 15px;
+  color: var(--text-2);
+}
+.lib-count b {
+  color: var(--text);
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  margin-right: 4px;
+}
+.mentor-dock-head {
+  padding: 2px 4px 0 6px;
+  color: var(--text-2);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+/* =========================================================
+   Canvas cards, calmer
+   ========================================================= */
+.turn {
+  border-radius: 18px;
+}
+.turn-head {
+  padding: 12px 14px 2px;
+}
+.turn-prompt {
+  background: transparent;
+  padding: 2px 14px 0;
+  margin: 4px 0 6px;
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.4;
+  -webkit-line-clamp: 3;
+}
+.turn-summary {
+  padding: 0 14px;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.turn-live {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 14px 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 12.5px;
+  min-width: 0;
+}
+.turn-error {
+  margin: 0 14px 10px;
+}
+.turn-files {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  padding: 0 14px 10px;
+}
+.file-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 150px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.file-chip svg {
+  flex-shrink: 0;
+  color: var(--text-3);
+}
+.file-chip.more {
+  font-family: var(--font);
+}
+.turn-files .diffstat {
+  margin-left: 4px;
+}
+.turn-concepts {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 0 14px 10px;
+}
+.concept-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border));
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  font-size: 12.5px;
+  font-weight: 550;
+  text-align: left;
+  min-width: 0;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.concept-chip:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.concept-chip.more {
+  align-self: flex-start;
+  padding: 3px 10px;
+  font-size: 12px;
+  color: var(--accent);
+}
+.concept-chip.pending {
+  border-style: dashed;
+  background: transparent;
+}
+.steps-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 14px 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 500;
+  align-self: flex-start;
+}
+.steps-toggle:hover {
+  color: var(--text);
+}
+.steps-toggle svg {
+  transition: transform 0.2s var(--ease);
+}
+.steps-toggle svg.open {
+  transform: rotate(90deg);
+}
+.turn .turn-body {
+  max-height: 200px;
+  padding-top: 0;
+}
+.turn-foot {
+  border-top: 1px solid var(--border);
+}
+
+/* zoomed far out: titles only */
+.turn.far {
+  padding: 18px 20px 20px;
+  gap: 10px;
+}
+.far-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.far-status .dot {
+  width: 14px;
+  height: 14px;
+}
+.far-concepts {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+}
+.far-concepts .mentor-orb {
+  width: 14px;
+  height: 14px;
+}
+.far-prompt {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

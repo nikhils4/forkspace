@@ -1,9 +1,9 @@
-import { Handle, NodeResizer, Position, type NodeProps } from '@xyflow/react';
+import { Handle, NodeResizer, Position, useStore as useRFStore, type NodeProps } from '@xyflow/react';
 import { memo, useEffect, useRef, useState } from 'react';
 import type { NoteNode, PendingPermission, TurnEvent, TurnNode } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
 import { send, useStore } from './store.ts';
-import { isLive } from './tree.ts';
+import { currentActivity, isLive, lastText } from './tree.ts';
 
 export const NOTE_COLORS = ['#fde68a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#e9d5ff', '#e5e7eb'];
 
@@ -208,19 +208,53 @@ export interface TurnData extends Record<string, unknown> {
   isTarget: boolean;
 }
 
+const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
+
+/** Files this step changed, relative to its folder. */
+function editedFiles(node: TurnNode, cwd?: string) {
+  const out: string[] = [];
+  for (const e of node.events) {
+    if (e.t !== 'tool' || !EDIT_TOOLS.has(e.name)) continue;
+    const p = (e.input as any)?.file_path ?? (e.input as any)?.notebook_path;
+    if (typeof p !== 'string') continue;
+    const rel = cwd && p.startsWith(cwd + '/') ? p.slice(cwd.length + 1) : p;
+    if (!out.includes(rel)) out.push(rel);
+  }
+  return out;
+}
+
 export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: TurnData }) {
   const { node, onOpen, onReply, isTarget } = data;
   const { branches } = useStore();
+  // Zoomed far out: show just the essentials so big boards stay readable.
+  const far = useRFStore((st) => st.transform[2] < 0.55);
+  const [steps, setSteps] = useState(false);
   const branch = branches[node.branchId];
   const color = branchColor(node.branchId);
-  const bodyRef = useRef<HTMLDivElement>(null);
   const live = isLive(node);
   const isHead = branch?.headNodeId === node.id;
+  const tools = node.events.filter((e): e is Extract<TurnEvent, { t: 'tool' }> => e.t === 'tool');
+  const files = editedFiles(node, branch?.cwd);
+  const lessons = node.lessons ?? [];
+  const summary = live ? '' : lastText(node);
 
-  useEffect(() => {
-    const el = bodyRef.current;
-    if (el && live) el.scrollTop = el.scrollHeight;
-  }, [node.events, live]);
+  if (far)
+    return (
+      <div className={`turn far status-${node.status} ${isTarget ? 'target' : ''}`} style={{ ['--branch' as any]: color }}>
+        <Handle type="target" position={Position.Top} />
+        <div className="far-status">
+          <StatusDot status={node.status} />
+          {STATUS_LABEL[node.status]}
+          {lessons.length > 0 && (
+            <span className="far-concepts">
+              <span className="mentor-orb small" /> {lessons.length}
+            </span>
+          )}
+        </div>
+        <div className="far-prompt">{node.prompt}</div>
+        <Handle type="source" position={Position.Bottom} />
+      </div>
+    );
 
   return (
     <div className={`turn status-${node.status} ${isTarget ? 'target' : ''}`} style={{ ['--branch' as any]: color }}>
@@ -229,38 +263,81 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
       <div className="turn-head">
         <StatusDot status={node.status} />
         <span className="status-label">{STATUS_LABEL[node.status]}</span>
+        <span className="spacer" />
         <span className="branch-tag" title={branch?.gitBranch ?? 'branch'}>
           <Icon name="branch" size={11} />
           {node.branchId.slice(0, 6)}
         </span>
-        <span className="spacer" />
-        {node.costUsd != null && <span className="faint">{money(node.costUsd)}</span>}
       </div>
 
       <div className="turn-prompt">{node.prompt}</div>
 
-      <div className="turn-body nowheel" ref={bodyRef}>
-        {node.events.length === 0 && live && <div className="faint shimmer-text">Thinking…</div>}
-        {node.events.map((e, i) =>
-          e.t === 'text' ? <Md key={i} text={e.text} partial={e.partial} /> : e.t === 'tool' ? <ToolLine key={i} e={e} cwd={branch?.cwd} /> : null,
-        )}
-        {node.error && <div className="error-box">{node.error}</div>}
-      </div>
+      {live ? (
+        <div className="turn-live">
+          <span className="spinner" />
+          <span className="ellipsis">{currentActivity(node)}</span>
+        </div>
+      ) : (
+        summary && <div className="turn-summary">{summary}</div>
+      )}
+      {node.error && <div className="error-box turn-error">{node.error}</div>}
+
+      {files.length > 0 && (
+        <div className="turn-files">
+          {files.slice(0, 3).map((f) => (
+            <span key={f} className="file-chip" title={f}>
+              <Icon name="file" size={11} />
+              {f.split('/').pop()}
+            </span>
+          ))}
+          {files.length > 3 && <span className="file-chip more">+{files.length - 3}</span>}
+          <DiffStat s={node.diffStat} />
+        </div>
+      )}
+
+      {(lessons.length > 0 || node.learning) && (
+        <div className="turn-concepts nodrag">
+          {lessons.slice(-2).map((l) => (
+            <button key={l.id} className="concept-chip" onClick={() => onOpen(node.id)} title={l.body}>
+              <span className="mentor-orb small" />
+              <span className="ellipsis">{l.title}</span>
+            </button>
+          ))}
+          {lessons.length > 2 && (
+            <button className="concept-chip more" onClick={() => onOpen(node.id)}>
+              +{lessons.length - 2}
+            </button>
+          )}
+          {node.learning && (
+            <span className="concept-chip pending">
+              <span className="mentor-orb small" />
+              <span className="shimmer-text">Finding a concept…</span>
+            </span>
+          )}
+        </div>
+      )}
+
+      {tools.length > 0 && (
+        <button className="steps-toggle nodrag" onClick={() => setSteps(!steps)}>
+          <Icon name="chevronRight" size={12} className={steps ? 'open' : ''} />
+          {tools.length} step{tools.length === 1 ? '' : 's'}
+        </button>
+      )}
+      {steps && (
+        <div className="turn-body nowheel">
+          {tools.map((e) => (
+            <ToolLine key={e.id} e={e} cwd={branch?.cwd} />
+          ))}
+        </div>
+      )}
 
       {node.pending && <Permission node={node} p={node.pending} />}
 
       <div className="turn-foot nodrag">
-        <DiffStat s={node.diffStat} />
-        {(node.lessons?.length ?? 0) > 0 && (
-          <button className="lesson-chip" onClick={() => onOpen(node.id)} title="What you can learn from this step">
-            <Icon name="spark" size={11} /> {node.lessons!.length}
-          </button>
-        )}
-        {node.learning && <span className="mentor-orb small" title="Mentor is writing a note" />}
-        <span className="spacer" />
         <button className="btn ghost sm" onClick={() => onOpen(node.id)}>
           Details
         </button>
+        <span className="spacer" />
         {live ? (
           <button className="btn danger-ghost sm" onClick={() => send({ type: 'stop', nodeId: node.id })}>
             <Icon name="stop" size={12} /> Stop
@@ -268,7 +345,7 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
         ) : (
           node.sessionId && (
             <button className="btn sm" onClick={() => onReply(node.id)} title={isHead ? 'Continue this branch' : 'Start a new branch from here'}>
-              <Icon name={isHead ? 'chat' : 'branch'} size={13} /> {isHead ? 'Reply' : 'Fork'}
+              <Icon name={isHead ? 'chat' : 'branch'} size={13} /> {isHead ? 'Reply' : 'Branch'}
             </button>
           )
         )}

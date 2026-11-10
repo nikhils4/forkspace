@@ -90,7 +90,7 @@ export function Drawer({ node, onClose }: { node: TurnNode; onClose: () => void 
             options={[
               { value: 'log', label: 'Transcript' },
               { value: 'diff', label: 'Changes' },
-              { value: 'learn', label: `Learn${node.lessons?.length ? ` · ${node.lessons.length}` : ''}` },
+              { value: 'learn', label: `Concepts${node.lessons?.length ? ` · ${node.lessons.length}` : ''}` },
             ]}
           />
         </div>
@@ -100,7 +100,7 @@ export function Drawer({ node, onClose }: { node: TurnNode; onClose: () => void 
             node.lessons?.length ? (
               node.lessons.map((l) => <LessonCard key={l.id} lesson={l} />)
             ) : (
-              <div className="faint">No notes for this step yet. Use Explain in the chat to ask the mentor.</div>
+              <div className="faint">No concepts for this step yet. Tap Explain in the chat to get one.</div>
             )
           ) : tab === 'log' ? (
             <>

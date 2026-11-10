@@ -416,10 +416,10 @@ export function CodeView({
               }
               setExplaining(false);
             }}
-            title="Have the mentor explain this file's changes"
+            title="Learn the concept behind this code"
           >
             {explaining ? <span className="spinner" /> : <Icon name="spark" size={13} />}
-            {!mobile && (explaining ? 'Explaining…' : canDiff ? 'Explain change' : 'Explain file')}
+            {!mobile && (explaining ? 'Explaining…' : 'Explain')}
           </button>
         )}
         {liveTurn && (

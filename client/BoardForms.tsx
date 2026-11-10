@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Board, Isolation, LearnLevel, PermissionMode } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
 import { request, send, useStore } from './store.ts';
-import { Segmented, Sheet, Switch } from './ui.tsx';
+import { Sheet, Switch } from './ui.tsx';
 
 export const MODES: { value: PermissionMode; label: string; hint: string }[] = [
   { value: 'default', label: 'Ask me', hint: 'You approve each risky step' },
@@ -162,22 +162,11 @@ export function BoardSettings({ board, onClose }: { board: Board; onClose: () =>
         <div className="field learn-field">
           <div className="setting-row">
             <div className="setting-text">
-              <b>Learn mode</b>
-              <span>A mentor explains the ideas behind what the agents do, as they do it. Uses a small, fast model.</span>
+              <b>Learn concepts</b>
+              <span>As agents work, learn the concepts behind their code, in plain words.</span>
             </div>
             <Switch on={learn.on} onChange={(on) => update({ learn: { ...learn, on } })} />
           </div>
-          {learn.on && (
-            <Segmented
-              value={learn.level}
-              onChange={(level) => update({ learn: { ...learn, level } })}
-              options={[
-                { value: 'new', label: 'New to this' },
-                { value: 'growing', label: 'Growing' },
-                { value: 'expert', label: 'Expert' },
-              ]}
-            />
-          )}
         </div>
         <label className="field">
           <span className="field-label">Model</span>
