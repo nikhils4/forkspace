@@ -197,6 +197,8 @@ export interface RemoteInfo {
 export type ServerMsg =
   | { type: 'state'; state: State; home: string; build: string; startCommand: string }
   | { type: 'updateProgress'; stage: string; done?: boolean; error?: string }
+  /** Pushed when a check finds something new, so every screen knows without asking. */
+  | { type: 'updateInfo'; info: UpdateInfo }
   | { type: 'board'; board: Board }
   | { type: 'boardDeleted'; id: string }
   | { type: 'branch'; branch: Branch }

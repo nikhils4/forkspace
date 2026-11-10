@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import type { Board, Branch, CanvasNode, ClientMsg, ServerMsg } from '../shared/types.ts';
+import type { Board, Branch, CanvasNode, ClientMsg, ServerMsg, UpdateInfo } from '../shared/types.ts';
 
 export type AuthState = 'checking' | 'pairing' | 'ok' | 'unreachable';
 
@@ -63,6 +63,12 @@ export function toast(text: string, level: 'info' | 'error' = 'info') {
 // ---- socket ----
 let ws: WebSocket | null = null;
 let build: string | null = null;
+const updateListeners = new Set<(i: UpdateInfo) => void>();
+/** Hear about new releases the moment the server finds them. */
+export function onUpdateInfo(f: (i: UpdateInfo) => void) {
+  updateListeners.add(f);
+  return () => void updateListeners.delete(f);
+}
 const waiting = new Map<string, { resolve: (v: any) => void; reject: (e: Error) => void }>();
 let retry: number | undefined;
 let backoff = 500;
@@ -120,6 +126,9 @@ function onMessage(msg: ServerMsg) {
     }
     case 'toast':
       toast(msg.text, msg.level);
+      break;
+    case 'updateInfo':
+      updateListeners.forEach((f) => f(msg.info));
       break;
     case 'updateProgress':
       set({ update: { stage: msg.stage, done: msg.done, error: msg.error } });

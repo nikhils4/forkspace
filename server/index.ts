@@ -550,8 +550,20 @@ server.on('error', (err: NodeJS.ErrnoException) => {
 server.listen(PORT, HOST, () => {
   console.log(`\n  Forkspace → http://localhost:${PORT}\n`);
   // Check for updates in the background now and every few hours.
-  checkForUpdate(true).catch(() => {});
-  setInterval(() => checkForUpdate(true).catch(() => {}), 6 * 3600_000).unref();
+  // Look for new releases every 15 minutes and tell every open screen when something changes.
+  let seen = '';
+  const poll = () =>
+    checkForUpdate(true)
+      .then((info) => {
+        const sig = `${info.releases[0]?.version ?? ''}|${info.restartPending}`;
+        if (sig !== seen) {
+          seen = sig;
+          broadcast({ type: 'updateInfo', info });
+        }
+      })
+      .catch(() => {});
+  poll();
+  setInterval(poll, Number(process.env.FORKSPACE_UPDATE_POLL_MS) || 15 * 60_000).unref();
 });
 
 // Last line of defence: a stray rejection must never take every running agent down with it.

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { UpdateInfo } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
-import { request, toast, useStore } from './store.ts';
+import { onUpdateInfo, request, toast, useStore } from './store.ts';
 
 let shared: UpdateInfo | null = null;
 /** Latest update info, for code outside React (bug reports). */
@@ -12,7 +12,17 @@ const publish = (i: UpdateInfo) => {
   subs.forEach((s) => s(i));
 };
 
-/** Update status, checked on load and every 30 minutes (the server caches GitHub checks). */
+// Pushed by the server whenever its regular check finds something new.
+onUpdateInfo((i) => publish(i));
+let lastForced = 0;
+// Coming back to the app: ask for a fresh check (at most once every 2 minutes).
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || Date.now() - lastForced < 120_000) return;
+  lastForced = Date.now();
+  request<UpdateInfo>({ type: 'updateInfo', force: true }).then(publish, () => {});
+});
+
+/** Update status: checked on load, pushed by the server when a release appears, re-checked on return. */
 export function useUpdate() {
   const { connected } = useStore();
   const [info, setInfo] = useState<UpdateInfo | null>(shared);
@@ -24,7 +34,7 @@ export function useUpdate() {
     if (!connected) return;
     const check = () => request<UpdateInfo>({ type: 'updateInfo' }).then(publish, () => {});
     check();
-    const id = setInterval(check, 30 * 60_000);
+    const id = setInterval(check, 10 * 60_000);
     return () => clearInterval(id);
   }, [connected]);
   return info;
