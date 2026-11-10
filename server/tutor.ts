@@ -207,12 +207,21 @@ export async function explain(node: TurnNode, file?: string): Promise<Lesson> {
     subject = `Explain what the agent did in this step and why, so the developer could do it themselves next time.\n\nWhat happened:\n${describe(node.events, branch)}`;
   }
 
-  const res = await ask<{ title: string; body: string; snippet?: string }>(
-    `The developer asked the agent: "${clip(node.prompt, 400)}"\n\n${subject}\n\nTeach the concept behind it. ${PLAIN}`,
-    SYSTEM,
-    EXPLAIN_SCHEMA,
-    branch.cwd,
-  );
+  // Show "Finding a concept…" on the card while the mentor writes.
+  node.learning = true;
+  touch(node);
+  let res: { title: string; body: string; snippet?: string } | null;
+  try {
+    res = await ask<{ title: string; body: string; snippet?: string }>(
+      `The developer asked the agent: "${clip(node.prompt, 400)}"\n\n${subject}\n\nTeach the concept behind it. ${PLAIN}`,
+      SYSTEM,
+      EXPLAIN_SCHEMA,
+      branch.cwd,
+    );
+  } finally {
+    node.learning = false;
+    touch(node);
+  }
   if (!res?.title) throw new Error('The mentor could not explain that right now. Try again.');
   const lesson: Lesson = { id: nanoid(8), kind: 'concept', title: res.title, body: res.body, snippet: res.snippet, file, at: Date.now() };
   node.lessons = [...(node.lessons ?? []), lesson];

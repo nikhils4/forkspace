@@ -341,7 +341,16 @@ export function Canvas({
         label: 'Explain this step',
         icon: 'spark',
         disabled: live,
-        onClick: () => request({ type: 'explain', nodeId: node.id }).catch((e: Error) => toast(e.message, 'error')),
+        onClick: () => {
+          toast('Explaining this step…');
+          request<{ title: string }>({ type: 'explain', nodeId: node.id }).then(
+            (l) => {
+              toast(`Explained: ${l.title}`);
+              openDetails(node.id);
+            },
+            (e: Error) => toast(e.message, 'error'),
+          );
+        },
       },
       { label: 'Copy prompt', icon: 'copy', onClick: () => copy(node.prompt, 'Prompt') },
       {

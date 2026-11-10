@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { TurnNode } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
 import { LessonCard } from './Learn.tsx';
@@ -11,6 +11,13 @@ export function Drawer({ node, onClose }: { node: TurnNode; onClose: () => void 
   const branch = branches[node.branchId];
   const [tab, setTab] = useState<'log' | 'diff' | 'learn'>(node.lessons?.length ? 'learn' : 'log');
   const [diff, setDiff] = useState<string | null>(null);
+  // A new concept arrived (Explain, or the mentor): show it, newest first.
+  const count = node.lessons?.length ?? 0;
+  const seenCount = useRef(count);
+  useEffect(() => {
+    if (count > seenCount.current) setTab('learn');
+    seenCount.current = count;
+  }, [count]);
 
   useEffect(() => {
     setDiff(null);
@@ -99,9 +106,9 @@ export function Drawer({ node, onClose }: { node: TurnNode; onClose: () => void 
         <div className="drawer-body">
           {tab === 'learn' ? (
             node.lessons?.length ? (
-              node.lessons.map((l) => <LessonCard key={l.id} lesson={l} />)
+              [...node.lessons].reverse().map((l, i) => <LessonCard key={l.id} lesson={l} compact={i > 0} />)
             ) : (
-              <div className="faint">No concepts for this step yet. Tap Explain in the chat to get one.</div>
+              <div className="faint">No concepts for this step yet. Right-click the card and choose Explain this step.</div>
             )
           ) : tab === 'log' ? (
             <>
