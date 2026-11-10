@@ -10,13 +10,14 @@ import {
   type Node,
   type NodeChange,
 } from '@xyflow/react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Board, NoteNode, TurnNode } from '../shared/types.ts';
 import { composerFocus } from './Composer.tsx';
+import { ContextMenu, type MenuItem } from './ContextMenu.tsx';
 import { Icon } from './icons.tsx';
 import { CARD_W, heights } from './layout.ts';
 import { NOTE_COLORS, NoteCard, TurnCard, branchColor } from './nodes.tsx';
-import { send, useStore } from './store.ts';
+import { request, send, toast, useStore } from './store.ts';
 import { isLive, isTurn } from './tree.ts';
 import { useIsMobile } from './ui.tsx';
 import { useResolvedTheme } from './theme.ts';
@@ -46,7 +47,7 @@ export function Canvas({
   const items = useMemo(() => Object.values(store.nodes).filter((n) => n.boardId === board.id), [store.nodes, board.id]);
 
   const onReply = useCallback(
-    (id: string) => {
+    (id: string | null) => {
       setTargetId(id);
       setTimeout(() => composerFocus.current?.focus(), 0);
     },
@@ -193,6 +194,147 @@ export function Canvas({
     send({ type: 'deleteNodes', ids: sel });
   };
 
+  // ---- context menu: right-click, or long-press on touch ----
+  const [menu, setMenu] = useState<{ x: number; y: number; id: string | null } | null>(null);
+  const swallowClick = useRef(false);
+  const press = useRef<{ t: ReturnType<typeof setTimeout>; x: number; y: number } | null>(null);
+  /** Places that keep the browser's own menu: buttons, links, and text you are typing in. */
+  const ownMenu = (t: EventTarget | null) => {
+    const el = t as HTMLElement;
+    if (el.closest('button, a, input, .perm, .canvas-tools, .ctx')) return true;
+    // In a note's text, keep the browser menu only when text is selected (copy, look up, ...).
+    const ta = el.closest('textarea');
+    return !!ta && ta.selectionStart !== ta.selectionEnd;
+  };
+  const openMenuAt = (x: number, y: number, target: EventTarget | null) => {
+    const el = (target as HTMLElement | null)?.closest?.('.react-flow__node') as HTMLElement | null;
+    setMenu({ x, y, id: el?.dataset.id ?? null });
+  };
+  const onPointerDown = (e: React.PointerEvent) => {
+    swallowClick.current = false;
+    if (e.pointerType !== 'touch' || ownMenu(e.target)) return;
+    const { clientX: x, clientY: y, target } = e;
+    clearTimeout(press.current?.t);
+    press.current = {
+      x,
+      y,
+      t: setTimeout(() => {
+        press.current = null;
+        swallowClick.current = true;
+        navigator.vibrate?.(8);
+        openMenuAt(x, y, target);
+      }, 480),
+    };
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    const p = press.current;
+    if (p && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 8) {
+      clearTimeout(p.t);
+      press.current = null;
+    }
+  };
+  const endPress = () => {
+    clearTimeout(press.current?.t);
+    press.current = null;
+  };
+
+  const copy = (text: string, what: string) =>
+    navigator.clipboard?.writeText(text).then(
+      () => toast(`${what} copied`),
+      () => toast('Could not copy', 'error'),
+    );
+
+  /** Every step that grew from this one, itself included. */
+  const subtree = (id: string) => {
+    const out = [id];
+    for (let i = 0; i < out.length; i++) for (const n of items) if (isTurn(n) && n.parentId === out[i]) out.push(n.id);
+    return out;
+  };
+
+  const menuItems = (id: string | null): MenuItem[] => {
+    const flowPos = menu ? rf.screenToFlowPosition({ x: menu.x - 110, y: menu.y - 24 }) : centerPos();
+    const selected = rfNodes.filter((n) => n.selected).map((n) => n.id);
+    if (id && selected.length > 1 && selected.includes(id)) {
+      const turns = selected.filter((s) => isTurn(store.nodes[s]));
+      return [
+        { label: 'Tidy up', icon: 'grid', onClick: tidy },
+        'sep',
+        {
+          label: `Delete ${selected.length} selected`,
+          icon: 'trash',
+          danger: true,
+          confirm: turns.length ? 'Click again: branches go too' : undefined,
+          onClick: () => send({ type: 'deleteNodes', ids: selected }),
+        },
+      ];
+    }
+    const node = id ? store.nodes[id] : null;
+    if (!node) {
+      return [
+        { label: 'New note here', icon: 'note', hint: 'N', onClick: () => addNote(flowPos) },
+        { label: 'New thread', icon: 'plus', onClick: () => onReply(null) },
+        'sep',
+        { label: 'Tidy up', icon: 'grid', onClick: tidy },
+        { label: 'Fit everything', icon: 'canvas', onClick: () => rf.fitView({ padding: 0.15, duration: 400, maxZoom: 1 }) },
+      ];
+    }
+    if (!isTurn(node)) {
+      return [
+        { swatches: NOTE_COLORS, current: node.color, onPick: (c) => send({ type: 'upsertNote', note: { ...node, color: c } }) },
+        'sep',
+        {
+          label: 'Duplicate',
+          icon: 'copy',
+          onClick: () => send({ type: 'upsertNote', note: { ...node, id: uid(), position: { x: node.position.x + 32, y: node.position.y + 32 }, createdAt: Date.now() } }),
+        },
+        { label: 'Copy text', icon: 'file', disabled: !node.text.trim(), onClick: () => copy(node.text, 'Note') },
+        'sep',
+        { label: 'Delete note', icon: 'trash', danger: true, onClick: () => send({ type: 'deleteNodes', ids: [node.id] }) },
+      ];
+    }
+    const live = isLive(node);
+    const isHead = store.branches[node.branchId]?.headNodeId === node.id;
+    const gone = subtree(node.id).length;
+    const out: MenuItem[] = [];
+    if (live) out.push({ label: 'Stop', icon: 'stop', onClick: () => send({ type: 'stop', nodeId: node.id }) });
+    else if (node.sessionId) out.push({ label: isHead ? 'Reply' : 'Branch from here', icon: isHead ? 'chat' : 'branch', hint: 'R', onClick: () => onReply(node.id) });
+    out.push(
+      { label: 'Open details', icon: 'external', onClick: () => openDetails(node.id) },
+      { label: 'Center', icon: 'canvas', onClick: () => centerOn(node.id) },
+      'sep',
+      {
+        label: 'Explain this step',
+        icon: 'spark',
+        disabled: live,
+        onClick: () => request({ type: 'explain', nodeId: node.id }).catch((e: Error) => toast(e.message, 'error')),
+      },
+      { label: 'Copy prompt', icon: 'copy', onClick: () => copy(node.prompt, 'Prompt') },
+      {
+        label: 'Open in editor',
+        icon: 'code',
+        onClick: () =>
+          request<string>({ type: 'openEditor', nodeId: node.id }).then(
+            (app) => toast(`Opened in ${app}`),
+            (e: Error) => toast(e.message, 'error'),
+          ),
+      },
+      'sep',
+      {
+        label: gone > 1 ? `Delete with ${gone - 1} after it` : 'Delete step',
+        icon: 'trash',
+        danger: true,
+        disabled: live,
+        confirm: gone > 1 ? `Click again to delete ${gone} steps` : 'Click again to delete',
+        onClick: () => send({ type: 'deleteNodes', ids: [node.id] }),
+      },
+    );
+    return out;
+  };
+
+  useEffect(() => {
+    if (!active) setMenu(null);
+  }, [active]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!active) return;
@@ -208,7 +350,26 @@ export function Canvas({
   });
 
   return (
-    <div className="canvas">
+    <div
+      className="canvas"
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endPress}
+      onPointerCancel={endPress}
+      onClickCapture={(e) => {
+        if (swallowClick.current) {
+          swallowClick.current = false;
+          e.stopPropagation();
+        }
+      }}
+      onContextMenu={(e) => {
+        // Right-click on a card or the canvas. Typing areas keep the browser's own menu.
+        if (ownMenu(e.target)) return;
+        e.preventDefault();
+        if (press.current || swallowClick.current) return; // a long-press already opened ours
+        openMenuAt(e.clientX, e.clientY, e.target);
+      }}
+    >
       <ReactFlow
         nodes={rfNodes}
         edges={edges}
@@ -266,6 +427,8 @@ export function Canvas({
           </div>
         </div>
       )}
+
+      {menu && <ContextMenu key={`${menu.x},${menu.y}`} x={menu.x} y={menu.y} items={menuItems(menu.id)} onClose={() => setMenu(null)} />}
 
       <div className="canvas-tools">
         <button className="fab" onClick={() => addNote()} title="New note (N)" aria-label="New note">
