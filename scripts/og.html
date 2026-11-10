@@ -1,0 +1,75 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root { --paper:#f3efe6; --paper-2:#ebe5d8; --ink:#16140f; --ink-2:#4a463d; --ink-3:#8a8476; --rule:rgba(22,20,15,.14); --accent:#d4451b;
+    --serif:'Instrument Serif',Georgia,serif; --sans:Inter,sans-serif; --mono:'JetBrains Mono',monospace; }
+  * { box-sizing:border-box; margin:0; }
+  body { width:1200px; height:630px; background:var(--paper); color:var(--ink); font-family:var(--sans); overflow:hidden; position:relative; }
+  .left { position:absolute; left:72px; top:64px; bottom:60px; width:560px; display:flex; flex-direction:column; }
+  .mark { display:flex; align-items:center; gap:12px; font-weight:600; font-size:24px; letter-spacing:-.01em; }
+  .mark img { width:40px; height:40px; }
+  h1 { font-family:var(--serif); font-weight:400; font-size:94px; line-height:.95; letter-spacing:-.02em; margin-top:58px; }
+  h1 em { color:var(--accent); }
+  .sub { margin-top:28px; font-size:25px; line-height:1.4; color:var(--ink-2); max-width:500px; }
+  .foot { margin-top:auto; font-family:var(--mono); font-size:16px; color:var(--ink-3); letter-spacing:.02em; }
+  .foot b { color:var(--ink); font-weight:500; }
+
+  .stage { position:absolute; right:48px; top:48px; bottom:48px; width:500px; border-radius:22px; background:var(--paper-2);
+    background-image:radial-gradient(rgba(22,20,15,.16) 1.2px, transparent 1.3px); background-size:22px 22px; border:1px solid var(--rule); overflow:hidden; }
+  svg.wires { position:absolute; inset:0; }
+  .card { position:absolute; width:226px; background:#fffdf8; border:1px solid var(--rule); border-radius:14px; padding:14px 16px 15px;
+    box-shadow:0 18px 40px -22px rgba(40,30,10,.45), 0 2px 5px rgba(40,30,10,.06); overflow:hidden; }
+  .card.live::before { content:''; position:absolute; inset:0 0 auto 0; height:3px; background:var(--accent); }
+  .st { display:flex; align-items:center; gap:7px; font-size:13px; font-weight:500; color:var(--ink-3); }
+  .dot { width:8px; height:8px; border-radius:50%; background:#3a9a5b; }
+  .live .dot { background:var(--accent); box-shadow:0 0 0 4px rgba(212,69,27,.15); }
+  .t { margin-top:7px; font-size:17px; font-weight:600; line-height:1.3; letter-spacing:-.01em; }
+  .chip { margin-top:10px; display:inline-flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink-2); background:var(--paper); border:1px solid var(--rule); border-radius:8px; padding:5px 9px; }
+  .chip i { width:7px; height:7px; border-radius:50%; background:var(--accent); }
+  .file { font-family:var(--mono); font-size:12px; color:var(--ink-3); margin-top:9px; }
+  .file .add { color:#2f8a4f; }
+  .fork { position:absolute; font-family:var(--mono); font-size:12px; color:var(--accent); background:var(--paper-2); padding:2px 7px; border-radius:6px; }
+  .concept { position:absolute; left:20px; right:20px; bottom:20px; background:#0d0e12; color:#e9e6de; border-radius:14px; padding:14px 18px 16px; box-shadow:0 18px 40px -22px rgba(40,30,10,.6); }
+  .c-head { display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:#a9a49a; }
+  .c-head i { width:7px; height:7px; border-radius:50%; background:var(--accent); }
+  .c-t { margin-top:6px; font-family:var(--serif); font-size:27px; line-height:1.1; }
+  .c-code { margin-top:9px; font-family:var(--mono); font-size:13.5px; color:#d8dae3; font-variant-ligatures:none; }
+  .c-code .k { color:#c4a7ff; } .c-code .f { color:#8fb8ff; }
+</style></head>
+<body>
+  <div class="left">
+    <div class="mark"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9IjAiIHkxPSIwIiB4Mj0iMSIgeTI9IjEiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiM5YWE4ZmYiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjNmE1Y2ZmIi8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogIDwvZGVmcz4KICA8cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjExNCIgZmlsbD0idXJsKCNnKSIvPgogIDxnIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIzNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj4KICAgIDxwYXRoIGQ9Ik0xNzYgMTI4djI1NiIvPgogICAgPHBhdGggZD0iTTMzNiAyMDhjMCA5Ni04MCAxMTItMTYwIDExMiIvPgogIDwvZz4KICA8ZyBmaWxsPSIjZmZmIj4KICAgIDxjaXJjbGUgY3g9IjMzNiIgY3k9IjE2OCIgcj0iNDgiLz4KICAgIDxjaXJjbGUgY3g9IjE3NiIgY3k9IjM5MiIgcj0iNDgiLz4KICAgIDxjaXJjbGUgY3g9IjE3NiIgY3k9IjEyMCIgcj0iNDgiLz4KICA8L2c+Cjwvc3ZnPgo=">Forkspace</div>
+    <h1>The editor for the<br><em>age of agents.</em></h1>
+    <p class="sub">Direct many agents. Branch from any step. Learn the concepts behind the code.</p>
+    <div class="foot"><b>Open source</b> · runs on your machine</div>
+  </div>
+
+  <div class="stage">
+    <svg class="wires" viewBox="0 0 500 534">
+      <path d="M250 150 C250 200 133 196 133 240" fill="none" stroke="#6a5cff" stroke-width="2" stroke-opacity=".55"/>
+      <path d="M250 150 C250 200 367 196 367 240" fill="none" stroke="#d4451b" stroke-width="2" stroke-dasharray="6 6" stroke-opacity=".8"/>
+    </svg>
+    <div class="card" style="left:137px; top:28px">
+      <div class="st"><span class="dot"></span>Done</div>
+      <div class="t">Add a power function to the calculator</div>
+      <div class="file">math.ts <span class="add">+12</span></div>
+    </div>
+    <span class="fork" style="left:322px; top:182px">fork</span>
+    <div class="card" style="left:20px; top:240px">
+      <div class="st"><span class="dot"></span>Done</div>
+      <div class="t">Make repeated calls instant</div>
+      <div class="chip"><i></i>Memoization</div>
+    </div>
+    <div class="card live" style="left:254px; top:240px">
+      <div class="st"><span class="dot"></span>Working</div>
+      <div class="t">Try a lookup table instead</div>
+      <div class="chip"><i></i>Trade-offs in caching</div>
+    </div>
+    <div class="concept">
+      <div class="c-head"><i></i>Concept</div>
+      <div class="c-t">Memoization: remembering past answers</div>
+      <div class="c-code"><span class="k">const</span> cached = powerCache.<span class="f">get</span>(key);</div>
+    </div>
+  </div>
+</body></html>
