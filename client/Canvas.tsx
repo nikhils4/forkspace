@@ -59,7 +59,9 @@ export function Canvas({
       const old = new Map(prev.map((n) => [n.id, n]));
       return items.map((n) => {
         const o = old.get(n.id);
-        const base = { id: n.id, type: n.kind, position: o?.dragging ? o.position : n.position, selected: o?.selected, measured: o?.measured };
+        // A card without a usable position goes to the origin instead of breaking the canvas.
+        const pos = n.position && Number.isFinite(n.position.x) && Number.isFinite(n.position.y) ? n.position : { x: 0, y: 0 };
+        const base = { id: n.id, type: n.kind, position: o?.dragging ? o.position : pos, selected: o?.selected, measured: o?.measured };
         if (n.kind === 'note') {
           const w = n.width ?? 220;
           const h = n.height ?? 160;
@@ -105,7 +107,9 @@ export function Canvas({
   }, [items, board.links, store.nodes]);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
-    for (const c of changes) if (c.type === 'dimensions' && c.dimensions) heights.set(c.id, c.dimensions.height);
+    // Only remember full-size heights: zoomed far out, cards are drawn as short title cards.
+    const full = rf.getZoom() >= 0.55;
+    for (const c of changes) if (full && c.type === 'dimensions' && c.dimensions) heights.set(c.id, c.dimensions.height);
     setRfNodes((nds) => applyNodeChanges(changes.filter((c) => c.type !== 'remove'), nds));
   }, []);
 
@@ -128,7 +132,7 @@ export function Canvas({
     for (const list of kids.values()) list.sort((a, b) => a.createdAt - b.createdAt);
     const GAP_X = 56;
     const GAP_Y = 64;
-    const h = (id: string) => heights.get(id) ?? 300;
+    const h = (id: string) => Math.max(heights.get(id) ?? 300, 160);
     const width = new Map<string, number>();
     const measure = (t: TurnNode): number => {
       const ch = kids.get(t.id) ?? [];

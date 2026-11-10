@@ -4549,3 +4549,16 @@ kbd {
     grid-template-columns: 270px minmax(0, 1fr);
   }
 }
+.crash {
+  text-align: left;
+  font: 12px/1.5 var(--mono);
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  border-radius: 10px;
+  padding: 10px 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 160px;
+  overflow: auto;
+  margin: 0;
+}

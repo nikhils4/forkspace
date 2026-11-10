@@ -148,6 +148,9 @@ wss.on('connection', (ws) => {
   });
 });
 
+/** Positions come from clients; never let a bad one into the saved state. */
+const goodPos = (p: any): p is { x: number; y: number } => !!p && Number.isFinite(p.x) && Number.isFinite(p.y);
+
 const expand = (p: string) => path.resolve(p.replace(/^~(?=$|\/)/, os.homedir()));
 
 async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
@@ -198,7 +201,7 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
     case 'send': {
       const prompt = msg.prompt.trim();
       if (!prompt) throw new Error('Empty prompt');
-      const node = await startTurn(msg.boardId, msg.parentId, prompt, msg.position);
+      const node = await startTurn(msg.boardId, msg.parentId, prompt, goodPos(msg.position) ? msg.position : { x: 0, y: 0 });
       return { id: node.id };
     }
     case 'stop':
@@ -208,6 +211,7 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       answer(msg.nodeId, msg.requestId, msg.decision, msg.answers, msg.message);
       return;
     case 'upsertNote': {
+      if (!goodPos(msg.note?.position)) throw new Error('That note has no valid position.');
       const i = state.nodes.findIndex((n) => n.id === msg.note.id);
       if (i >= 0) state.nodes[i] = msg.note;
       else state.nodes.push(msg.note);
@@ -218,7 +222,7 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
     case 'move':
       for (const m of msg.moves) {
         const n = getNode(m.id);
-        if (!n) continue;
+        if (!n || !goodPos(m.position)) continue;
         n.position = m.position;
         if (n.kind === 'note' && m.width) {
           n.width = m.width;
