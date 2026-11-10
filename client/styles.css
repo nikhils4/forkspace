@@ -6201,3 +6201,23 @@ kbd {
     opacity: 0.85;
   }
 }
+
+/* ---------- calmer top bar ---------- */
+.board-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.board-title.open {
+  background: var(--surface-2);
+}
+.top-icons {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 6px;
+}
+.top-icons .icon-btn.on {
+  background: var(--surface-2);
+  color: var(--text);
+}

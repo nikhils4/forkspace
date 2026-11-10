@@ -5,10 +5,10 @@ import { BoardSettings, MODES, NewBoard } from './BoardForms.tsx';
 import { Canvas } from './Canvas.tsx';
 import { Chat } from './Chat.tsx';
 import { AwayLink, AwayScreen, goAway } from './Away.tsx';
+import { ContextMenu, type MenuItem } from './ContextMenu.tsx';
 // The terminal (xterm) loads only when you open it.
 const TerminalPanel = lazy(() => import('./Terminal.tsx').then((m) => ({ default: m.TerminalPanel })));
 import { bugReportUrl, ideaUrl } from './feedback.ts';
-import { ContextMenu, type MenuItem } from './ContextMenu.tsx';
 import { CodeView, fileCache } from './CodeView.tsx';
 import { Composer, composerFocus } from './Composer.tsx';
 import { Drawer } from './Drawer.tsx';
@@ -553,36 +553,23 @@ function Shell() {
         )}
         {board && page === 'board' && (
           <header className="topbar">
-            <button className="board-title" onClick={() => setSheet('board')} title="Board settings">
-              {board.name}
-              <Icon name="chevronDown" size={14} />
-            </button>
-            <span className="path mono" title={board.cwd}>
-              {store.home ? board.cwd.replace(store.home, '~') : board.cwd}
-            </span>
-            <button className={`pill mode ${board.permissionMode === 'bypassPermissions' ? 'danger' : ''}`} onClick={() => setSheet('board')} title="Permissions">
-              <Icon name="shield" size={12} />
-              {MODES.find((m) => m.value === board.permissionMode)?.label}
-            </button>
-            <button
-              className={`pill learn-pill ${learnOn ? 'on' : ''}`}
-              onClick={() => send({ type: 'updateBoard', id: board.id, patch: { learn: { on: !learnOn, level: board.learn?.level ?? 'growing' } } })}
-              title={learnOn ? 'Learning concepts as agents work' : 'Learn concepts as agents work'}
-            >
-              <span className="mentor-orb small" />
-              Learn {learnOn ? 'on' : 'off'}
-            </button>
+            <BoardMenu board={board} home={store.home} learnOn={learnOn} onSettings={() => setSheet('board')} />
+            {board.permissionMode === 'bypassPermissions' && (
+              <button className="pill mode danger" onClick={() => setSheet('board')} title="Agents never ask before acting. Click to change">
+                <Icon name="shield" size={12} />
+                Full access
+              </button>
+            )}
             <span className="spacer" />
-            <button className={`pill term-pill ${termOpen ? 'on' : ''}`} onClick={() => setTermOpen(!termOpen)} title="Terminal (Ctrl+`)">
-              <Icon name="terminal" size={13} />
-              <span className="seg-label">Terminal</span>
-            </button>
-            <button className="kbar-btn" onClick={() => setPalette(true)} title="Search (⌘K)">
-              <Icon name="spark" size={14} />
-              <span className="seg-label">Search</span>
-              <kbd>⌘K</kbd>
-            </button>
             {viewSwitch}
+            <div className="top-icons">
+              <button className={`icon-btn ${termOpen ? 'on' : ''}`} onClick={() => setTermOpen(!termOpen)} title="Terminal (Ctrl+`)" aria-label="Terminal" aria-pressed={termOpen}>
+                <Icon name="terminal" size={17} />
+              </button>
+              <button className="icon-btn" onClick={() => setPalette(true)} title="Search everything (⌘K)" aria-label="Search">
+                <Icon name="search" size={17} />
+              </button>
+            </div>
           </header>
         )}
         {/* Kept mounted behind the Concepts page so the canvas keeps its place. */}
@@ -759,6 +746,43 @@ function ConnectionBanner() {
     <div className="conn-banner">
       <span className="spinner" /> {updating ? 'Updating Forkspace. Back in a moment…' : 'Reconnecting to your Mac…'}
     </div>
+  );
+}
+
+/** The board name, and everything about the board one click away instead of always on screen. */
+function BoardMenu({ board, home, learnOn, onSettings }: { board: Board; home: string; learnOn: boolean; onSettings: () => void }) {
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const mode = MODES.find((m) => m.value === board.permissionMode)?.label ?? board.permissionMode;
+  const path = home ? board.cwd.replace(home, '~') : board.cwd;
+  const items: MenuItem[] = [
+    { label: path, icon: 'folder', hint: 'Copy', onClick: () => navigator.clipboard?.writeText(board.cwd).then(() => toast('Folder path copied')) },
+    'sep',
+    { label: `Permissions: ${mode}`, icon: 'shield', onClick: onSettings },
+    {
+      label: learnOn ? 'Learn concepts: on' : 'Learn concepts: off',
+      icon: 'spark',
+      hint: learnOn ? 'Turn off' : 'Turn on',
+      onClick: () => send({ type: 'updateBoard', id: board.id, patch: { learn: { on: !learnOn, level: board.learn?.level ?? 'growing' } } }),
+    },
+    'sep',
+    { label: 'Board settings', icon: 'settings', onClick: onSettings },
+  ];
+  return (
+    <>
+      <button
+        className={`board-title ${menu ? 'open' : ''}`}
+        title={path}
+        onClick={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          setMenu({ x: r.left, y: r.bottom + 6 });
+        }}
+      >
+        {board.name}
+        {learnOn && <span className="mentor-orb small" title="Learning concepts" />}
+        <Icon name="chevronDown" size={14} />
+      </button>
+      {menu && <ContextMenu x={menu.x} y={menu.y} items={items} onClose={() => setMenu(null)} />}
+    </>
   );
 }
 
