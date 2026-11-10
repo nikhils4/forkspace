@@ -3,6 +3,12 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.11.2
+
+- Floating panels: the sidebar, the step details and the terminal float as rounded panels instead of being stuck to the window edge
+- Hide the sidebar for more room (⌘\ or the button next to the logo); a button at the top left brings it back
+- The "Add this image?" card on notes has neatly stacked buttons and a close button in the corner
+
 ## 0.11.1
 
 - Images in notes: paste or drop an image on a note and choose Add image, or Turn into text to type out what's written in it (lists and checkboxes included)

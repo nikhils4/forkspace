@@ -177,6 +177,8 @@ Anything waiting on you glows amber, shows under **Agents** in the sidebar, and 
 | `1` `2` `3` | Chat, Canvas, Code |
 | `Esc` | Start a new thread instead of replying |
 | `n` | New note |
+| `⌘\` | Hide or show the sidebar |
+| `Ctrl+`` ` | Terminal |
 | `Backspace` | Delete selected steps (and their branches) or notes |
 | Double-click a step | Open details |
 | Right-click (long-press on a phone) | Menu for a step, note or empty canvas: reply, branch, explain, copy, recolour, delete |

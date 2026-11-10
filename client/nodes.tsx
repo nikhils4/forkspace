@@ -766,6 +766,9 @@ export const NoteCard = memo(function NoteCard({ data, selected }: NodeProps & {
             </div>
           ) : (
             <>
+              <button className="note-ask-x" onClick={dismiss} aria-label="Cancel" title="Cancel">
+                <Icon name="x" size={11} />
+              </button>
               <span className="note-ask-q">Add this image?</span>
               <div className="note-ask-row">
                 <button onClick={asImage}>
@@ -773,9 +776,6 @@ export const NoteCard = memo(function NoteCard({ data, selected }: NodeProps & {
                 </button>
                 <button onClick={asText}>
                   <Icon name="spark" size={12} /> Turn into text
-                </button>
-                <button className="ghost" onClick={dismiss} aria-label="Cancel">
-                  <Icon name="x" size={12} />
                 </button>
               </div>
             </>

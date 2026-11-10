@@ -77,6 +77,22 @@ function Shell() {
   // Desktop: the main area shows a board, or the Concepts page.
   const [page, setPage] = useState<'board' | 'concepts'>('board');
   const [termOpen, setTermOpen] = useState(false);
+  // Desktop: the sidebar can be hidden to give the canvas the whole window.
+  const [sideOpen, setSideOpen] = useState(() => {
+    try {
+      return localStorage.getItem('forkspace:side') !== 'closed';
+    } catch {
+      return true;
+    }
+  });
+  const toggleSide = useCallback(() => {
+    setSideOpen((v) => {
+      try {
+        localStorage.setItem('forkspace:side', v ? 'closed' : 'open');
+      } catch {}
+      return !v;
+    });
+  }, []);
   const [tab, setTab] = useState<Tab>('board');
   const [palette, setPalette] = useState(false);
   const [codeOpen, setCodeOpen] = useState<{ path: string; n: number } | null>(null);
@@ -165,6 +181,11 @@ function Shell() {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'p' && board) {
         e.preventDefault();
         setPalette(true);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
+        e.preventDefault();
+        toggleSide();
         return;
       }
       if (e.ctrlKey && e.key === '`') {
@@ -468,8 +489,8 @@ function Shell() {
 
   // ---------------- desktop ----------------
   return (
-    <div className={`app ${openNode ? 'drawer-open' : ''}`}>
-      <aside className="sidebar">
+    <div className={`app ${openNode ? 'drawer-open' : ''} ${sideOpen ? '' : 'side-closed'}`}>
+      <aside className="sidebar" aria-hidden={!sideOpen}>
         <div className="brand">
           <div className="app-mark">
             <Icon name="branch" size={15} strokeWidth={2.25} />
@@ -477,6 +498,9 @@ function Shell() {
           <span>Forkspace</span>
           <ConnDot />
           <ThemeToggle />
+          <button className="icon-btn sm side-hide" onClick={toggleSide} title="Hide sidebar (⌘\)" aria-label="Hide sidebar">
+            <Icon name="sidebar" size={15} />
+          </button>
         </div>
 
         <div className="side-scroll">
@@ -555,6 +579,11 @@ function Shell() {
         )}
         {board && page === 'board' && (
           <header className="topbar">
+            {!sideOpen && (
+              <button className="icon-btn side-show" onClick={toggleSide} title="Show sidebar (⌘\)" aria-label="Show sidebar">
+                <Icon name="sidebar" size={17} />
+              </button>
+            )}
             <BoardMenu board={board} home={store.home} learnOn={learnOn} onSettings={() => setSheet('board')} />
             {board.permissionMode === 'bypassPermissions' && (
               <button className="pill mode danger" onClick={() => setSheet('board')} title="Agents never ask before acting. Click to change">

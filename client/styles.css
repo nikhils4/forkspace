@@ -6711,3 +6711,93 @@ input.thread-title.editing {
   gap: 7px;
   font-size: 12.5px;
 }
+
+/* ---------- the image question on notes: stacked choices, × in the corner ---------- */
+.note-ask-row {
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  max-width: 168px;
+  gap: 6px;
+}
+.note-ask-row button {
+  justify-content: center;
+  width: 100%;
+  height: 28px;
+}
+.note-ask-x {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.08);
+  color: #23201a;
+  cursor: pointer;
+}
+.note-ask-x:hover {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+/* ---------- floating panels (desktop) ---------- */
+@media (min-width: 768px) {
+  .app {
+    padding: 8px;
+    gap: 8px;
+    background: var(--bg);
+  }
+  .sidebar {
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    transition:
+      margin 0.35s var(--ease),
+      opacity 0.25s;
+  }
+  .app.side-closed .sidebar {
+    margin-left: -272px;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .app.side-closed {
+    gap: 0;
+  }
+  .side-hide {
+    margin-left: -4px;
+    opacity: 0.6;
+  }
+  .side-hide:hover {
+    opacity: 1;
+  }
+  /* the step details float over the view at every size */
+  .drawer {
+    position: fixed;
+    top: 66px;
+    right: 14px;
+    bottom: 14px;
+    z-index: 35;
+    width: min(500px, calc(100vw - 300px));
+    min-width: 0;
+    border: 1px solid var(--border-2);
+    border-radius: 18px;
+    box-shadow:
+      0 30px 80px -20px rgba(0, 0, 0, 0.45),
+      0 0 0 1px var(--border);
+    overflow: hidden;
+  }
+  .term-panel {
+    margin: 0 0 0 0;
+    border: 1px solid var(--border-2);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .term-grip {
+    top: 0;
+  }
+}
