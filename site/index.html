@@ -3,12 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Forkspace · The editor for the age of agents</title>
-    <meta name="description" content="Forkspace is an open source editor built for coding with AI agents. Direct many agents at once, branch from any step, watch every change land, and learn the concepts behind the code." />
+    <title>Forkspace: open source editor for Claude Code agents</title>
+    <meta name="description" content="Run many Claude Code agents on one canvas. Branch from any step, review live diffs, approve from your phone, and learn the concepts behind the code. Free and open source." />
     <meta name="author" content="nikhils4" />
     <meta property="og:site_name" content="Forkspace" />
-    <meta property="og:title" content="Forkspace · The editor for the age of agents" />
-    <meta property="og:description" content="Direct many agents. Branch from any step. Learn the concepts behind the code. Open source, on your machine." />
+    <meta property="og:title" content="Forkspace: the editor for the age of agents" />
+    <meta property="og:description" content="An open source editor for Claude Code. Direct many agents, branch from any step, learn the concepts behind the code." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://forkspace-app.netlify.app/" />
     <meta property="og:image" content="https://forkspace-app.netlify.app/assets/og.png?v=2" />
@@ -18,10 +18,12 @@
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="Forkspace: the editor for the age of agents. A canvas of agent steps branching, with a concept explained below." />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Forkspace · The editor for the age of agents" />
+    <meta name="twitter:title" content="Forkspace: the editor for the age of agents" />
     <meta name="twitter:description" content="Direct many agents. Branch from any step. Learn the concepts behind the code." />
     <meta name="twitter:image" content="https://forkspace-app.netlify.app/assets/og.png?v=2" />
     <meta name="twitter:image:alt" content="Forkspace: the editor for the age of agents." />
+    <link rel="manifest" href="/site.webmanifest" />
+    <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "SoftwareApplication", "@id": "https://forkspace-app.netlify.app/#app", "name": "Forkspace", "description": "Run many Claude Code agents on one canvas. Branch from any step, review live diffs, approve from your phone, and learn the concepts behind the code. Free and open source.", "url": "https://forkspace-app.netlify.app/", "applicationCategory": "DeveloperApplication", "applicationSubCategory": "AI coding agent editor", "operatingSystem": "macOS, Linux, Windows", "softwareRequirements": "Node.js 20+, git, Anthropic API key", "license": "https://opensource.org/licenses/MIT", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "image": "https://forkspace-app.netlify.app/assets/og.png", "screenshot": ["https://forkspace-app.netlify.app/assets/canvas.webp", "https://forkspace-app.netlify.app/assets/code-learn.webp", "https://forkspace-app.netlify.app/assets/chat-learn.webp"], "featureList": ["Run many Claude Code agents side by side on a canvas", "Branch any conversation from any step; the code branches too with git worktrees", "Live diffs and a file tree per branch", "Approve agent actions from your phone", "Concepts explained in plain words while agents work", "Import existing Claude Code sessions"], "codeRepository": "https://github.com/nikhils4/forkspace", "author": {"@id": "https://github.com/nikhils4#person"}}, {"@type": "Person", "@id": "https://github.com/nikhils4#person", "name": "nikhils4", "url": "https://github.com/nikhils4"}, {"@type": "WebSite", "@id": "https://forkspace-app.netlify.app/#site", "name": "Forkspace", "url": "https://forkspace-app.netlify.app/", "publisher": {"@id": "https://github.com/nikhils4#person"}}]}</script>
     <link rel="canonical" href="https://forkspace-app.netlify.app/" />
     <link rel="icon" type="image/svg+xml" href="/assets/icon.svg" />
     <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
@@ -854,6 +856,50 @@
         }
       }
 
+      /* ---------- questions ---------- */
+      .faq {
+        margin-top: 40px;
+        border-top: 1px solid var(--rule-2);
+        max-width: 880px;
+      }
+      .qa {
+        border-bottom: 1px solid var(--rule);
+      }
+      .qa summary {
+        list-style: none;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        padding: 22px 0;
+        font-family: var(--serif);
+        font-size: clamp(24px, 2.4vw, 32px);
+        line-height: 1.15;
+      }
+      .qa summary::-webkit-details-marker {
+        display: none;
+      }
+      .qa summary::after {
+        content: '+';
+        display: inline-block;
+        width: 1em;
+        text-align: center;
+        font-family: var(--sans);
+        font-weight: 300;
+        color: var(--ink-3);
+        transition: transform 0.3s var(--ease);
+      }
+      .qa[open] summary::after {
+        transform: rotate(45deg);
+      }
+      .qa p {
+        margin: -4px 0 24px;
+        max-width: 680px;
+        font-size: 18px;
+        line-height: 1.6;
+        color: var(--ink-2);
+      }
+
       /* ---------- end ---------- */
       .final {
         padding: 180px 0 120px;
@@ -1048,7 +1094,7 @@
   <body>
     <nav id="nav">
       <div class="wrap nav-in">
-        <a class="wordmark" href="/"><img src="/assets/icon.svg" alt="" />Forkspace</a>
+        <a class="wordmark" href="/"><img src="/assets/icon.svg" alt="" width="28" height="28" />Forkspace</a>
         <span class="spacer"></span>
         <a class="nav-link hide-sm" href="#how">How it works</a>
         <a class="nav-link hide-sm" href="#concepts">Concepts</a>
@@ -1065,7 +1111,7 @@
             <em><span class="word" style="--i: 4">age</span> <span class="word" style="--i: 5">of</span> <span class="word" style="--i: 6">agents.</span></em>
           </h1>
           <div class="hero-side fade" style="--d: 0.7s">
-            <p>Direct agents. Watch every change. Learn the concepts behind the code.</p>
+            <p>An open source editor for Claude Code. Direct agents. Watch every change. Learn the concepts behind the code.</p>
             <div class="hero-actions">
               <a class="btn" href="#install">Get it free</a>
               <a class="arrow-link" href="https://github.com/nikhils4/forkspace">Read the source →</a>
@@ -1075,9 +1121,7 @@
         <figure class="figure fade" style="--d: 0.9s">
           <div class="grow" id="grow">
             <div class="shot">
-              <picture>
-                <source srcset="/assets/code-learn.webp" type="image/webp" />
-                <img src="/assets/og.png" width="2880" height="1800" alt="Forkspace Code view: a live diff of math.ts, with a note on the right explaining memoization" fetchpriority="high" />
+              <picture><img src="/assets/code-learn.webp" width="2880" height="1800" alt="Forkspace Code view: a live diff of math.ts, with a note on the right explaining memoization" fetchpriority="high" />
               </picture>
             </div>
           </div>
@@ -1118,19 +1162,19 @@
             <div class="label">Direct</div>
             <h2>Many agents. <em>One map.</em></h2>
             <p>Branch from any step. The code branches too.</p>
-            <div class="step-inline shot"><img src="/assets/canvas.webp" width="2880" height="1800" alt="Canvas with a branching tree of steps" loading="lazy" /></div>
+            <div class="step-inline shot"><img src="/assets/canvas.webp" width="2880" height="1800" alt="Forkspace canvas: Claude Code agent steps branching into a tree" loading="lazy" /></div>
           </div>
           <div class="step">
             <div class="label">Review</div>
             <h2>Watch the code <em>change.</em></h2>
             <p>Every edit, live, the moment it lands.</p>
-            <div class="step-inline shot"><img src="/assets/code-learn.webp" width="2880" height="1800" alt="Code view with a live diff" loading="lazy" /></div>
+            <div class="step-inline shot"><img src="/assets/code-learn.webp" width="2880" height="1800" alt="Forkspace code view: file tree and a live diff of the agent's changes" loading="lazy" /></div>
           </div>
           <div class="step">
             <div class="label">Learn</div>
             <h2>Get better <em>while you ship.</em></h2>
             <p>The concept behind every change, in plain words.</p>
-            <div class="step-inline shot"><img src="/assets/chat-learn.webp" width="2880" height="1800" alt="Chat view with a concept and its code" loading="lazy" /></div>
+            <div class="step-inline shot"><img src="/assets/chat-learn.webp" width="2880" height="1800" alt="Forkspace chat view: a conversation with a concept explained beside the code" loading="lazy" /></div>
           </div>
         </div>
         <div class="story-device">
@@ -1207,8 +1251,8 @@
         </div>
         <div class="phone-sec">
           <div class="phones" id="phones" aria-hidden="true">
-            <div class="phone a"><div class="bezel"><div class="screen"><div class="status"><span>9:41</span><i class="island"></i><span class="sys"><svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" /><rect x="5" y="5.5" width="3" height="6.5" rx="1" /><rect x="10" y="3" width="3" height="9" rx="1" /><rect x="15" y="0" width="3" height="12" rx="1" /></svg><svg viewBox="0 0 27 13"><rect x="0.5" y="0.5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" opacity=".45" /><rect x="2.5" y="2.5" width="17" height="8" rx="2" /><rect x="24.5" y="4.5" width="2" height="4" rx="1" opacity=".45" /></svg></span></div><img src="/assets/phone-learn.webp" width="1179" height="2556" alt="" loading="lazy" /><div class="home"><i></i></div></div></div></div>
-            <div class="phone b"><div class="bezel"><div class="screen"><div class="status"><span>9:41</span><i class="island"></i><span class="sys"><svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" /><rect x="5" y="5.5" width="3" height="6.5" rx="1" /><rect x="10" y="3" width="3" height="9" rx="1" /><rect x="15" y="0" width="3" height="12" rx="1" /></svg><svg viewBox="0 0 27 13"><rect x="0.5" y="0.5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" opacity=".45" /><rect x="2.5" y="2.5" width="17" height="8" rx="2" /><rect x="24.5" y="4.5" width="2" height="4" rx="1" opacity=".45" /></svg></span></div><img src="/assets/phone-chat.webp" width="1179" height="2556" alt="" loading="lazy" /><div class="home"><i></i></div></div></div></div>
+            <div class="phone a"><div class="bezel"><div class="screen"><div class="status"><span>9:41</span><i class="island"></i><span class="sys"><svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" /><rect x="5" y="5.5" width="3" height="6.5" rx="1" /><rect x="10" y="3" width="3" height="9" rx="1" /><rect x="15" y="0" width="3" height="12" rx="1" /></svg><svg viewBox="0 0 27 13"><rect x="0.5" y="0.5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" opacity=".45" /><rect x="2.5" y="2.5" width="17" height="8" rx="2" /><rect x="24.5" y="4.5" width="2" height="4" rx="1" opacity=".45" /></svg></span></div><img src="/assets/phone-learn.webp" width="1179" height="2556" alt="Forkspace on a phone: concepts library" loading="lazy" /><div class="home"><i></i></div></div></div></div>
+            <div class="phone b"><div class="bezel"><div class="screen"><div class="status"><span>9:41</span><i class="island"></i><span class="sys"><svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" /><rect x="5" y="5.5" width="3" height="6.5" rx="1" /><rect x="10" y="3" width="3" height="9" rx="1" /><rect x="15" y="0" width="3" height="12" rx="1" /></svg><svg viewBox="0 0 27 13"><rect x="0.5" y="0.5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" opacity=".45" /><rect x="2.5" y="2.5" width="17" height="8" rx="2" /><rect x="24.5" y="4.5" width="2" height="4" rx="1" opacity=".45" /></svg></span></div><img src="/assets/phone-chat.webp" width="1179" height="2556" alt="Forkspace on a phone: chatting with an agent" loading="lazy" /><div class="home"><i></i></div></div></div></div>
           </div>
           <div class="reveal">
             <p class="lede" style="margin-top: 0">Tap Allow from your phone. Keep walking.</p>
@@ -1255,6 +1299,45 @@
             <div class="form-done" id="done">You're on the list.</div>
             <span class="mono" style="color: var(--ink-3)">One email when Cloud opens. Nothing else.</span>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="faq">
+      <div class="wrap">
+        <div class="sec-head">
+          <div class="label">Questions</div>
+          <h2 class="reveal">Asked <em>often.</em></h2>
+        </div>
+        <div class="faq reveal">
+          <details class="qa">
+            <summary>What is Forkspace?</summary>
+            <p>A free, open source editor for Claude Code agents. Every prompt becomes a step on a canvas. Run many agents side by side, branch from any step, and review each change as a live diff.</p>
+          </details>
+          <details class="qa">
+            <summary>How is it different from the Claude Code extension or CLI?</summary>
+            <p>Same agent underneath, built on the Claude Agent SDK. Forkspace adds the map: many agents at once, branches you can see, a code view per branch, approvals from your phone, and concepts explained as agents work. Your existing Claude Code sessions come in with one click.</p>
+          </details>
+          <details class="qa">
+            <summary>Can I branch a Claude Code conversation?</summary>
+            <p>Yes, from any step. The agent remembers everything up to that step and nothing after. In a git repo the code branches too: each branch works in its own git worktree, so branches never overwrite each other.</p>
+          </details>
+          <details class="qa">
+            <summary>Can I run several Claude Code agents at the same time?</summary>
+            <p>Yes. Each thread or branch is its own agent. Anything waiting for your approval glows on the canvas and shows up under Agents.</p>
+          </details>
+          <details class="qa">
+            <summary>Can I use it from my phone?</summary>
+            <p>Yes. Agents run on your computer and your phone is the remote. Pair over Tailscale with a 6-digit code, get a ping when an agent needs you, and tap Allow or Deny.</p>
+          </details>
+          <details class="qa">
+            <summary>What do I need, and what does it cost?</summary>
+            <p>Node 20 or newer, git, and an Anthropic API key. Forkspace itself is free under the MIT license. It runs on your machine and your code stays there.</p>
+          </details>
+          <details class="qa">
+            <summary>Can I sign in with my Claude subscription?</summary>
+            <p>No. Anthropic asks third-party apps not to use Claude.ai logins, so Forkspace uses an API key.</p>
+          </details>
         </div>
       </div>
     </section>

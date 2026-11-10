@@ -2,6 +2,15 @@
   "name": "forkspace",
   "version": "0.2.0",
   "description": "A canvas control center for Claude Code agents: branch any conversation, run many agents, keep notes.",
+  "homepage": "https://forkspace-app.netlify.app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nikhils4/forkspace.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nikhils4/forkspace/issues"
+  },
+  "author": "nikhils4 (https://github.com/nikhils4)",
   "scripts": {
     "dev": "concurrently -k -n server,client -c blue,magenta \"node --watch server/index.ts\" \"vite\"",
     "build": "vite build && tsc -p tsconfig.server.json",
@@ -13,9 +22,21 @@
   "keywords": [
     "claude",
     "claude-code",
-    "agents",
+    "claude-agent-sdk",
+    "anthropic",
+    "ai-agents",
+    "coding-agent",
+    "ai-coding",
+    "agent",
+    "editor",
+    "ide",
     "canvas",
-    "ai"
+    "branching",
+    "git-worktree",
+    "diff",
+    "developer-tools",
+    "pwa",
+    "self-hosted"
   ],
   "license": "MIT",
   "type": "module",

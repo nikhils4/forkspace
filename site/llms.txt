@@ -1,0 +1,19 @@
+# Forkspace
+
+> Forkspace is a free, open source (MIT) editor for Claude Code agents, built on the Claude Agent SDK. It runs on your own machine. Every prompt becomes a step on a canvas; you can run many agents side by side, branch any conversation from any step (in git repos the code branches too, using one git worktree per branch), review live diffs, approve agent actions from your phone, and learn the concepts behind the code the agents write.
+
+- Website: https://forkspace-app.netlify.app/
+- Source and install: https://github.com/nikhils4/forkspace
+- Changelog: https://github.com/nikhils4/forkspace/blob/master/CHANGELOG.md
+- Requirements: Node.js 20+, git, an Anthropic API key (Claude.ai subscription logins are not used)
+- Author: nikhils4 (https://github.com/nikhils4). Independent project, not made by Anthropic.
+
+## Key features
+
+- Canvas of agent steps with branching from any step
+- Chat, Canvas and Code views; file tree and live diffs per branch; Follow agent
+- Permission modes (Ask, Accept edits, Auto, Plan only, Full access) with approvals on desktop or phone
+- Phone access over Tailscale with 6-digit pairing and push notifications
+- Concepts: a small model explains the ideas behind each change in plain words
+- Import existing Claude Code sessions for a folder
+- One-click versioned updates

@@ -1,13 +1,18 @@
 # Forkspace
 
-**The editor for the age of agents.** Direct Claude Code agents, watch every change land, and learn the concepts behind the code.
+**The editor for the age of agents.** An open source editor for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) agents: run many on one canvas, branch any conversation from any step (the code branches too), review every change as a live diff, and learn the concepts behind the code.
+
+[![Latest release](https://img.shields.io/github/v/release/nikhils4/forkspace?label=release&color=d4451b)](https://github.com/nikhils4/forkspace/releases)
+[![MIT license](https://img.shields.io/badge/license-MIT-16140f)](LICENSE)
+[![Node 20+](https://img.shields.io/badge/node-20%2B-4a463d)](https://nodejs.org)
+[![Stars](https://img.shields.io/github/stars/nikhils4/forkspace?style=flat&color=8a8476)](https://github.com/nikhils4/forkspace/stargazers)
 
 ![Forkspace Code view: a live diff with a concept explained beside it](site/assets/code-learn.webp)
 
-[Website](https://forkspace-app.netlify.app) · Built by [nikhils4](https://github.com/nikhils4) · MIT
+[Website](https://forkspace-app.netlify.app) · [Changelog](CHANGELOG.md) · [Discussions](https://github.com/nikhils4/forkspace/discussions) · Built by [nikhils4](https://github.com/nikhils4)
 
 - **Direct.** Every prompt becomes a step on a canvas. Branch from any step and the code branches with it. Run many agents side by side.
-- **Review.** See each branch's files with a live diff. Follow the agent as it edits. Approve risky steps right where they happen.
+- **Review.** See each branch's files with a live diff. Follow the agent as it edits. Approve risky steps right where they happen, even from your phone.
 - **Learn.** As agents work, Forkspace explains the concepts behind their code in plain words, using your actual code.
 
 Runs on your machine. Use it from the browser, as an installed app, or from your phone.
@@ -173,6 +178,12 @@ npm run build      # client to dist/, server to build/
 - Search across every step and note
 - Forkspace Cloud: agents that keep working while your laptop sleeps ([join the waitlist](https://forkspace-app.netlify.app/#cloud))
 
+## Contributing
+
+Bug reports, ideas and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). Questions go in [Discussions](https://github.com/nikhils4/forkspace/discussions). Security issues: see [SECURITY.md](SECURITY.md).
+
+If Forkspace helps you, a star helps others find it.
+
 ## License
 
-MIT · Built by [nikhils4](https://github.com/nikhils4)
+MIT · Built by [nikhils4](https://github.com/nikhils4). An independent project, not made by Anthropic.
