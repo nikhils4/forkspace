@@ -38,6 +38,14 @@ For development with hot reload (Node 22.18+): `npm run dev`, then open http://l
 - **Fork** on any earlier card starts a new branch from that point. The agent keeps the full conversation up to that card and nothing after it.
 - **Notes**: double-click the canvas (or press `n`). Drag from any card's dot to another to draw your own links.
 
+### Three views of the same work
+
+- **Chat**: any branch as a conversation. Tap a branch point to switch branches.
+- **Canvas**: every step and branch on one map, with your notes.
+- **Code**: the branch's files with an inline diff of everything the agents changed since the thread started. **Follow agent** opens each file the moment it gets edited. A timeline on the right lists the steps and the files each one touched.
+
+Press `⌘K` anywhere to jump to a board, branch, file or action.
+
 ### Forking the code, not just the chat
 
 With **Worktree per branch** (the default for git repos):
@@ -95,7 +103,8 @@ Cards that need you glow amber, show in **Running agents** in the sidebar, and a
 |---|---|
 | `Enter` | Send (`Shift+Enter` for a new line) |
 | `/` or `r` | Focus the composer |
-| `1` / `2` | Chat view / Canvas view |
+| `⌘K` / `⌘P` | Search boards, branches, files and actions |
+| `1` / `2` / `3` | Chat / Canvas / Code view |
 | `Esc` | Clear the target (next prompt starts a new thread) |
 | `n` | New note |
 | `Backspace` / `Delete` | Delete selected cards (and everything forked from them) or notes |

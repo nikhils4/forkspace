@@ -4,6 +4,7 @@ import type { Board, TurnNode } from '../shared/types.ts';
 import { BoardSettings, MODES, NewBoard } from './BoardForms.tsx';
 import { Canvas } from './Canvas.tsx';
 import { Chat } from './Chat.tsx';
+import { CodeView, fileCache } from './CodeView.tsx';
 import { Composer, composerFocus } from './Composer.tsx';
 import { Drawer } from './Drawer.tsx';
 import { PairScreen, Splash, UnreachableScreen } from './Gate.tsx';
@@ -11,12 +12,14 @@ import { Icon } from './icons.tsx';
 import { Inbox, SidebarAgents, useAgents } from './Inbox.tsx';
 import { placeFor } from './layout.ts';
 import { useInstall } from './pwa.ts';
+import { Palette, type PaletteItem } from './Palette.tsx';
 import { Settings } from './Settings.tsx';
 import { request, toast, useStore } from './store.ts';
+import { branchColor, STATUS_LABEL } from './nodes.tsx';
 import { isLive, isTurn, latestLeaf, leaves } from './tree.ts';
 import { Segmented, Sheet, useIsMobile } from './ui.tsx';
 
-type View = 'chat' | 'canvas';
+type View = 'chat' | 'canvas' | 'code';
 type Tab = 'board' | 'agents' | 'devices';
 
 const ls = {
@@ -62,6 +65,8 @@ function Shell() {
   const [focus, setFocus] = useState<{ id: string; n: number } | null>(null);
   const [sheet, setSheet] = useState<null | 'new' | 'board' | 'devices' | 'boards'>(null);
   const [tab, setTab] = useState<Tab>('board');
+  const [palette, setPalette] = useState(false);
+  const [codeOpen, setCodeOpen] = useState<{ path: string; n: number } | null>(null);
   const { waiting, running } = useAgents();
 
   const board = store.boards.find((b) => b.id === boardId) ?? store.boards[0] ?? null;
@@ -137,14 +142,24 @@ function Shell() {
   // Global shortcuts.
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).closest('input, textarea, select, [contenteditable]')) return;
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPalette((p) => !p);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'p' && board) {
+        e.preventDefault();
+        setPalette(true);
+        return;
+      }
+      if ((e.target as HTMLElement).closest('input, textarea, select, [contenteditable], .cm-editor')) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === '/' || e.key === 'r') {
         e.preventDefault();
         composerFocus.current?.focus();
       }
       if (e.key === 'Escape' && !openId && !sheet) setTargetId(null);
-      if (board && (e.key === '1' || e.key === '2')) setViews((v) => ({ ...v, [board.id]: e.key === '1' ? 'chat' : 'canvas' }));
+      if (board && ['1', '2', '3'].includes(e.key)) setViews((v) => ({ ...v, [board.id]: (['chat', 'canvas', 'code'] as const)[Number(e.key) - 1] }));
     };
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
@@ -172,6 +187,8 @@ function Shell() {
       <div className="view">
         {view === 'canvas' ? (
           <Canvas board={board} targetId={targetId} setTargetId={setTargetId} openDetails={setOpenId} focus={focus} />
+        ) : view === 'code' ? (
+          <CodeView board={board} target={target} setTargetId={setTargetId} openRequest={codeOpen} />
         ) : (
           <Chat board={board} targetId={targetId} setTargetId={setTargetId} openDetails={setOpenId} />
         )}
@@ -205,12 +222,58 @@ function Shell() {
             </>
           ),
         },
+        {
+          value: 'code',
+          label: (
+            <>
+              <Icon name="code" size={14} />
+              {!mobile && 'Code'}
+            </>
+          ),
+        },
       ]}
     />
   );
 
+  const paletteItems: PaletteItem[] = [];
+  if (palette) {
+    const views: [View, string, 'chat' | 'canvas' | 'code'][] = [
+      ['chat', 'Chat view', 'chat'],
+      ['canvas', 'Canvas view', 'canvas'],
+      ['code', 'Code view', 'code'],
+    ];
+    for (const [v, label, icon] of views) if (board) paletteItems.push({ id: `v-${v}`, group: 'Views', label, icon, run: () => setView(v) });
+    paletteItems.push(
+      { id: 'a-new', group: 'Actions', label: 'New thread', icon: 'plus', run: () => (setTargetId(null), setTab('board'), setTimeout(() => composerFocus.current?.focus(), 50)) },
+      { id: 'a-board', group: 'Actions', label: 'New board', icon: 'folder', run: () => setSheet('new') },
+      { id: 'a-devices', group: 'Actions', label: 'Devices and phone', icon: 'phone', run: () => (mobile ? setTab('devices') : setSheet('devices')) },
+    );
+    if (board) paletteItems.push({ id: 'a-settings', group: 'Actions', label: 'Board settings', icon: 'settings', run: () => setSheet('board') });
+    for (const b of store.boards) paletteItems.push({ id: `b-${b.id}`, group: 'Boards', label: b.name, hint: b.cwd.replace(store.home, '~'), icon: 'grid', run: () => (setBoardId(b.id), setTab('board')) });
+    if (board)
+      for (const t of leaves(store.nodes, board.id))
+        paletteItems.push({ id: `t-${t.id}`, group: 'Branches', label: t.prompt, hint: STATUS_LABEL[t.status], color: branchColor(t.branchId), run: () => goTo(t) });
+    const branchFiles = target ? fileCache.get(target.branchId) : undefined;
+    if (board && branchFiles)
+      for (const f of branchFiles)
+        paletteItems.push({
+          id: `f-${f}`,
+          group: 'Files',
+          label: f.split('/').pop()!,
+          hint: f,
+          icon: 'file',
+          keywords: f,
+          run: () => {
+            setView('code');
+            setTab('board');
+            setCodeOpen({ path: f, n: Date.now() });
+          },
+        });
+  }
+
   const sheets = (
     <>
+      {palette && <Palette items={paletteItems} onClose={() => setPalette(false)} />}
       {sheet === 'new' && (
         <NewBoard
           onClose={() => setSheet(null)}
@@ -261,6 +324,9 @@ function Shell() {
               <span className="m-board">Forkspace</span>
             )}
             <span className="spacer" />
+            <button className="icon-btn" onClick={() => setPalette(true)} aria-label="Search">
+              <Icon name="spark" size={19} />
+            </button>
             {viewSwitch}
             {board && (
               <button className="icon-btn" onClick={() => setSheet('board')} aria-label="Board settings">
@@ -363,6 +429,11 @@ function Shell() {
               {MODES.find((m) => m.value === board.permissionMode)?.label}
             </button>
             <span className="spacer" />
+            <button className="kbar-btn" onClick={() => setPalette(true)} title="Search (⌘K)">
+              <Icon name="spark" size={14} />
+              Search
+              <kbd>⌘K</kbd>
+            </button>
             {viewSwitch}
           </header>
         )}

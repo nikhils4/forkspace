@@ -124,6 +124,8 @@ export type ClientMsg =
   | { type: 'rotateToken'; reqId: string }
   | { type: 'pushKey'; reqId: string }
   | { type: 'pairCode'; reqId: string }
+  | { type: 'files'; reqId: string; branchId: string }
+  | { type: 'readFile'; reqId: string; branchId: string; path: string }
   | { type: 'pushSubscribe'; reqId: string; subscription: unknown }
   | { type: 'pushUnsubscribe'; reqId: string; endpoint: string }
   | { type: 'pushStatus'; reqId: string; endpoint: string };
@@ -143,3 +145,30 @@ export type ServerMsg =
   | { type: 'nodesDeleted'; ids: string[] }
   | { type: 'reply'; reqId: string; ok: boolean; error?: string; data?: unknown }
   | { type: 'toast'; level: 'info' | 'error'; text: string };
+
+export interface ChangedFile {
+  path: string;
+  status: 'A' | 'M' | 'D' | 'R' | 'T' | 'U' | 'C';
+  add: number;
+  del: number;
+}
+
+export interface FilesResult {
+  root: string;
+  files: string[];
+  /** Everything this thread changed since it started (committed checkpoints plus work in progress). */
+  changed: ChangedFile[];
+  truncated: boolean;
+  git: boolean;
+}
+
+export interface FileResult {
+  path: string;
+  text: string;
+  /** Content when the thread started ('' if the file is new). Absent outside git. */
+  base?: string;
+  exists: boolean;
+  binary?: boolean;
+  tooLarge?: boolean;
+  size?: number;
+}

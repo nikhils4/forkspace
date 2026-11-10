@@ -68,3 +68,13 @@ export async function diffStat(dir: string, from: string, to: string) {
 export async function diff(dir: string, from: string, to: string) {
   return git(dir, 'diff', '--no-color', from, to);
 }
+
+/** File contents at a commit, as raw bytes (null when the file did not exist there). */
+export async function showFile(cwd: string, ref: string, repoPath: string, maxBuffer: number): Promise<Buffer | null> {
+  try {
+    const { stdout } = await run('git', ['show', `${ref}:${repoPath}`], { cwd, env: GIT_ENV, encoding: 'buffer', maxBuffer });
+    return stdout;
+  } catch {
+    return null;
+  }
+}

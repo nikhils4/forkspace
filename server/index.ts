@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { nanoid } from 'nanoid';
 import { WebSocketServer, type WebSocket } from 'ws';
 import type { Board, ClientMsg, ServerMsg } from '../shared/types.ts';
+import { listFiles, readFile } from './files.ts';
 import * as g from './git.ts';
 import { checkToken, getPublicUrl, getToken, isLocalRequest, newPairCode, redeemPairCode, rotateToken, setPublicUrl } from './auth.ts';
 import * as push from './push.ts';
@@ -255,6 +256,18 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       const board = turn && getBoard(turn.boardId);
       if (!turn?.baseCommit || !turn.commit || !board?.repoRoot) return '';
       return g.diff(board.repoRoot, turn.baseCommit, turn.commit);
+    }
+    case 'files': {
+      const branch = getBranch(msg.branchId);
+      const board = branch && getBoard(branch.boardId);
+      if (!branch || !board) throw new Error('Branch not found');
+      return listFiles(board, branch);
+    }
+    case 'readFile': {
+      const branch = getBranch(msg.branchId);
+      const board = branch && getBoard(branch.boardId);
+      if (!branch || !board) throw new Error('Branch not found');
+      return readFile(board, branch, msg.path);
     }
     case 'presence':
       for (const [c] of visible) if (c === currentWs) visible.set(c, msg.visible);

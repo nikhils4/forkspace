@@ -80,6 +80,8 @@ export function ToolLine({ e, cwd }: { e: Extract<TurnEvent, { t: 'tool' }>; cwd
 
 export function Permission({ node, p }: { node: TurnNode; p: PendingPermission }) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const cwd = useStore().branches[node.branchId]?.cwd;
+  const short = (s: string) => (cwd ? s.split(cwd + '/').join('').split(cwd).join('.') : s);
   const reply = (decision: 'allow' | 'always' | 'deny', extra?: object) =>
     send({ type: 'permission', nodeId: node.id, requestId: p.requestId, decision, ...extra });
 
@@ -133,7 +135,7 @@ export function Permission({ node, p }: { node: TurnNode; p: PendingPermission }
           Allow <b>{p.toolName}</b>?
         </span>
       </div>
-      <pre className="perm-input nowheel">{toolSummary(p.toolName, p.input) || JSON.stringify(p.input, null, 2)}</pre>
+      <pre className="perm-input nowheel">{short(toolSummary(p.toolName, p.input) || JSON.stringify(p.input, null, 2))}</pre>
       <div className="perm-actions">
         <button className="btn primary" onClick={() => reply('allow')}>
           Allow
