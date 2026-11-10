@@ -3,6 +3,12 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.12.0
+
+- Notes folder: move notes you want to keep for later (on-call steps, setup commands) off the canvas with the folder button. Find them under Notes in the sidebar, next to Concepts
+- Open a note there to edit it on a big paper sheet, tick its checklist, recolour it, or put it back on the canvas
+- New notes can start right in Notes. On phones, Notes sits next to Concepts in the Learn tab
+
 ## 0.11.2
 
 - Floating panels: the sidebar, the step details and the terminal float as rounded panels instead of being stuck to the window edge

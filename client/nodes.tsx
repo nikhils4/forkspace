@@ -494,7 +494,7 @@ export interface NoteData extends Record<string, unknown> {
 }
 
 /** Renders a note: checklists you can tick, bullets, headings and **bold**. */
-function NoteText({ text, onToggle }: { text: string; onToggle: (line: number) => void }) {
+export function NoteText({ text, onToggle }: { text: string; onToggle: (line: number) => void }) {
   const bold = (t: string) => t.split(/(\*\*[^*]+\*\*)/g).map((p, i) => (p.startsWith('**') && p.endsWith('**') ? <b key={i}>{p.slice(2, -2)}</b> : p));
   return (
     <div className="note-text">
@@ -678,6 +678,17 @@ export const NoteCard = memo(function NoteCard({ data, selected }: NodeProps & {
           }}
         >
           <Icon name="check" size={12} strokeWidth={2.5} />
+        </button>
+        <button
+          className="note-tool nodrag"
+          title="Move to Notes (keeps it, off the canvas)"
+          aria-label="Move to Notes"
+          onClick={() => {
+            save({ filed: true });
+            toast('Moved to Notes');
+          }}
+        >
+          <Icon name="folder" size={12} />
         </button>
         <button className="note-tool nodrag" title="Delete note" aria-label="Delete note" onClick={() => send({ type: 'deleteNodes', ids: [node.id] })}>
           <Icon name="trash" size={12} />

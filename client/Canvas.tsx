@@ -45,7 +45,8 @@ export function Canvas({
   const rf = useReactFlow();
   const mobile = useIsMobile();
   const theme = useResolvedTheme();
-  const items = useMemo(() => Object.values(store.nodes).filter((n) => n.boardId === board.id), [store.nodes, board.id]);
+  // Notes filed away in Notes stay off the canvas.
+  const items = useMemo(() => Object.values(store.nodes).filter((n) => n.boardId === board.id && !(n.kind === 'note' && n.filed)), [store.nodes, board.id]);
 
   const onReply = useCallback(
     (id: string | null) => {
@@ -185,7 +186,8 @@ export function Canvas({
         labelBgBorderRadius: 6,
       });
     }
-    for (const l of board.links) out.push({ id: l.id, source: l.source, target: l.target, className: 'link-edge' });
+    const here = new Set(items.map((n) => n.id));
+    for (const l of board.links) if (here.has(l.source) && here.has(l.target)) out.push({ id: l.id, source: l.source, target: l.target, className: 'link-edge' });
     return out;
   }, [items, board.links, store.nodes]);
 
@@ -361,6 +363,7 @@ export function Canvas({
           onClick: () => send({ type: 'upsertNote', note: { ...node, id: uid(), position: { x: node.position.x + 32, y: node.position.y + 32 }, createdAt: Date.now() } }),
         },
         { label: 'Copy text', icon: 'file', disabled: !node.text.trim(), onClick: () => copy(node.text, 'Note') },
+        { label: 'Move to Notes', icon: 'folder', onClick: () => (send({ type: 'upsertNote', note: { ...node, filed: true } }), toast('Moved to Notes')) },
         'sep',
         { label: 'Delete note', icon: 'trash', danger: true, onClick: () => send({ type: 'deleteNodes', ids: [node.id] }) },
       ];

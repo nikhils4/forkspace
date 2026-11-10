@@ -18,6 +18,7 @@ import { Icon } from './icons.tsx';
 import { Inbox, SidebarAgents, useAgents } from './Inbox.tsx';
 import { ImportSessions } from './Import.tsx';
 import { LearnLibrary } from './Learn.tsx';
+import { NotesPage } from './Notes.tsx';
 import { UpdatePill } from './Updates.tsx';
 import { setTheme, useResolvedTheme } from './theme.ts';
 import { placeFor } from './layout.ts';
@@ -75,7 +76,9 @@ function Shell() {
   const [focus, setFocus] = useState<{ id: string; n: number } | null>(null);
   const [sheet, setSheet] = useState<null | 'new' | 'board' | 'devices' | 'boards' | 'learn' | 'import'>(null);
   // Desktop: the main area shows a board, or the Concepts page.
-  const [page, setPage] = useState<'board' | 'concepts'>('board');
+  const [page, setPage] = useState<'board' | 'concepts' | 'notes'>('board');
+  const [learnPage, setLearnPage] = useState<'concepts' | 'notes'>('concepts');
+  const filedCount = Object.values(store.nodes).filter((n) => n.kind === 'note' && n.filed).length;
   const [termOpen, setTermOpen] = useState(false);
   // Desktop: the sidebar can be hidden to give the canvas the whole window.
   const [sideOpen, setSideOpen] = useState(() => {
@@ -200,7 +203,7 @@ function Shell() {
         e.preventDefault();
         composerFocus.current?.focus();
       }
-      if (e.key === 'Escape' && !openId && !sheet && page === 'concepts') return setPage('board');
+      if (e.key === 'Escape' && !openId && !sheet && page !== 'board') return setPage('board');
       if (e.key === 'Escape' && !openId && !sheet) setTargetId(null);
       if (board && ['1', '2', '3'].includes(e.key)) {
         setPage('board');
@@ -317,6 +320,7 @@ function Shell() {
     if (board) paletteItems.push({ id: 'a-term', group: 'Actions', label: termOpen ? 'Hide terminal' : 'Open terminal', hint: 'Ctrl+`', icon: 'terminal', run: () => (setPage('board'), setTab('board'), setTermOpen(!termOpen)) });
     paletteItems.push({ id: 'a-away', group: 'Actions', label: 'Away mode', hint: 'Keep this computer awake', icon: 'moon', run: goAway });
     paletteItems.push({ id: 'a-update', group: 'Actions', label: 'Check for updates', icon: 'refresh', run: () => (settingsTab('updates'), mobile ? setTab('devices') : setSheet('devices')) });
+    paletteItems.push({ id: 'a-notes', group: 'Actions', label: 'Notes', hint: 'Notes kept for later', icon: 'folder', run: () => (mobile ? (setTab('learn'), setLearnPage('notes')) : setPage('notes')) });
     paletteItems.push({ id: 'a-learn', group: 'Actions', label: 'Concepts I’ve learned', icon: 'spark', run: () => (mobile ? setTab('learn') : setPage('concepts')) });
     for (const b of store.boards) paletteItems.push({ id: `b-${b.id}`, group: 'Boards', label: b.name, hint: b.cwd.replace(store.home, '~'), icon: 'grid', run: () => (setBoardId(b.id), setTab('board')) });
     if (board)
@@ -436,13 +440,27 @@ function Shell() {
           {tab === 'learn' && (
             <div className="page">
               <div className="page-inner">
-                <h1 className="page-title">Concepts</h1>
-                <LearnLibrary
-                  onOpen={(t) => {
-                    goTo(t);
-                    setView('chat');
-                  }}
-                />
+                <div className="page-title-row">
+                  <h1 className="page-title">{learnPage === 'notes' ? 'Notes' : 'Concepts'}</h1>
+                  <Segmented<'concepts' | 'notes'>
+                    value={learnPage}
+                    onChange={setLearnPage}
+                    options={[
+                      { value: 'concepts', label: 'Concepts' },
+                      { value: 'notes', label: 'Notes' },
+                    ]}
+                  />
+                </div>
+                {learnPage === 'notes' ? (
+                  <NotesPage board={board ?? undefined} />
+                ) : (
+                  <LearnLibrary
+                    onOpen={(t) => {
+                      goTo(t);
+                      setView('chat');
+                    }}
+                  />
+                )}
               </div>
             </div>
           )}
@@ -508,6 +526,11 @@ function Shell() {
             <span className="mentor-orb small" /> Concepts
             <span className="spacer" />
             {lessonCount > 0 && <span className="count">{lessonCount}</span>}
+          </button>
+          <button className={`side-link side-top ${page === 'notes' ? 'on' : ''}`} onClick={() => setPage(page === 'notes' ? 'board' : 'notes')}>
+            <Icon name="folder" size={15} /> Notes
+            <span className="spacer" />
+            {filedCount > 0 && <span className="count">{filedCount}</span>}
           </button>
           <div className="side-head">
             <span>Boards</span>
@@ -577,6 +600,26 @@ function Shell() {
             </div>
           </div>
         )}
+        {page === 'notes' && (
+          <div className="concepts-page">
+            <header className="topbar">
+              <div className="concepts-title">
+                <Icon name="folder" size={17} /> Notes
+              </div>
+              <span className="spacer" />
+              {board && (
+                <button className="btn sm ghost" onClick={() => setPage('board')}>
+                  <Icon name="chevronLeft" size={14} /> Back to {board.name}
+                </button>
+              )}
+            </header>
+            <div className="page">
+              <div className="page-inner concepts-inner">
+                <NotesPage board={board ?? undefined} />
+              </div>
+            </div>
+          </div>
+        )}
         {board && page === 'board' && (
           <header className="topbar">
             {!sideOpen && (
@@ -604,7 +647,7 @@ function Shell() {
           </header>
         )}
         {/* Kept mounted behind the Concepts page so the canvas keeps its place. */}
-        <div className="main-body" style={page === 'concepts' ? { display: 'none' } : undefined}>
+        <div className="main-body" style={page !== 'board' ? { display: 'none' } : undefined}>
           {boardView}
         </div>
         {termOpen && board && page === 'board' && (

@@ -427,6 +427,8 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
         width: num(n.width, 220),
         height: num(n.height, 160),
         createdAt: Number.isFinite(n.createdAt) ? n.createdAt : Date.now(),
+        filed: n.filed === true ? true : undefined,
+        updatedAt: Date.now(),
         // Only images this note already has: a client can remove one, never point at someone else's.
         images: Array.isArray(n.images) ? n.images.filter((x: unknown) => typeof x === 'string' && (i >= 0 ? ((state.nodes[i] as any).images ?? []).includes(x) : false)) : (i >= 0 ? (state.nodes[i] as any).images : undefined),
       };

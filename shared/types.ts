@@ -146,6 +146,10 @@ export interface NoteNode {
   createdAt: number;
   /** Images pasted or dropped into the note (screenshot ids). */
   images?: string[];
+  /** Filed away in Notes: kept and editable, but off the canvas. */
+  filed?: boolean;
+  /** When it was last edited (for sorting in Notes). */
+  updatedAt?: number;
 }
 
 export type CanvasNode = TurnNode | NoteNode;
