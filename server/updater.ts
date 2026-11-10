@@ -52,7 +52,7 @@ export async function currentBuild() {
 }
 
 export async function checkForUpdate(force = false): Promise<UpdateInfo> {
-  if (cached && !force && Date.now() - (cached.checkedAt ?? 0) < 30 * 60_000) return cached;
+  if (cached && !force && Date.now() - (cached.checkedAt ?? 0) < 10 * 60_000) return cached;
   const info: UpdateInfo = { channel: 'none', version: version(), behind: 0, changes: [], dirty: false, dev: DEV, checkedAt: Date.now() };
   try {
     await git('rev-parse', '--is-inside-work-tree');

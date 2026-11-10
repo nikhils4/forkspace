@@ -7,12 +7,13 @@ import { Chat } from './Chat.tsx';
 import { CodeView, fileCache } from './CodeView.tsx';
 import { Composer, composerFocus } from './Composer.tsx';
 import { Drawer } from './Drawer.tsx';
-import { PairScreen, Splash, UnreachableScreen } from './Gate.tsx';
+import { PairScreen, Splash, StartCommand, UnreachableScreen } from './Gate.tsx';
 import { Icon } from './icons.tsx';
 import { Inbox, SidebarAgents, useAgents } from './Inbox.tsx';
 import { ImportSessions } from './Import.tsx';
 import { LearnLibrary } from './Learn.tsx';
 import { UpdatePill } from './Updates.tsx';
+import { setTheme, useResolvedTheme } from './theme.ts';
 import { placeFor } from './layout.ts';
 import { useInstall } from './pwa.ts';
 import { Palette, type PaletteItem } from './Palette.tsx';
@@ -223,7 +224,7 @@ function Shell() {
           label: (
             <>
               <Icon name="chat" size={14} />
-              {!mobile && 'Chat'}
+              {!mobile && <span className="seg-label">Chat</span>}
             </>
           ),
         },
@@ -232,7 +233,7 @@ function Shell() {
           label: (
             <>
               <Icon name="canvas" size={14} />
-              {!mobile && 'Canvas'}
+              {!mobile && <span className="seg-label">Canvas</span>}
             </>
           ),
         },
@@ -241,7 +242,7 @@ function Shell() {
           label: (
             <>
               <Icon name="code" size={14} />
-              {!mobile && 'Code'}
+              {!mobile && <span className="seg-label">Code</span>}
             </>
           ),
         },
@@ -437,7 +438,7 @@ function Shell() {
 
   // ---------------- desktop ----------------
   return (
-    <div className="app">
+    <div className={`app ${openNode ? 'drawer-open' : ''}`}>
       <aside className="sidebar">
         <div className="brand">
           <div className="app-mark">
@@ -445,6 +446,7 @@ function Shell() {
           </div>
           <span>Forkspace</span>
           <ConnDot />
+          <ThemeToggle />
         </div>
 
         <div className="side-scroll">
@@ -512,7 +514,7 @@ function Shell() {
             <span className="spacer" />
             <button className="kbar-btn" onClick={() => setPalette(true)} title="Search (⌘K)">
               <Icon name="spark" size={14} />
-              Search
+              <span className="seg-label">Search</span>
               <kbd>⌘K</kbd>
             </button>
             {viewSwitch}
@@ -573,6 +575,15 @@ function Welcome({ onNew }: { onNew: () => void }) {
   );
 }
 
+function ThemeToggle() {
+  const t = useResolvedTheme();
+  return (
+    <button className="icon-btn sm theme-toggle" onClick={() => setTheme(t === 'dark' ? 'light' : 'dark')} aria-label={t === 'dark' ? 'Switch to light' : 'Switch to dark'} title={t === 'dark' ? 'Light mode' : 'Dark mode'}>
+      <Icon name={t === 'dark' ? 'sun' : 'moon'} size={15} />
+    </button>
+  );
+}
+
 function ConnDot() {
   const { connected } = useStore();
   return <span className={`conn ${connected ? 'on' : ''}`} title={connected ? 'Connected to your Mac' : 'Reconnecting…'} />;
@@ -581,15 +592,35 @@ function ConnDot() {
 function ConnectionBanner() {
   const { connected, loaded, update } = useStore();
   const [show, setShow] = useState(false);
+  const [long, setLong] = useState(false);
   useEffect(() => {
-    if (connected) return setShow(false);
+    if (connected) {
+      setShow(false);
+      setLong(false);
+      return;
+    }
     const t = setTimeout(() => setShow(true), 1200);
-    return () => clearTimeout(t);
+    // Still down after a while (and not mid-update): it probably stopped. Say how to start it.
+    const t2 = setTimeout(() => setLong(true), 7000);
+    return () => {
+      clearTimeout(t);
+      clearTimeout(t2);
+    };
   }, [connected]);
   if (!show || !loaded) return null;
+  const updating = update && !update.done && !update.error;
+  if (long && !updating)
+    return (
+      <div className="conn-card">
+        <div className="conn-card-head">
+          <span className="spinner" /> Forkspace stopped running. Waiting for it…
+        </div>
+        <StartCommand compact />
+      </div>
+    );
   return (
     <div className="conn-banner">
-      <span className="spinner" /> {update && !update.done ? 'Updating Forkspace. Back in a moment…' : 'Reconnecting to your Mac…'}
+      <span className="spinner" /> {updating ? 'Updating Forkspace. Back in a moment…' : 'Reconnecting to your Mac…'}
     </div>
   );
 }

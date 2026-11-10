@@ -93,7 +93,6 @@ function Turn({ t, isLast, forkHere, openDetails }: { t: TurnNode; isLast: boole
             <StatusDot status={t.status} />
             <span className="meta-status">{STATUS_LABEL[t.status]}</span>
             <DiffStat s={t.diffStat} />
-            {t.costUsd != null && <span className="faint meta-cost">{money(t.costUsd)}</span>}
             <span className="spacer" />
             {live ? (
               <button className="btn danger-ghost xs" onClick={() => send({ type: 'stop', nodeId: t.id })}>

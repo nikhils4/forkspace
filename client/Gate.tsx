@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { isLocalPage } from './store.ts';
 import { Icon } from './icons.tsx';
 import { connect, pair } from './store.ts';
 
@@ -71,8 +72,9 @@ export function UnreachableScreen() {
         <div className="app-mark big muted">
           <Icon name="wifiOff" size={26} />
         </div>
-        <h1>Can't reach your Mac</h1>
-        <p>Make sure your Mac is awake, Forkspace is running, and (on your phone) Tailscale is connected.</p>
+        <h1>Forkspace is not running</h1>
+        <p>Forkspace isn't running, or your Mac is asleep{isLocalPage() ? '' : ' or off Tailscale'}.</p>
+        <StartCommand />
         <button className="btn primary block" onClick={() => connect()}>
           <Icon name="refresh" size={15} /> Try again
         </button>
@@ -87,6 +89,44 @@ export function Splash() {
       <div className="app-mark big pulse">
         <Icon name="branch" size={28} strokeWidth={2} />
       </div>
+    </div>
+  );
+}
+
+const savedStart = () => {
+  try {
+    return localStorage.getItem('forkspace:start');
+  } catch {
+    return null;
+  }
+};
+
+/** The exact command to start Forkspace again, with a Copy button. */
+export function StartCommand({ compact }: { compact?: boolean }) {
+  const cmd = savedStart() ?? 'cd forkspace && npm start';
+  const [copied, setCopied] = useState(false);
+  const local = isLocalPage();
+  return (
+    <div className={`start-cmd ${compact ? 'compact' : ''}`}>
+      <div className="start-cmd-label">{local ? 'Start it again in Terminal:' : 'On your Mac, start it in Terminal:'}</div>
+      <div className="start-cmd-row">
+        <code>{cmd}</code>
+        <button
+          className="btn sm"
+          onClick={() =>
+            navigator.clipboard?.writeText(cmd).then(
+              () => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1600);
+              },
+              () => {},
+            )
+          }
+        >
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+      {!compact && <div className="start-cmd-hint">Tip: turn on Keep running in the background in Settings, and you will never need this again.</div>}
     </div>
   );
 }

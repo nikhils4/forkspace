@@ -19,6 +19,7 @@ import { NOTE_COLORS, NoteCard, TurnCard, branchColor } from './nodes.tsx';
 import { send, useStore } from './store.ts';
 import { isLive, isTurn } from './tree.ts';
 import { useIsMobile } from './ui.tsx';
+import { useResolvedTheme } from './theme.ts';
 
 const nodeTypes = { turn: TurnCard, note: NoteCard };
 const uid = () => Math.random().toString(36).slice(2, 12);
@@ -41,6 +42,7 @@ export function Canvas({
   const store = useStore();
   const rf = useReactFlow();
   const mobile = useIsMobile();
+  const theme = useResolvedTheme();
   const items = useMemo(() => Object.values(store.nodes).filter((n) => n.boardId === board.id), [store.nodes, board.id]);
 
   const onReply = useCallback(
@@ -207,7 +209,7 @@ export function Canvas({
         maxZoom={2}
         fitView
         fitViewOptions={{ maxZoom: mobile ? 0.8 : 1, padding: 0.15 }}
-        colorMode="system"
+        colorMode={theme}
         proOptions={{ hideAttribution: true }}
         panOnScroll={!mobile}
       >

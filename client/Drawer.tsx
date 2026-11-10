@@ -58,16 +58,17 @@ export function Drawer({ node, onClose }: { node: TurnNode; onClose: () => void 
           )}
           <dt>Changes</dt>
           <dd>{node.diffStat?.files ? <DiffStat s={node.diffStat} /> : <span className="faint">None</span>}</dd>
-          <dt>Cost</dt>
-          <dd>
-            {money(node.costUsd) || '…'}
-            {node.durationMs ? <span className="faint"> · {Math.round(node.durationMs / 1000)}s</span> : null}
-          </dd>
+          {node.durationMs ? (
+            <>
+              <dt>Took</dt>
+              <dd>{node.durationMs < 60000 ? `${Math.round(node.durationMs / 1000)} seconds` : `${Math.round(node.durationMs / 60000)} min`}</dd>
+            </>
+          ) : null}
         </dl>
 
         <div className="drawer-actions">
           {isLocalPage() && (
-            <button className="btn" onClick={() => send({ type: 'openEditor', nodeId: node.id })}>
+            <button className="btn" onClick={() => request<string>({ type: 'openEditor', nodeId: node.id }).then((app) => toast(`Opened in ${app}`), (e) => toast(e.message, 'error'))}>
               <Icon name="code" size={14} /> Open in editor
             </button>
           )}

@@ -7,9 +7,11 @@ import { fileURLToPath } from 'node:url';
 import { nanoid } from 'nanoid';
 import { WebSocketServer, type WebSocket } from 'ws';
 import type { Board, ClientMsg, ServerMsg } from '../shared/types.ts';
+import { openFolder } from './editor.ts';
 import { listFiles, readFile } from './files.ts';
 import { importSessions, listImportable } from './importer.ts';
 import { applyUpdate, checkForUpdate, currentBuild } from './updater.ts';
+import { disableService, enableService, serviceStatus, startCommand } from './service.ts';
 import * as g from './git.ts';
 import { checkToken, getPublicUrl, getToken, isLocalRequest, newPairCode, redeemPairCode, rotateToken, setPublicUrl } from './auth.ts';
 import * as push from './push.ts';
@@ -125,7 +127,7 @@ wss.on('connection', (ws) => {
   clients.add(ws);
   visible.set(ws, false);
   ws.on('close', () => visible.delete(ws));
-  send(ws, { type: 'state', state, home: os.homedir(), build: BUILD });
+  send(ws, { type: 'state', state, home: os.homedir(), build: BUILD, startCommand: startCommand() });
   ws.on('close', () => clients.delete(ws));
   ws.on('message', async (raw) => {
     let msg: ClientMsg;
@@ -251,11 +253,7 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       const turn = getTurn(msg.nodeId);
       const dir = turn ? getBranch(turn.branchId)?.cwd : undefined;
       if (!dir) throw new Error('No folder for that turn');
-      const editor = process.env.FORKSPACE_EDITOR || 'code';
-      const child = spawn(editor, [dir], { detached: true, stdio: 'ignore', shell: process.platform === 'win32' });
-      child.on('error', () => broadcast({ type: 'toast', level: 'error', text: `Could not run "${editor}". Set FORKSPACE_EDITOR.` }));
-      child.unref();
-      return;
+      return openFolder(dir);
     }
     case 'diff': {
       const turn = getTurn(msg.nodeId);
@@ -279,6 +277,16 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       broadcast({ type: 'board', board });
       return created.map((c) => ({ branchId: c.branch.id, head: c.branch.headNodeId, turns: c.nodes.length }));
     }
+    case 'serviceStatus':
+      return serviceStatus();
+    case 'serviceEnable':
+      return enableService(PORT, () => {
+        flush();
+        for (const c of clients) c.close(1012, 'Moving to the background');
+        server.close();
+      });
+    case 'serviceDisable':
+      return disableService();
     case 'updateInfo':
       return checkForUpdate(!!msg.force);
     case 'applyUpdate': {

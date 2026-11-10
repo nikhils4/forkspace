@@ -6,6 +6,9 @@ import { disablePush, enablePush, isIOS, isStandalone, pushEnabled, pushSupport,
 import { isLocalPage, request, setToken, toast } from './store.ts';
 import { Switch } from './ui.tsx';
 import { UpdateSection } from './Updates.tsx';
+import { StartCommand } from './Gate.tsx';
+import { setTheme, useTheme, type Theme } from './theme.ts';
+import { Segmented } from './ui.tsx';
 
 function Step({ n, done, title, children }: { n: number; done?: boolean; title: string; children?: React.ReactNode }) {
   return (
@@ -210,6 +213,90 @@ function Install() {
   );
 }
 
+interface ServiceStatus {
+  supported: boolean;
+  installed: boolean;
+  running: boolean;
+  reason?: string;
+}
+
+function Appearance() {
+  const t = useTheme();
+  return (
+    <section className="card-section">
+      <h3>
+        <Icon name="spark" size={16} /> Appearance
+      </h3>
+      <div className="setting-row">
+        <div className="setting-text">
+          <b>Theme</b>
+          <span>System follows your Mac or phone.</span>
+        </div>
+        <Segmented<Theme>
+          value={t}
+          onChange={setTheme}
+          options={[
+            { value: 'system', label: 'System' },
+            { value: 'light', label: 'Light' },
+            { value: 'dark', label: 'Dark' },
+          ]}
+        />
+      </div>
+    </section>
+  );
+}
+
+function AlwaysOn() {
+  const [st, setSt] = useState<ServiceStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+  const load = () => request<ServiceStatus>({ type: 'serviceStatus' }).then(setSt, () => {});
+  useEffect(() => {
+    load();
+  }, []);
+  const on = !!st?.installed;
+  return (
+    <section className="card-section">
+      <h3>
+        <Icon name="refresh" size={16} /> Always on
+      </h3>
+      <div className="setting-row">
+        <div className="setting-text">
+          <b>Keep running in the background</b>
+          <span>
+            {st && !st.supported
+              ? st.reason
+              : 'Starts when you log in and restarts itself if it ever stops. No terminal needed, and your phone can always reach it.'}
+          </span>
+        </div>
+        <Switch
+          on={on}
+          disabled={!st?.supported || busy}
+          onChange={async (v) => {
+            setBusy(true);
+            try {
+              if (v) {
+                await request({ type: 'serviceEnable' });
+                toast('Forkspace now runs in the background. You can close the terminal.');
+              } else {
+                const r = await request<{ stopping?: boolean }>({ type: 'serviceDisable' });
+                toast(r?.stopping ? 'Turned off. Forkspace will stop now; start it with npm start.' : 'Turned off.');
+              }
+            } catch (e: any) {
+              // Enabling hands over to the background copy, so this connection closing is expected.
+              if (!/Disconnected/.test(e.message)) toast(e.message, 'error');
+            }
+            setTimeout(() => {
+              load();
+              setBusy(false);
+            }, 2500);
+          }}
+        />
+      </div>
+      {st && !st.supported && <StartCommand compact />}
+    </section>
+  );
+}
+
 export function Settings() {
   const local = isLocalPage();
   const [info, setInfo] = useState<RemoteInfo | null>(null);
@@ -246,6 +333,10 @@ export function Settings() {
         <Notifications />
         <Install />
       </section>
+
+      <Appearance />
+
+      <AlwaysOn />
 
       <UpdateSection />
 

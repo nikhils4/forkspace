@@ -76,6 +76,10 @@ function onMessage(msg: ServerMsg) {
         return;
       }
       build = msg.build;
+      // Remember how to start Forkspace, for the screen shown when it is not running.
+      try {
+        localStorage.setItem('forkspace:start', msg.startCommand);
+      } catch {}
       set({
         loaded: true,
         home: msg.home,

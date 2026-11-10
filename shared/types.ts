@@ -146,6 +146,9 @@ export type ClientMsg =
   | { type: 'importSessions'; reqId: string; boardId: string; sessionIds: string[]; at: Position }
   | { type: 'updateInfo'; reqId: string; force?: boolean }
   | { type: 'applyUpdate'; reqId: string }
+  | { type: 'serviceStatus'; reqId: string }
+  | { type: 'serviceEnable'; reqId: string }
+  | { type: 'serviceDisable'; reqId: string }
   | { type: 'deleteBoard'; id: string }
   | { type: 'send'; reqId: string; boardId: string; parentId: string | null; prompt: string; position: Position }
   | { type: 'stop'; nodeId: string }
@@ -153,7 +156,7 @@ export type ClientMsg =
   | { type: 'upsertNote'; note: NoteNode }
   | { type: 'move'; moves: { id: string; position: Position; width?: number; height?: number }[] }
   | { type: 'deleteNodes'; ids: string[] }
-  | { type: 'openEditor'; nodeId: string }
+  | { type: 'openEditor'; reqId: string; nodeId: string }
   | { type: 'diff'; reqId: string; nodeId: string }
   | { type: 'listDir'; reqId: string; path: string }
   | { type: 'presence'; visible: boolean }
@@ -176,7 +179,7 @@ export interface RemoteInfo {
 }
 
 export type ServerMsg =
-  | { type: 'state'; state: State; home: string; build: string }
+  | { type: 'state'; state: State; home: string; build: string; startCommand: string }
   | { type: 'updateProgress'; stage: string; done?: boolean; error?: string }
   | { type: 'board'; board: Board }
   | { type: 'boardDeleted'; id: string }

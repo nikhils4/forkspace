@@ -33,6 +33,10 @@ export function UpdateSection() {
   const { update } = useStore();
   const [checking, setChecking] = useState(false);
   const [running, setRunning] = useState(false);
+  // Opening Settings always asks GitHub fresh.
+  useEffect(() => {
+    request<UpdateInfo>({ type: 'updateInfo', force: true }).then(publish, () => {});
+  }, []);
 
   const check = async () => {
     setChecking(true);

@@ -60,7 +60,15 @@ export function Segmented<T extends string>({ value, options, onChange }: { valu
   return (
     <div className="segmented" role="tablist">
       {options.map((o) => (
-        <button key={o.value} role="tab" aria-selected={o.value === value} className={o.value === value ? 'on' : ''} onClick={() => onChange(o.value)}>
+        <button
+          key={o.value}
+          role="tab"
+          aria-selected={o.value === value}
+          aria-label={typeof o.label === 'string' ? undefined : o.value.charAt(0).toUpperCase() + o.value.slice(1)}
+          title={typeof o.label === 'string' ? undefined : o.value.charAt(0).toUpperCase() + o.value.slice(1)}
+          className={o.value === value ? 'on' : ''}
+          onClick={() => onChange(o.value)}
+        >
           {o.label}
         </button>
       ))}
