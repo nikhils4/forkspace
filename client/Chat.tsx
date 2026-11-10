@@ -135,7 +135,7 @@ function BranchChips({ kids, activeId, onPick }: { kids: TurnNode[]; activeId?: 
   );
 }
 
-export function ThreadList({ board, onPick }: { board: Board; onPick: (id: string) => void }) {
+export function ThreadList({ board, onPick, onImport }: { board: Board; onPick: (id: string) => void; onImport?: () => void }) {
   const { nodes } = useStore();
   useTick();
   const tips = leaves(nodes, board.id);
@@ -148,11 +148,23 @@ export function ThreadList({ board, onPick }: { board: Board; onPick: (id: strin
         </div>
         <h2>Start a thread</h2>
         <p>Describe a task below. Every reply becomes a step you can come back to and branch from, so trying another approach never loses the first one.</p>
+        {onImport && (
+          <button className="btn import-cta" onClick={onImport}>
+            <Icon name="download" size={14} /> Bring in Claude Code sessions
+          </button>
+        )}
       </div>
     );
   return (
     <div className="thread-list">
-      <div className="list-title">Branches · {tips.length}</div>
+      <div className="list-head">
+        <div className="list-title">Branches · {tips.length}</div>
+        {onImport && (
+          <button className="link-btn" onClick={onImport}>
+            Bring in Claude Code sessions
+          </button>
+        )}
+      </div>
       {tips.map((t) => {
         const depth = pathTo(nodes, t.id).length;
         return (
@@ -178,7 +190,19 @@ export function ThreadList({ board, onPick }: { board: Board; onPick: (id: strin
   );
 }
 
-export function Chat({ board, targetId, setTargetId, openDetails }: { board: Board; targetId: string | null; setTargetId: (id: string | null) => void; openDetails: (id: string) => void }) {
+export function Chat({
+  board,
+  targetId,
+  setTargetId,
+  openDetails,
+  onImport,
+}: {
+  board: Board;
+  targetId: string | null;
+  setTargetId: (id: string | null) => void;
+  openDetails: (id: string) => void;
+  onImport?: () => void;
+}) {
   const { nodes } = useStore();
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
@@ -204,7 +228,7 @@ export function Chat({ board, targetId, setTargetId, openDetails }: { board: Boa
     return (
       <div className="chat" ref={scroller}>
         <div className="chat-inner">
-          <ThreadList board={board} onPick={setTargetId} />
+          <ThreadList board={board} onPick={setTargetId} onImport={onImport} />
         </div>
       </div>
     );

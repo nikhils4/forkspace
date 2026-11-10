@@ -71,8 +71,12 @@ async function pickBranch(board: Board, parent: TurnNode | null): Promise<Branch
   const pb = getBranch(parent.branchId);
   // Replying to the latest turn of a branch continues it; anything else forks.
   if (pb && pb.headNodeId === parent.id) return pb;
-  if (board.isolation === 'worktree' && board.repoRoot && !parent.commit)
+  // Imported steps have no checkpoint: a branch from one starts from the folder's current commit.
+  if (board.isolation === 'worktree' && board.repoRoot && !parent.commit && !parent.imported)
     throw new Error('That turn has no checkpoint, so it cannot be forked.');
+  // Branching from an imported step: start from the folder as it is now, uncommitted work included.
+  if (parent.imported && !parent.commit && board.isolation === 'worktree' && board.repoRoot)
+    return newBranch(board, await g.snapshot(board.repoRoot));
   return newBranch(board, parent.commit ?? null);
 }
 
@@ -152,6 +156,8 @@ async function run(board: Board, branch: Branch, node: TurnNode, parent: TurnNod
       cwd: branch.cwd,
       resume: parent?.sessionId,
       forkSession: !!parent?.sessionId,
+      // Imported cards share one transcript; resume it exactly where this card ended.
+      ...(parent?.resumeAt ? { resumeSessionAt: parent.resumeAt } : {}),
       abortController: r.abort,
       permissionMode: board.permissionMode,
       allowDangerouslySkipPermissions: board.permissionMode === 'bypassPermissions',

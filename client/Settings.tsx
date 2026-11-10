@@ -5,6 +5,7 @@ import { Icon } from './icons.tsx';
 import { disablePush, enablePush, isIOS, isStandalone, pushEnabled, pushSupport, useInstall } from './pwa.ts';
 import { isLocalPage, request, setToken, toast } from './store.ts';
 import { Switch } from './ui.tsx';
+import { UpdateSection } from './Updates.tsx';
 
 function Step({ n, done, title, children }: { n: number; done?: boolean; title: string; children?: React.ReactNode }) {
   return (
@@ -245,6 +246,8 @@ export function Settings() {
         <Notifications />
         <Install />
       </section>
+
+      <UpdateSection />
 
       <section className="card-section">
         <h3>

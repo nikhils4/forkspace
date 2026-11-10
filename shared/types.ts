@@ -20,6 +20,8 @@ export interface Board {
   links: Link[];
   /** Learn mode: a mentor explains what the agents do as they work. On unless turned off. */
   learn?: LearnSettings;
+  /** Claude Code sessions already brought in, so they are not offered twice. */
+  imported?: string[];
 }
 
 export type LearnLevel = 'new' | 'growing' | 'expert';
@@ -61,6 +63,8 @@ export interface Branch {
   gitBranch?: string;
   /** Last turn started on this branch. A reply to it keeps the branch; a reply to anything else forks. */
   headNodeId?: string;
+  /** Brought in from an existing Claude Code session; runs in the board's own folder. */
+  imported?: boolean;
 }
 
 export type TurnStatus = 'running' | 'waiting' | 'done' | 'error' | 'stopped';
@@ -102,6 +106,9 @@ export interface TurnNode {
   error?: string;
   pending?: PendingPermission;
   lessons?: Lesson[];
+  /** Imported turns: resume the session at this message to continue from exactly here. */
+  resumeAt?: string;
+  imported?: boolean;
   /** Mentor is writing a lesson right now. */
   learning?: boolean;
   position: Position;
@@ -135,6 +142,10 @@ export type ClientMsg =
   | { type: 'createBoard'; reqId: string; name: string; cwd: string; isolation: Isolation; permissionMode: PermissionMode }
   | { type: 'updateBoard'; id: string; patch: Partial<Pick<Board, 'name' | 'permissionMode' | 'model' | 'links' | 'learn'>> }
   | { type: 'explain'; reqId: string; nodeId: string; path?: string }
+  | { type: 'listSessions'; reqId: string; boardId: string }
+  | { type: 'importSessions'; reqId: string; boardId: string; sessionIds: string[]; at: Position }
+  | { type: 'updateInfo'; reqId: string; force?: boolean }
+  | { type: 'applyUpdate'; reqId: string }
   | { type: 'deleteBoard'; id: string }
   | { type: 'send'; reqId: string; boardId: string; parentId: string | null; prompt: string; position: Position }
   | { type: 'stop'; nodeId: string }
@@ -165,7 +176,8 @@ export interface RemoteInfo {
 }
 
 export type ServerMsg =
-  | { type: 'state'; state: State; home: string }
+  | { type: 'state'; state: State; home: string; build: string }
+  | { type: 'updateProgress'; stage: string; done?: boolean; error?: string }
   | { type: 'board'; board: Board }
   | { type: 'boardDeleted'; id: string }
   | { type: 'branch'; branch: Branch }
@@ -199,4 +211,27 @@ export interface FileResult {
   binary?: boolean;
   tooLarge?: boolean;
   size?: number;
+}
+
+export interface ImportableSession {
+  sessionId: string;
+  title: string;
+  firstPrompt?: string;
+  lastModified: number;
+  gitBranch?: string;
+  sizeKb?: number;
+  imported: boolean;
+}
+
+export interface UpdateInfo {
+  /** 'git' when installed from a git clone; otherwise updates go through your package manager. */
+  channel: 'git' | 'none';
+  version: string;
+  commit?: string;
+  behind: number;
+  changes: { hash: string; subject: string; when: string }[];
+  dirty: boolean;
+  dev: boolean;
+  checkedAt?: number;
+  error?: string;
 }

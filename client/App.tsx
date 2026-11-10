@@ -10,7 +10,9 @@ import { Drawer } from './Drawer.tsx';
 import { PairScreen, Splash, UnreachableScreen } from './Gate.tsx';
 import { Icon } from './icons.tsx';
 import { Inbox, SidebarAgents, useAgents } from './Inbox.tsx';
+import { ImportSessions } from './Import.tsx';
 import { LearnLibrary } from './Learn.tsx';
+import { UpdatePill } from './Updates.tsx';
 import { placeFor } from './layout.ts';
 import { useInstall } from './pwa.ts';
 import { Palette, type PaletteItem } from './Palette.tsx';
@@ -64,7 +66,7 @@ function Shell() {
   const [targets, setTargets] = useState<Record<string, string | null>>({});
   const [openId, setOpenId] = useState<string | null>(null);
   const [focus, setFocus] = useState<{ id: string; n: number } | null>(null);
-  const [sheet, setSheet] = useState<null | 'new' | 'board' | 'devices' | 'boards' | 'learn'>(null);
+  const [sheet, setSheet] = useState<null | 'new' | 'board' | 'devices' | 'boards' | 'learn' | 'import'>(null);
   const [tab, setTab] = useState<Tab>('board');
   const [palette, setPalette] = useState(false);
   const [codeOpen, setCodeOpen] = useState<{ path: string; n: number } | null>(null);
@@ -196,7 +198,7 @@ function Shell() {
     <div className="stage" key={board.id}>
       <div className="view">
         <div className={`pane ${view === 'chat' ? 'on' : ''}`} aria-hidden={view !== 'chat'} inert={view !== 'chat'}>
-          {wasOpened('chat') && <Chat board={board} targetId={targetId} setTargetId={setTargetId} openDetails={setOpenId} />}
+          {wasOpened('chat') && <Chat board={board} targetId={targetId} setTargetId={setTargetId} openDetails={setOpenId} onImport={() => setSheet('import')} />}
         </div>
         <div className={`pane ${view === 'canvas' ? 'on' : ''}`} aria-hidden={view !== 'canvas'} inert={view !== 'canvas'}>
           {wasOpened('canvas') && <Canvas board={board} targetId={targetId} setTargetId={setTargetId} openDetails={setOpenId} focus={focus} active={view === 'canvas'} />}
@@ -261,6 +263,8 @@ function Shell() {
       { id: 'a-devices', group: 'Actions', label: 'Devices and phone', icon: 'phone', run: () => (mobile ? setTab('devices') : setSheet('devices')) },
     );
     if (board) paletteItems.push({ id: 'a-settings', group: 'Actions', label: 'Board settings', icon: 'settings', run: () => setSheet('board') });
+    if (board) paletteItems.push({ id: 'a-import', group: 'Actions', label: 'Bring in Claude Code sessions', icon: 'download', run: () => setSheet('import') });
+    paletteItems.push({ id: 'a-update', group: 'Actions', label: 'Check for updates', icon: 'refresh', run: () => (mobile ? setTab('devices') : setSheet('devices')) });
     paletteItems.push({ id: 'a-learn', group: 'Actions', label: 'Concepts I’ve learned', icon: 'spark', run: () => (mobile ? setTab('learn') : setSheet('learn')) });
     for (const b of store.boards) paletteItems.push({ id: `b-${b.id}`, group: 'Boards', label: b.name, hint: b.cwd.replace(store.home, '~'), icon: 'grid', run: () => (setBoardId(b.id), setTab('board')) });
     if (board)
@@ -294,10 +298,27 @@ function Shell() {
             setBoardId(b.id);
             setSheet(null);
             setTab('board');
+            // The folder already has Claude Code history? Offer to bring it in.
+            request<{ imported: boolean }[]>({ type: 'listSessions', boardId: b.id })
+              .then((l) => l.some((s) => !s.imported) && setSheet('import'))
+              .catch(() => {});
           }}
         />
       )}
       {sheet === 'board' && board && <BoardSettings board={board} onClose={() => setSheet(null)} />}
+      {sheet === 'import' && board && (
+        <ImportSessions
+          board={board}
+          onClose={() => setSheet(null)}
+          onDone={(head) => {
+            setSheet(null);
+            if (head) {
+              setTargetId(head);
+              setFocus({ id: head, n: Date.now() });
+            }
+          }}
+        />
+      )}
       {sheet === 'learn' && (
         <Sheet title="Concepts" onClose={() => setSheet(null)} wide>
           <LearnLibrary
@@ -310,7 +331,7 @@ function Shell() {
         </Sheet>
       )}
       {sheet === 'devices' && (
-        <Sheet title="Devices" onClose={() => setSheet(null)} wide>
+        <Sheet title="Settings" onClose={() => setSheet(null)} wide>
           <Settings />
         </Sheet>
       )}
@@ -378,7 +399,7 @@ function Shell() {
           {tab === 'devices' && (
             <div className="page">
               <div className="page-inner">
-                <h1 className="page-title">Devices</h1>
+                <h1 className="page-title">Settings</h1>
                 <Settings />
                 <a className="credit center" href="https://github.com/nikhils4" target="_blank" rel="noreferrer">
                   Forkspace · Built by <b>nikhils4</b>
@@ -404,8 +425,8 @@ function Shell() {
             <span>Learn</span>
           </button>
           <button className={tab === 'devices' ? 'on' : ''} onClick={() => setTab('devices')}>
-            <Icon name="phone" size={22} />
-            <span>Devices</span>
+            <Icon name="settings" size={22} />
+            <span>Settings</span>
           </button>
         </nav>
         {openNode && <Drawer node={openNode} onClose={() => setOpenId(null)} />}
@@ -450,13 +471,14 @@ function Shell() {
         </div>
 
         <div className="side-foot">
+          <UpdatePill onOpen={() => setSheet('devices')} />
           <InstallButton />
           <button className="side-link" onClick={() => setSheet('learn')}>
             <Icon name="spark" size={15} /> Concepts
             {lessonCount > 0 && <span className="count">{lessonCount}</span>}
           </button>
           <button className="side-link" onClick={() => setSheet('devices')}>
-            <Icon name="phone" size={15} /> Devices & phone
+            <Icon name="settings" size={15} /> Settings
           </button>
           <a className="credit" href="https://github.com/nikhils4" target="_blank" rel="noreferrer">
             Built by <b>nikhils4</b>
@@ -557,7 +579,7 @@ function ConnDot() {
 }
 
 function ConnectionBanner() {
-  const { connected, loaded } = useStore();
+  const { connected, loaded, update } = useStore();
   const [show, setShow] = useState(false);
   useEffect(() => {
     if (connected) return setShow(false);
@@ -567,7 +589,7 @@ function ConnectionBanner() {
   if (!show || !loaded) return null;
   return (
     <div className="conn-banner">
-      <span className="spinner" /> Reconnecting to your Mac…
+      <span className="spinner" /> {update && !update.done ? 'Updating Forkspace. Back in a moment…' : 'Reconnecting to your Mac…'}
     </div>
   );
 }

@@ -13,6 +13,8 @@ export interface Snapshot {
   branches: Record<string, Branch>;
   nodes: Record<string, CanvasNode>;
   toasts: { id: number; level: 'info' | 'error'; text: string }[];
+  /** Live progress of an update started from this or another device. */
+  update?: { stage: string; done?: boolean; error?: string };
 }
 
 let snap: Snapshot = { auth: 'checking', connected: false, loaded: false, home: '', boards: [], branches: {}, nodes: {}, toasts: [] };
@@ -60,6 +62,7 @@ export function toast(text: string, level: 'info' | 'error' = 'info') {
 
 // ---- socket ----
 let ws: WebSocket | null = null;
+let build: string | null = null;
 const waiting = new Map<string, { resolve: (v: any) => void; reject: (e: Error) => void }>();
 let retry: number | undefined;
 let backoff = 500;
@@ -67,6 +70,12 @@ let backoff = 500;
 function onMessage(msg: ServerMsg) {
   switch (msg.type) {
     case 'state':
+      // A different build after reconnecting means Forkspace was updated: load the new app.
+      if (build && msg.build && build !== msg.build) {
+        location.reload();
+        return;
+      }
+      build = msg.build;
       set({
         loaded: true,
         home: msg.home,
@@ -107,6 +116,10 @@ function onMessage(msg: ServerMsg) {
     }
     case 'toast':
       toast(msg.text, msg.level);
+      break;
+    case 'updateProgress':
+      set({ update: { stage: msg.stage, done: msg.done, error: msg.error } });
+      if (msg.done) toast(msg.stage);
       break;
   }
 }

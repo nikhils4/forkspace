@@ -78,3 +78,22 @@ export async function showFile(cwd: string, ref: string, repoPath: string, maxBu
     return null;
   }
 }
+
+/**
+ * A commit of the folder exactly as it is right now (uncommitted and new files included,
+ * ignored files skipped) without touching the user's index, branch or working tree.
+ */
+export async function snapshot(root: string): Promise<string> {
+  const os = await import('node:os');
+  const tmpIndex = path.join(os.tmpdir(), `forkspace-index-${process.pid}-${Date.now()}`);
+  const env = { ...GIT_ENV, GIT_INDEX_FILE: tmpIndex };
+  const g = async (...args: string[]) => (await run('git', args, { cwd: root, env, maxBuffer: 64 * 1024 * 1024 })).stdout.trim();
+  try {
+    await g('read-tree', 'HEAD');
+    await g('add', '-A');
+    const tree = await g('write-tree');
+    return await g('commit-tree', tree, '-p', 'HEAD', '-m', 'forkspace: snapshot of the folder');
+  } finally {
+    fs.rmSync(tmpIndex, { force: true });
+  }
+}

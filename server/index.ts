@@ -8,6 +8,8 @@ import { nanoid } from 'nanoid';
 import { WebSocketServer, type WebSocket } from 'ws';
 import type { Board, ClientMsg, ServerMsg } from '../shared/types.ts';
 import { listFiles, readFile } from './files.ts';
+import { importSessions, listImportable } from './importer.ts';
+import { applyUpdate, checkForUpdate, currentBuild } from './updater.ts';
 import * as g from './git.ts';
 import { checkToken, getPublicUrl, getToken, isLocalRequest, newPairCode, redeemPairCode, rotateToken, setPublicUrl } from './auth.ts';
 import * as push from './push.ts';
@@ -123,7 +125,7 @@ wss.on('connection', (ws) => {
   clients.add(ws);
   visible.set(ws, false);
   ws.on('close', () => visible.delete(ws));
-  send(ws, { type: 'state', state, home: os.homedir() });
+  send(ws, { type: 'state', state, home: os.homedir(), build: BUILD });
   ws.on('close', () => clients.delete(ws));
   ws.on('message', async (raw) => {
     let msg: ClientMsg;
@@ -261,6 +263,36 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       if (!turn?.baseCommit || !turn.commit || !board?.repoRoot) return '';
       return g.diff(board.repoRoot, turn.baseCommit, turn.commit);
     }
+    case 'listSessions': {
+      const board = getBoard(msg.boardId);
+      if (!board) throw new Error('Board not found');
+      return listImportable(board);
+    }
+    case 'importSessions': {
+      const board = getBoard(msg.boardId);
+      if (!board) throw new Error('Board not found');
+      const created = await importSessions(board, msg.sessionIds, msg.at);
+      for (const c of created) {
+        broadcast({ type: 'branch', branch: c.branch });
+        for (const n of c.nodes) broadcast({ type: 'node', node: n });
+      }
+      broadcast({ type: 'board', board });
+      return created.map((c) => ({ branchId: c.branch.id, head: c.branch.headNodeId, turns: c.nodes.length }));
+    }
+    case 'updateInfo':
+      return checkForUpdate(!!msg.force);
+    case 'applyUpdate': {
+      const busy = state.nodes.some((n) => n.kind === 'turn' && (n.status === 'running' || n.status === 'waiting'));
+      if (busy) throw new Error('Agents are still working. Let them finish (or stop them), then update.');
+      return applyUpdate(
+        (stage, extra) => broadcast({ type: 'updateProgress', stage, ...extra }),
+        () => {
+          flush();
+          for (const c of clients) c.close(1012, 'Restarting after update');
+          server.close();
+        },
+      );
+    }
     case 'explain': {
       const turn = getTurn(msg.nodeId);
       if (!turn) throw new Error('Step not found');
@@ -322,8 +354,20 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
   }
 }
 
+const BUILD = await currentBuild();
+
+// After an update the new process can start before the old one has let go of the port.
+let listenTries = 0;
+server.on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EADDRINUSE' && listenTries++ < 40) return setTimeout(() => server.listen(PORT, HOST), 250);
+  console.error(err);
+  process.exit(1);
+});
 server.listen(PORT, HOST, () => {
   console.log(`\n  Forkspace → http://localhost:${PORT}\n`);
+  // Check for updates in the background now and every few hours.
+  checkForUpdate(true).catch(() => {});
+  setInterval(() => checkForUpdate(true).catch(() => {}), 6 * 3600_000).unref();
 });
 
 for (const sig of ['SIGINT', 'SIGTERM'] as const)

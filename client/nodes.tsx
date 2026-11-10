@@ -268,10 +268,17 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
         <StatusDot status={node.status} />
         <span className="status-label">{STATUS_LABEL[node.status]}</span>
         <span className="spacer" />
-        <span className="branch-tag" title={branch?.gitBranch ?? 'branch'}>
-          <Icon name="branch" size={11} />
-          {node.branchId.slice(0, 6)}
-        </span>
+        {node.imported ? (
+          <span className="branch-tag" title="Brought in from Claude Code">
+            <Icon name="download" size={11} />
+            Claude Code
+          </span>
+        ) : (
+          <span className="branch-tag" title={branch?.gitBranch ?? 'branch'}>
+            <Icon name="branch" size={11} />
+            {node.branchId.slice(0, 6)}
+          </span>
+        )}
       </div>
 
       <div className="turn-prompt">{node.prompt}</div>
