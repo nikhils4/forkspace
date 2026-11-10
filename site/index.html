@@ -23,7 +23,7 @@
     <meta name="twitter:image" content="https://forkspace-app.netlify.app/assets/og.png?v=2" />
     <meta name="twitter:image:alt" content="Forkspace: the editor for the age of agents." />
     <link rel="manifest" href="/site.webmanifest" />
-    <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "SoftwareApplication", "@id": "https://forkspace-app.netlify.app/#app", "name": "Forkspace", "description": "Run many Claude Code agents on one canvas. Branch from any step, review live diffs, approve from your phone, and learn the concepts behind the code. Free and open source.", "url": "https://forkspace-app.netlify.app/", "applicationCategory": "DeveloperApplication", "applicationSubCategory": "AI coding agent editor", "operatingSystem": "macOS, Linux, Windows", "softwareRequirements": "Node.js 20+, git, Anthropic API key", "license": "https://opensource.org/licenses/MIT", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "image": "https://forkspace-app.netlify.app/assets/og.png", "screenshot": ["https://forkspace-app.netlify.app/assets/canvas.webp", "https://forkspace-app.netlify.app/assets/code-learn.webp", "https://forkspace-app.netlify.app/assets/chat-learn.webp"], "featureList": ["Run many Claude Code agents side by side on a canvas", "Branch any conversation from any step; the code branches too with git worktrees", "Live diffs and a file tree per branch", "Approve agent actions from your phone", "Concepts explained in plain words while agents work", "Import existing Claude Code sessions"], "codeRepository": "https://github.com/nikhils4/forkspace", "author": {"@id": "https://github.com/nikhils4#person"}}, {"@type": "Person", "@id": "https://github.com/nikhils4#person", "name": "nikhils4", "url": "https://github.com/nikhils4"}, {"@type": "WebSite", "@id": "https://forkspace-app.netlify.app/#site", "name": "Forkspace", "url": "https://forkspace-app.netlify.app/", "publisher": {"@id": "https://github.com/nikhils4#person"}}]}</script>
+    <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "SoftwareApplication", "@id": "https://forkspace-app.netlify.app/#app", "name": "Forkspace", "description": "Run many Claude Code agents on one canvas. Branch from any step, review live diffs, approve from your phone, and learn the concepts behind the code. Free and open source.", "url": "https://forkspace-app.netlify.app/", "applicationCategory": "DeveloperApplication", "applicationSubCategory": "AI coding agent editor", "operatingSystem": "macOS, Linux, Windows", "softwareRequirements": "Node.js 20+, git, Anthropic API key", "license": "https://opensource.org/licenses/MIT", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "image": "https://forkspace-app.netlify.app/assets/og.png", "screenshot": ["https://forkspace-app.netlify.app/assets/canvas.webp?v=3", "https://forkspace-app.netlify.app/assets/code-learn.webp?v=3", "https://forkspace-app.netlify.app/assets/chat-learn.webp?v=3"], "featureList": ["Run many Claude Code agents side by side on a canvas", "Branch any conversation from any step; the code branches too with git worktrees", "Live diffs and a file tree per branch", "Approve agent actions from your phone", "Concepts explained in plain words while agents work", "Import existing Claude Code sessions"], "codeRepository": "https://github.com/nikhils4/forkspace", "author": {"@id": "https://github.com/nikhils4#person"}}, {"@type": "Person", "@id": "https://github.com/nikhils4#person", "name": "nikhils4", "url": "https://github.com/nikhils4"}, {"@type": "WebSite", "@id": "https://forkspace-app.netlify.app/#site", "name": "Forkspace", "url": "https://forkspace-app.netlify.app/", "publisher": {"@id": "https://github.com/nikhils4#person"}}]}</script>
     <link rel="canonical" href="https://forkspace-app.netlify.app/" />
     <link rel="icon" type="image/svg+xml" href="/assets/icon.svg" />
     <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
@@ -771,6 +771,177 @@
         background: rgba(255, 255, 255, 0.75);
       }
 
+      /* ---------- playground ---------- */
+      .pg {
+        margin-top: 40px;
+        border: 1px solid var(--rule-2);
+        border-radius: 18px;
+        background: var(--paper-2);
+        background-image: radial-gradient(color-mix(in srgb, var(--ink) 16%, transparent) 1.1px, transparent 1.2px);
+        background-size: 22px 22px;
+        overflow: hidden;
+        position: relative;
+      }
+      .pg-inner {
+        position: relative;
+        height: 520px;
+        transition: height 0.5s var(--ease);
+      }
+      .pg-wires {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        overflow: visible;
+      }
+      .pg-wires path {
+        fill: none;
+        stroke-width: 1.6;
+        stroke-dasharray: var(--len);
+        stroke-dashoffset: var(--len);
+        animation: pg-draw 0.6s var(--ease) forwards;
+      }
+      @keyframes pg-draw {
+        to {
+          stroke-dashoffset: 0;
+        }
+      }
+      .pg-card {
+        position: absolute;
+        width: var(--w);
+        background: var(--paper);
+        border: 1px solid var(--rule-2);
+        border-radius: 14px;
+        padding: 12px 14px 12px;
+        box-shadow: 0 16px 34px -22px rgba(40, 30, 10, 0.45);
+        transition:
+          left 0.55s var(--ease),
+          top 0.55s var(--ease),
+          border-color 0.3s;
+        animation: pg-pop 0.5s var(--ease);
+        overflow: hidden;
+      }
+      @keyframes pg-pop {
+        from {
+          opacity: 0;
+          transform: scale(0.85) translateY(-10px);
+        }
+      }
+      .pg-card.working::before {
+        content: '';
+        position: absolute;
+        inset: 0 0 auto 0;
+        height: 3px;
+        background: var(--c);
+      }
+      .pg-st {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 12.5px;
+        color: var(--ink-3);
+      }
+      .pg-st i {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #3a9a5b;
+      }
+      .working .pg-st i {
+        background: var(--c);
+        animation: pg-pulse 0.9s ease-in-out infinite alternate;
+      }
+      @keyframes pg-pulse {
+        to {
+          opacity: 0.3;
+        }
+      }
+      .pg-t {
+        margin-top: 5px;
+        font-weight: 600;
+        font-size: 14.5px;
+        line-height: 1.3;
+        min-height: 2.6em;
+      }
+      .pg-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .pg-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--ink-2);
+        border: 1px solid var(--rule);
+        border-radius: 7px;
+        padding: 3px 8px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        animation: pg-pop 0.4s var(--ease);
+      }
+      .pg-chip b {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent);
+        flex: none;
+      }
+      .pg-branch {
+        border: 1px solid var(--rule-2);
+        background: none;
+        color: var(--ink);
+        border-radius: 999px;
+        font-size: 12.5px;
+        padding: 4px 11px;
+        cursor: pointer;
+        flex: none;
+        transition:
+          background 0.2s,
+          color 0.2s,
+          transform 0.2s var(--ease);
+      }
+      .pg-branch:hover:not(:disabled) {
+        background: var(--ink);
+        color: var(--paper);
+        transform: translateY(-1px);
+      }
+      .pg-branch:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+      .pg-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        border-top: 1px solid var(--rule);
+        background: color-mix(in srgb, var(--paper) 70%, transparent);
+      }
+      @media (max-width: 640px) {
+        .pg-foot {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 6px;
+        }
+        .pg-chip {
+          max-width: 100%;
+        }
+        .pg-t {
+          min-height: 2.6em;
+        }
+      }
+      .pg-count {
+        font-family: var(--mono);
+        font-size: 12.5px;
+        color: var(--ink-3);
+      }
+
       /* ---------- behind the scenes ---------- */
       .bts {
         margin-top: 40px;
@@ -1186,7 +1357,7 @@
         <figure class="figure fade" style="--d: 0.9s">
           <div class="grow" id="grow">
             <div class="shot">
-              <picture><img src="/assets/code-learn.webp" width="2880" height="1800" alt="Forkspace Code view: a live diff of math.ts, with a note on the right explaining memoization" fetchpriority="high" />
+              <picture><img src="/assets/code-learn.webp?v=3" width="2880" height="1800" alt="Forkspace Code view: a live diff of math.ts, with a note on the right explaining memoization" fetchpriority="high" />
               </picture>
             </div>
           </div>
@@ -1221,6 +1392,25 @@
       </div>
     </section>
 
+    <section id="try">
+      <div class="wrap">
+        <div class="sec-head">
+          <div class="label">Try it</div>
+          <div>
+            <h2 class="reveal">Go on. <em>Branch something.</em></h2>
+            <p class="lede reveal">Every card is a step an agent took. Hit Branch on any of them and try another idea from there. No real code was harmed.</p>
+          </div>
+        </div>
+        <div class="pg reveal" id="pg">
+          <div class="pg-inner" id="pg-inner"><svg class="pg-wires" id="pg-wires"></svg></div>
+          <div class="pg-bar">
+            <span class="pg-count" id="pg-count">1 step · 1 branch</span>
+            <button class="btn line sm" id="pg-reset">Start over</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="story" id="how">
       <div class="wrap story-sticky">
         <div class="story-text">
@@ -1228,26 +1418,26 @@
             <div class="label">Direct</div>
             <h2>Many agents. <em>One map.</em></h2>
             <p>Branch from any step. The code branches too. Bad idea? It stays on its branch.</p>
-            <div class="step-inline shot"><img src="/assets/canvas.webp" width="2880" height="1800" alt="Forkspace canvas: Claude Code agent steps branching into a tree" loading="lazy" /></div>
+            <div class="step-inline shot"><img src="/assets/canvas.webp?v=3" width="2880" height="1800" alt="Forkspace canvas: Claude Code agent steps branching into a tree" loading="lazy" /></div>
           </div>
           <div class="step">
             <div class="label">Review</div>
             <h2>Watch the code <em>change.</em></h2>
             <p>Every edit, live, the moment it lands. No giant diff at the end.</p>
-            <div class="step-inline shot"><img src="/assets/code-learn.webp" width="2880" height="1800" alt="Forkspace code view: file tree and a live diff of the agent's changes" loading="lazy" /></div>
+            <div class="step-inline shot"><img src="/assets/code-learn.webp?v=3" width="2880" height="1800" alt="Forkspace code view: file tree and a live diff of the agent's changes" loading="lazy" /></div>
           </div>
           <div class="step">
             <div class="label">Learn</div>
             <h2>Learn while <em>agents build.</em></h2>
             <p>The concept behind every change, in plain words. Like a patient senior dev, minus the sighing.</p>
-            <div class="step-inline shot"><img src="/assets/chat-learn.webp" width="2880" height="1800" alt="Forkspace chat view: a conversation with a concept explained beside the code" loading="lazy" /></div>
+            <div class="step-inline shot"><img src="/assets/chat-learn.webp?v=3" width="2880" height="1800" alt="Forkspace chat view: a conversation with a concept explained beside the code" loading="lazy" /></div>
           </div>
         </div>
         <div class="story-device">
           <div class="screens">
-            <div class="shot on"><img src="/assets/canvas.webp" width="2880" height="1800" alt="Canvas view" /></div>
-            <div class="shot"><img src="/assets/code-learn.webp" width="2880" height="1800" alt="Code view" loading="lazy" /></div>
-            <div class="shot"><img src="/assets/chat-learn.webp" width="2880" height="1800" alt="Chat view" loading="lazy" /></div>
+            <div class="shot on"><img src="/assets/canvas.webp?v=3" width="2880" height="1800" alt="Canvas view" /></div>
+            <div class="shot"><img src="/assets/code-learn.webp?v=3" width="2880" height="1800" alt="Code view" loading="lazy" /></div>
+            <div class="shot"><img src="/assets/chat-learn.webp?v=3" width="2880" height="1800" alt="Chat view" loading="lazy" /></div>
           </div>
           <div class="progress mono"><span class="on">Direct</span><span>Review</span><span>Learn</span></div>
         </div>
@@ -1317,8 +1507,8 @@
         </div>
         <div class="phone-sec">
           <div class="phones" id="phones" aria-hidden="true">
-            <div class="phone a"><div class="bezel"><div class="screen"><div class="status"><span>9:41</span><i class="island"></i><span class="sys"><svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" /><rect x="5" y="5.5" width="3" height="6.5" rx="1" /><rect x="10" y="3" width="3" height="9" rx="1" /><rect x="15" y="0" width="3" height="12" rx="1" /></svg><svg viewBox="0 0 27 13"><rect x="0.5" y="0.5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" opacity=".45" /><rect x="2.5" y="2.5" width="17" height="8" rx="2" /><rect x="24.5" y="4.5" width="2" height="4" rx="1" opacity=".45" /></svg></span></div><img src="/assets/phone-learn.webp" width="1179" height="2556" alt="Forkspace on a phone: concepts library" loading="lazy" /><div class="home"><i></i></div></div></div></div>
-            <div class="phone b"><div class="bezel"><div class="screen"><div class="status"><span>9:41</span><i class="island"></i><span class="sys"><svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" /><rect x="5" y="5.5" width="3" height="6.5" rx="1" /><rect x="10" y="3" width="3" height="9" rx="1" /><rect x="15" y="0" width="3" height="12" rx="1" /></svg><svg viewBox="0 0 27 13"><rect x="0.5" y="0.5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" opacity=".45" /><rect x="2.5" y="2.5" width="17" height="8" rx="2" /><rect x="24.5" y="4.5" width="2" height="4" rx="1" opacity=".45" /></svg></span></div><img src="/assets/phone-chat.webp" width="1179" height="2556" alt="Forkspace on a phone: chatting with an agent" loading="lazy" /><div class="home"><i></i></div></div></div></div>
+            <div class="phone a"><div class="bezel"><div class="screen"><div class="status"><span>9:41</span><i class="island"></i><span class="sys"><svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" /><rect x="5" y="5.5" width="3" height="6.5" rx="1" /><rect x="10" y="3" width="3" height="9" rx="1" /><rect x="15" y="0" width="3" height="12" rx="1" /></svg><svg viewBox="0 0 27 13"><rect x="0.5" y="0.5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" opacity=".45" /><rect x="2.5" y="2.5" width="17" height="8" rx="2" /><rect x="24.5" y="4.5" width="2" height="4" rx="1" opacity=".45" /></svg></span></div><img src="/assets/phone-learn.webp?v=3" width="1179" height="2556" alt="Forkspace on a phone: concepts library" loading="lazy" /><div class="home"><i></i></div></div></div></div>
+            <div class="phone b"><div class="bezel"><div class="screen"><div class="status"><span>9:41</span><i class="island"></i><span class="sys"><svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" /><rect x="5" y="5.5" width="3" height="6.5" rx="1" /><rect x="10" y="3" width="3" height="9" rx="1" /><rect x="15" y="0" width="3" height="12" rx="1" /></svg><svg viewBox="0 0 27 13"><rect x="0.5" y="0.5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" opacity=".45" /><rect x="2.5" y="2.5" width="17" height="8" rx="2" /><rect x="24.5" y="4.5" width="2" height="4" rx="1" opacity=".45" /></svg></span></div><img src="/assets/phone-chat.webp?v=3" width="1179" height="2556" alt="Forkspace on a phone: chatting with an agent" loading="lazy" /><div class="home"><i></i></div></div></div></div>
           </div>
           <div class="reveal">
             <p class="lede" style="margin-top: 0">Tap Allow from your phone. Keep walking.</p>
@@ -1380,23 +1570,23 @@
         <div class="bts reveal">
           <div class="bts-row">
             <h3>The agents</h3>
-            <p>The same Claude Code you already use, through Anthropic's Agent SDK. Your settings, CLAUDE.md, MCP servers and skills all come along.</p>
+            <p>The same Claude Code you already use. Your settings come along.</p>
           </div>
           <div class="bts-row">
             <h3>The concepts</h3>
-            <p>A small, fast Claude model (Haiku) reads what the agent just did and writes one idea in plain words. It has no tools, so it can't touch your files.</p>
+            <p>A small, fast Claude model looks at what the agent did and explains the idea in plain words. It can't change anything.</p>
           </div>
           <div class="bts-row">
             <h3>Your key</h3>
-            <p>Everything runs on your Anthropic API key, from your machine. Concepts use the same key and cost a sliver of what the agents do.</p>
+            <p>Runs on your own Anthropic API key.</p>
           </div>
           <div class="bts-row">
             <h3>Your code</h3>
-            <p>Never leaves your computer. Branches are plain git worktrees. Sessions live right where Claude Code keeps them.</p>
+            <p>Stays on your computer.</p>
           </div>
           <div class="bts-row">
-            <h3>Forkspace itself</h3>
-            <p>A small server on your machine and a web page. Open source, MIT. Read every line.</p>
+            <h3>Forkspace</h3>
+            <p>Free and open source. Read every line.</p>
           </div>
         </div>
       </div>
@@ -1467,7 +1657,7 @@
         <div class="hero-actions">
           <a class="btn" href="https://github.com/nikhils4/forkspace">Get Forkspace on GitHub</a>
         </div>
-        <p class="made-by">Designed and built by <a href="https://github.com/nikhils4">nikhils4</a>. Mostly by directing agents, naturally.</p>
+        <p class="made-by">Designed and built by <a href="https://github.com/nikhils4">nikhils4</a></p>
       </div>
     </div>
 
@@ -1483,6 +1673,149 @@
 
     <script>
       const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      // ---- playground: a pretend canvas you can branch ----
+      (() => {
+        const inner = document.getElementById('pg-inner');
+        const wires = document.getElementById('pg-wires');
+        const count = document.getElementById('pg-count');
+        const IDEAS = [
+          ['Handle negative numbers too', 'Edge cases'],
+          ['Cache the answers instead', 'Memoization'],
+          ['Try it with recursion', 'Recursion'],
+          ['Add tests for zero', 'Edge tests'],
+          ['Make big numbers fast', 'Squaring trick'],
+          ["Explain it like I'm five", 'Plain words'],
+          ['Rewrite it in Rust', 'Ownership'],
+          ['Make the errors friendlier', 'Error messages'],
+          ['Use a lookup table', 'Space vs time'],
+        ];
+        const COLORS = ['#6a5cff', '#d4451b', '#2f8a6b', '#b7791f', '#c2417a', '#3b82c4'];
+        const MAX = 9;
+        let cards, used, branches;
+        const reset = () => {
+          cards = [{ id: 0, parent: null, title: 'Add a power function to the calculator', concept: 'Loops', done: true, color: COLORS[0] }];
+          used = new Set();
+          branches = 1;
+          render();
+        };
+        const pick = () => {
+          const left = IDEAS.filter((_, i) => !used.has(i));
+          const i = IDEAS.indexOf(left[Math.floor(Math.random() * left.length)]);
+          used.add(i);
+          return IDEAS[i];
+        };
+        const branch = (from) => {
+          if (cards.length >= MAX) return;
+          const [title, concept] = pick();
+          const sib = cards.some((c) => c.parent === from.id);
+          const color = sib ? COLORS[branches++ % COLORS.length] : from.color;
+          const card = { id: cards.length, parent: from.id, title, concept, done: false, color };
+          cards.push(card);
+          render();
+          setTimeout(() => {
+            card.done = true;
+            render();
+          }, reduce ? 0 : 1300);
+        };
+        const layout = () => {
+          const phone = inner.clientWidth < 640;
+          const W = phone ? 158 : 216, H = phone ? 176 : 128, GX = phone ? 12 : 28, GY = phone ? 44 : 56;
+          const kids = (id) => cards.filter((c) => c.parent === id);
+          const width = new Map();
+          const measure = (c) => {
+            const k = kids(c.id);
+            const w = k.length ? Math.max(W, k.reduce((s, x) => s + measure(x), 0) + GX * (k.length - 1)) : W;
+            width.set(c.id, w);
+            return w;
+          };
+          const pos = new Map();
+          let depth = 0;
+          const place = (c, left, d) => {
+            depth = Math.max(depth, d);
+            pos.set(c.id, { x: left + (width.get(c.id) - W) / 2, y: 28 + d * (H + GY) });
+            let x = left;
+            for (const k of kids(c.id)) {
+              place(k, x, d + 1);
+              x += width.get(k.id) + GX;
+            }
+          };
+          const total = measure(cards[0]);
+          const avail = inner.clientWidth;
+          const scale = Math.min(1, (avail - 32) / total);
+          place(cards[0], (avail / scale - total) / 2, 0);
+          return { pos, W, H, scale, height: (28 * 2 + (depth + 1) * H + depth * GY) * scale };
+        };
+        const render = () => {
+          const { pos, W, H, scale, height } = layout();
+          inner.style.height = Math.max(height, 260) + 'px';
+          inner.style.setProperty('--w', W * scale + 'px');
+          const seen = new Set();
+          for (const c of cards) {
+            seen.add(String(c.id));
+            let el = inner.querySelector(`.pg-card[data-id="${c.id}"]`);
+            if (!el) {
+              el = document.createElement('div');
+              el.className = 'pg-card';
+              el.dataset.id = c.id;
+              inner.appendChild(el);
+            }
+            el.style.setProperty('--c', c.color);
+            el.style.fontSize = scale < 1 ? scale * 100 + '%' : '';
+            el.classList.toggle('working', !c.done);
+            const p = pos.get(c.id);
+            el.style.left = p.x * scale + 'px';
+            el.style.top = p.y * scale + 'px';
+            const key = `${c.done}|${cards.length >= MAX}`;
+            if (el.dataset.k === key) continue;
+            el.dataset.k = key;
+            el.innerHTML = `<div class="pg-st"><i></i>${c.done ? 'Done' : 'Working…'}</div><div class="pg-t">${c.title}</div><div class="pg-foot">${c.done ? `<span class="pg-chip"><b></b>${c.concept}</span>` : '<span></span>'}<button class="pg-branch" ${!c.done || cards.length >= MAX ? 'disabled' : ''}>Branch</button></div>`;
+            el.querySelector('.pg-branch').onclick = () => branch(c);
+          }
+          inner.querySelectorAll('.pg-card').forEach((el) => !seen.has(el.dataset.id) && el.remove());
+          // wires: parent bottom to child top. Only new ones draw themselves in.
+          for (const c of cards) {
+            if (c.parent == null) continue;
+            const a = pos.get(c.parent), b = pos.get(c.id);
+            const pe = inner.querySelector(`.pg-card[data-id="${c.parent}"]`);
+            const x1 = (a.x + W / 2) * scale, y1 = a.y * scale + (pe ? pe.offsetHeight : H * scale), x2 = (b.x + W / 2) * scale, y2 = b.y * scale;
+            const my = (y1 + y2) / 2;
+            const d = `M${x1} ${y1} C${x1} ${my} ${x2} ${my} ${x2} ${y2}`;
+            let path = wires.querySelector(`path[data-id="${c.id}"]`);
+            if (path) {
+              path.setAttribute('d', d);
+              continue;
+            }
+            path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.dataset.id = c.id;
+            path.setAttribute('d', d);
+            path.setAttribute('stroke', c.color);
+            wires.appendChild(path);
+            const forked = cards.find((x) => x.id === c.parent).color !== c.color;
+            if (forked) {
+              path.style.animation = 'none';
+              path.style.strokeDasharray = '5 5';
+              path.style.opacity = '0';
+              path.style.transition = 'opacity .5s';
+              requestAnimationFrame(() => (path.style.opacity = '1'));
+            } else {
+              const len = path.getTotalLength();
+              path.style.setProperty('--len', len);
+              path.addEventListener('animationend', () => (path.style.strokeDasharray = 'none'), { once: true });
+            }
+          }
+          wires.querySelectorAll('path').forEach((p) => !cards.some((c) => String(c.id) === p.dataset.id) && p.remove());
+          const nb = new Set(cards.map((c) => c.color)).size;
+          count.textContent = `${cards.length} step${cards.length > 1 ? 's' : ''} · ${nb} branch${nb > 1 ? 'es' : ''}` + (cards.length >= MAX ? ' · that\'s plenty. Start over?' : '');
+        };
+        document.getElementById('pg-reset').onclick = () => {
+          inner.querySelectorAll('.pg-card').forEach((e) => e.remove());
+          wires.innerHTML = '';
+          reset();
+        };
+        addEventListener('resize', () => render());
+        reset();
+      })();
       // Light and dark. Remembered, and the browser bar follows along.
       const quips = ['See? Told you.', 'Back again. We get it.', 'Okay, okay. You like the switch.'];
       let flips = 0;
