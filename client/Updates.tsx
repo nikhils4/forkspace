@@ -4,6 +4,8 @@ import { Icon } from './icons.tsx';
 import { request, toast, useStore } from './store.ts';
 
 let shared: UpdateInfo | null = null;
+/** Latest update info, for code outside React (bug reports). */
+export const currentUpdate = () => shared;
 const subs = new Set<(i: UpdateInfo) => void>();
 const publish = (i: UpdateInfo) => {
   shared = i;

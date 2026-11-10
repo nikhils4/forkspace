@@ -4739,3 +4739,11 @@ kbd {
 .danger-zone + .danger-zone {
   margin-top: 10px;
 }
+.feedback-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.gate-card a.btn {
+  text-decoration: none;
+}

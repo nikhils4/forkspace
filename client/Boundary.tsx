@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react';
+import { bugReportUrl } from './feedback.ts';
 
 /** If anything in the app crashes, show what happened and a way back, never a blank screen. */
 export class Boundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -26,6 +27,9 @@ export class Boundary extends Component<{ children: ReactNode }, { error: Error 
           <button className="btn primary block" onClick={() => location.reload()}>
             Reload
           </button>
+          <a className="btn block" href={bugReportUrl({ title: `Crash: ${error.message}`, what: 'The screen showed "Something went wrong".\n\nWhat I was doing: ', details })} target="_blank" rel="noreferrer">
+            Report this on GitHub
+          </a>
           <button className="btn block" onClick={() => navigator.clipboard?.writeText(details)}>
             Copy details
           </button>

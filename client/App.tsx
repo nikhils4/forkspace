@@ -4,6 +4,7 @@ import type { Board, TurnNode } from '../shared/types.ts';
 import { BoardSettings, MODES, NewBoard } from './BoardForms.tsx';
 import { Canvas } from './Canvas.tsx';
 import { Chat } from './Chat.tsx';
+import { bugReportUrl, ideaUrl } from './feedback.ts';
 import { ContextMenu, type MenuItem } from './ContextMenu.tsx';
 import { CodeView, fileCache } from './CodeView.tsx';
 import { Composer, composerFocus } from './Composer.tsx';
@@ -263,6 +264,10 @@ function Shell() {
       { id: 'a-new', group: 'Actions', label: 'New thread', icon: 'plus', run: () => (setTargetId(null), setTab('board'), setTimeout(() => composerFocus.current?.focus(), 50)) },
       { id: 'a-board', group: 'Actions', label: 'New board', icon: 'folder', run: () => setSheet('new') },
       { id: 'a-devices', group: 'Actions', label: 'Devices and phone', icon: 'phone', run: () => (mobile ? setTab('devices') : setSheet('devices')) },
+    );
+    paletteItems.push(
+      { id: 'a-bug', group: 'Actions', label: 'Report a bug', icon: 'external', run: () => open(bugReportUrl(), '_blank') },
+      { id: 'a-idea', group: 'Actions', label: 'Suggest an idea', icon: 'spark', run: () => open(ideaUrl(), '_blank') },
     );
     if (board) paletteItems.push({ id: 'a-settings', group: 'Actions', label: 'Board settings', icon: 'settings', run: () => setSheet('board') });
     if (board) paletteItems.push({ id: 'a-import', group: 'Actions', label: 'Bring in Claude Code sessions', icon: 'download', run: () => setSheet('import') });

@@ -8,6 +8,7 @@ import { Switch } from './ui.tsx';
 import { UpdateSection } from './Updates.tsx';
 import { StartCommand } from './Gate.tsx';
 import { setTheme, useTheme, type Theme } from './theme.ts';
+import { bugReportUrl, ideaUrl, questionUrl } from './feedback.ts';
 import { Segmented } from './ui.tsx';
 
 function Step({ n, done, title, children }: { n: number; done?: boolean; title: string; children?: React.ReactNode }) {
@@ -339,6 +340,24 @@ export function Settings() {
       <AlwaysOn />
 
       <UpdateSection />
+
+      <section className="card-section">
+        <h3>
+          <Icon name="chat" size={16} /> Help and feedback
+        </h3>
+        <p className="faint">Opens GitHub with your version and device filled in. You review it and send it from your own account.</p>
+        <div className="feedback-links">
+          <a className="btn sm" href={bugReportUrl()} target="_blank" rel="noreferrer">
+            <Icon name="external" size={13} /> Report a bug
+          </a>
+          <a className="btn sm" href={ideaUrl()} target="_blank" rel="noreferrer">
+            <Icon name="spark" size={13} /> Suggest an idea
+          </a>
+          <a className="btn sm" href={questionUrl()} target="_blank" rel="noreferrer">
+            <Icon name="chat" size={13} /> Ask a question
+          </a>
+        </div>
+      </section>
 
       <section className="card-section">
         <h3>
