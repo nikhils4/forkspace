@@ -16,9 +16,16 @@ function ownSessions() {
   return s;
 }
 
+/** Sessions that have cards on this board right now. Deleting the cards frees the session again. */
+function onBoard(board: Board) {
+  const s = new Set<string>();
+  for (const n of state.nodes) if (n.kind === 'turn' && n.imported && n.boardId === board.id && n.sessionId) s.add(n.sessionId);
+  return s;
+}
+
 export async function listImportable(board: Board): Promise<ImportableSession[]> {
   const own = ownSessions();
-  const done = new Set(board.imported ?? []);
+  const done = onBoard(board);
   const list = await listSessions({ dir: board.cwd, limit: 80, includeWorktrees: false, includeProgrammatic: true } as any);
   return list
     .filter((s) => !own.has(s.sessionId))
@@ -112,8 +119,9 @@ async function readTurns(board: Board, sessionId: string): Promise<Draft[]> {
 export async function importSessions(board: Board, ids: string[], at: Position) {
   const created: { branch: Branch; nodes: TurnNode[] }[] = [];
   let x = at.x;
+  const done = onBoard(board);
   for (const sessionId of ids) {
-    if (board.imported?.includes(sessionId)) continue;
+    if (done.has(sessionId)) continue;
     const turns = await readTurns(board, sessionId);
     if (!turns.length) continue;
     // Imported threads run in the board's own folder, exactly where the original session worked.
@@ -144,7 +152,6 @@ export async function importSessions(board: Board, ids: string[], at: Position) 
     branch.headNodeId = nodes[nodes.length - 1].id;
     state.branches.push(branch);
     state.nodes.push(...nodes);
-    board.imported = [...(board.imported ?? []), sessionId];
     created.push({ branch, nodes });
     x += 460;
   }

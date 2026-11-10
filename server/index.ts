@@ -205,7 +205,6 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       ids.forEach(stop);
       state.nodes = state.nodes.filter((n) => n.boardId !== msg.id);
       board.links = [];
-      board.imported = []; // its Claude Code sessions can be brought in again
       await pruneBranches();
       broadcast({ type: 'board', board });
       broadcast({ type: 'nodesDeleted', ids });

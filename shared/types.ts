@@ -20,7 +20,7 @@ export interface Board {
   links: Link[];
   /** Learn mode: a mentor explains what the agents do as they work. On unless turned off. */
   learn?: LearnSettings;
-  /** Claude Code sessions already brought in, so they are not offered twice. */
+  /** Unused since 0.2.1: whether a session is on the board comes from its cards. Kept so old state files load. */
   imported?: string[];
 }
 
