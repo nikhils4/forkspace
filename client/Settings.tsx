@@ -12,6 +12,7 @@ import { bugReportUrl, ideaUrl, questionUrl } from './feedback.ts';
 import { Segmented } from './ui.tsx';
 import { MoveSection } from './Transfer.tsx';
 import { AwaySection } from './Away.tsx';
+import { TerminalSettings } from './TerminalSettings.tsx';
 
 export function Step({ n, done, title, children }: { n: number; done?: boolean; title: string; children?: React.ReactNode }) {
   return (
@@ -362,6 +363,7 @@ export function Settings() {
           <p className="faint">Agents run on this computer. Your phone is the remote, over your own private network.</p>
           {local && <RemoteAccess info={info} setInfo={setInfo} />}
           {base ? <PairPanel base={base} /> : <p className="faint small">Finish the steps above and a code to scan appears here.</p>}
+          <TerminalSettings />
         </section>
       )}
 

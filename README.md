@@ -64,6 +64,12 @@ Maintainers: add a section to CHANGELOG.md, then `npm run release -- 0.3.0` (or 
 
 Switching views keeps your place. Press `⌘K` to jump to any board, branch, file or action.
 
+### Terminal
+
+Click **Terminal** in the top bar (or press `Ctrl+\``) for a real shell at the bottom of the board, already in the folder of the branch you're on. Open more with **+**. Terminals keep running when you hide the panel, and reopening shows what was on screen.
+
+Phones and other paired devices can't open a terminal unless you allow it on the computer itself (Settings, Phone). On Linux the terminal needs build tools for `node-pty`; everything else works without it.
+
 ### Concepts
 
 While an agent works, a small, fast model (no tools) reads what it did and writes one concept at a time: a short plain-language explanation with the real code behind it. For example, *"Memoization: remembering past answers"* when an agent adds a cache.

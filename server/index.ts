@@ -18,6 +18,7 @@ import { checkToken, getPublicUrl, getToken, isLocalRequest, newPairCode, redeem
 import * as push from './push.ts';
 import { enableTailscaleServe, tailscaleInfo } from './remote.ts';
 import { awayStatus, noteDevice, setAway } from './away.ts';
+import { attachTerminal, closeBoardTerminals, closeTerminal, listTerminals, openTerminal, resizeTerminal, setTerminalEmitter, setTerminalRemoteAllowed, terminalRemoteAllowed, terminalSupported, writeTerminal } from './terminal.ts';
 import { answer, isRunning, pruneBranches, setActivityHook, setEmitter, setNotifier, startTurn, stop, touch } from './runner.ts';
 import { explain, onActivity, organizeConcepts, setTutorTouch } from './tutor.ts';
 import { flush, getBoard, getBranch, getNode, getTurn, save, state, subtree } from './store.ts';
@@ -202,6 +203,14 @@ setActivityHook(onActivity);
 const send = (ws: WebSocket, msg: ServerMsg) => ws.send(JSON.stringify(msg));
 
 const visible = new Map<WebSocket, boolean>();
+/** Sockets from another device (phone over a tunnel), not this machine. */
+const remoteOf = new Map<WebSocket, boolean>();
+
+// Terminal output only goes to screens allowed to use the terminal.
+setTerminalEmitter((msg) => {
+  const data = JSON.stringify(msg);
+  for (const c of clients) if (c.readyState === c.OPEN && (!remoteOf.get(c) || terminalRemoteAllowed())) c.send(data);
+});
 
 // Push to phones/desktops only when nobody is looking at Forkspace right now.
 setNotifier((node, kind) => {
@@ -221,6 +230,8 @@ wss.on('connection', (ws, req) => {
   // Remember when a phone (or any other device) connects, for away mode's setup.
   const deviceId = nanoid(6);
   const remote = !isLocalRequest(req);
+  remoteOf.set(ws, remote);
+  ws.on('close', () => remoteOf.delete(ws));
   noteDevice(deviceId, remote, String(req.headers['user-agent'] ?? ''), true);
   ws.on('close', () => noteDevice(deviceId, remote, '', false));
   visible.set(ws, false);
@@ -306,6 +317,7 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       return;
     }
     case 'deleteBoard': {
+      closeBoardTerminals(msg.id);
       const ids = state.nodes.filter((n) => n.boardId === msg.id).map((n) => n.id);
       ids.forEach(stop);
       state.nodes = state.nodes.filter((n) => n.boardId !== msg.id);
@@ -476,6 +488,33 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       return;
     case 'ping':
       return 'pong';
+    case 'termSettings': {
+      if (typeof msg.remoteAllowed === 'boolean') {
+        // Only this machine can let other devices in.
+        if (remoteOf.get(currentWs)) throw new Error('Change this on the computer itself.');
+        setTerminalRemoteAllowed(msg.remoteAllowed);
+      }
+      return { supported: terminalSupported(), remoteAllowed: terminalRemoteAllowed(), here: !remoteOf.get(currentWs) };
+    }
+    case 'termOpen':
+    case 'termList':
+    case 'termAttach':
+    case 'termInput':
+    case 'termResize':
+    case 'termClose': {
+      if (remoteOf.get(currentWs) && !terminalRemoteAllowed()) throw new Error('The terminal is only available on the computer itself. You can allow other devices in Settings there.');
+      if (msg.type === 'termOpen') {
+        const board = getBoard(msg.boardId);
+        if (!board) throw new Error('Board not found');
+        const branch = msg.branchId ? getBranch(msg.branchId) : undefined;
+        return openTerminal(board.id, branch?.boardId === board.id ? branch.cwd : board.cwd, branch?.id, msg.cols, msg.rows);
+      }
+      if (msg.type === 'termList') return listTerminals(msg.boardId);
+      if (msg.type === 'termAttach') return attachTerminal(msg.id);
+      if (msg.type === 'termInput') return writeTerminal(msg.id, msg.data);
+      if (msg.type === 'termResize') return resizeTerminal(msg.id, msg.cols, msg.rows);
+      return closeTerminal(msg.id);
+    }
     case 'setCompleted': {
       const t = getTurn(msg.nodeId);
       if (!t) throw new Error('Step not found');

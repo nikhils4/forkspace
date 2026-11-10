@@ -1,10 +1,12 @@
 import { ReactFlowProvider } from '@xyflow/react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { conceptKey, type Board, type TurnNode } from '../shared/types.ts';
 import { BoardSettings, MODES, NewBoard } from './BoardForms.tsx';
 import { Canvas } from './Canvas.tsx';
 import { Chat } from './Chat.tsx';
 import { AwayLink, AwayScreen, goAway } from './Away.tsx';
+// The terminal (xterm) loads only when you open it.
+const TerminalPanel = lazy(() => import('./Terminal.tsx').then((m) => ({ default: m.TerminalPanel })));
 import { bugReportUrl, ideaUrl } from './feedback.ts';
 import { ContextMenu, type MenuItem } from './ContextMenu.tsx';
 import { CodeView, fileCache } from './CodeView.tsx';
@@ -73,6 +75,7 @@ function Shell() {
   const [sheet, setSheet] = useState<null | 'new' | 'board' | 'devices' | 'boards' | 'learn' | 'import'>(null);
   // Desktop: the main area shows a board, or the Concepts page.
   const [page, setPage] = useState<'board' | 'concepts'>('board');
+  const [termOpen, setTermOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('board');
   const [palette, setPalette] = useState(false);
   const [codeOpen, setCodeOpen] = useState<{ path: string; n: number } | null>(null);
@@ -161,6 +164,12 @@ function Shell() {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'p' && board) {
         e.preventDefault();
         setPalette(true);
+        return;
+      }
+      if (e.ctrlKey && e.key === '`') {
+        e.preventDefault();
+        setPage('board');
+        setTermOpen((v) => !v);
         return;
       }
       if ((e.target as HTMLElement).closest('input, textarea, select, [contenteditable], .cm-editor')) return;
@@ -283,6 +292,7 @@ function Shell() {
     );
     if (board) paletteItems.push({ id: 'a-settings', group: 'Actions', label: 'Board settings', icon: 'settings', run: () => setSheet('board') });
     if (board) paletteItems.push({ id: 'a-import', group: 'Actions', label: 'Bring in Claude Code sessions', icon: 'download', run: () => setSheet('import') });
+    if (board) paletteItems.push({ id: 'a-term', group: 'Actions', label: termOpen ? 'Hide terminal' : 'Open terminal', hint: 'Ctrl+`', icon: 'terminal', run: () => (setPage('board'), setTab('board'), setTermOpen(!termOpen)) });
     paletteItems.push({ id: 'a-away', group: 'Actions', label: 'Away mode', hint: 'Keep this computer awake', icon: 'moon', run: goAway });
     paletteItems.push({ id: 'a-update', group: 'Actions', label: 'Check for updates', icon: 'refresh', run: () => (settingsTab('updates'), mobile ? setTab('devices') : setSheet('devices')) });
     paletteItems.push({ id: 'a-learn', group: 'Actions', label: 'Concepts I’ve learned', icon: 'spark', run: () => (mobile ? setTab('learn') : setPage('concepts')) });
@@ -395,6 +405,11 @@ function Shell() {
         )}
         <main className="m-main">
           {tab === 'board' && boardView}
+          {tab === 'board' && termOpen && board && (
+            <Suspense fallback={null}>
+              <TerminalPanel board={board} branchId={target?.branchId} onClose={() => setTermOpen(false)} />
+            </Suspense>
+          )}
           {tab === 'agents' && <Inbox onOpen={goTo} />}
           {tab === 'learn' && (
             <div className="page">
@@ -558,6 +573,10 @@ function Shell() {
               Learn {learnOn ? 'on' : 'off'}
             </button>
             <span className="spacer" />
+            <button className={`pill term-pill ${termOpen ? 'on' : ''}`} onClick={() => setTermOpen(!termOpen)} title="Terminal (Ctrl+`)">
+              <Icon name="terminal" size={13} />
+              <span className="seg-label">Terminal</span>
+            </button>
             <button className="kbar-btn" onClick={() => setPalette(true)} title="Search (⌘K)">
               <Icon name="spark" size={14} />
               <span className="seg-label">Search</span>
@@ -570,6 +589,11 @@ function Shell() {
         <div className="main-body" style={page === 'concepts' ? { display: 'none' } : undefined}>
           {boardView}
         </div>
+        {termOpen && board && page === 'board' && (
+          <Suspense fallback={null}>
+            <TerminalPanel board={board} branchId={target?.branchId} onClose={() => setTermOpen(false)} />
+          </Suspense>
+        )}
       </main>
 
       {openNode && <Drawer node={openNode} onClose={() => setOpenId(null)} onReply={(id) => (setTargetId(id), setTimeout(() => composerFocus.current?.focus(), 0))} />}

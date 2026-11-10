@@ -3,6 +3,11 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.9.0
+
+- A terminal in the app: the Terminal button (or Ctrl+`) opens a real shell at the bottom, in the folder of the branch you're on. Tabs, resizable, keeps running when hidden
+- Other devices can't use the terminal unless you allow it on the computer (Settings, Phone)
+
 ## 0.8.1
 
 - A calmer step details panel: your prompt, what changed, one Reply button, and Summary, Steps and Changes. Branch, folder and terminal commands moved behind ⋯

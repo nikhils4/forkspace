@@ -64,6 +64,13 @@ export function toast(text: string, level: 'info' | 'error' = 'info') {
 let ws: WebSocket | null = null;
 let build: string | null = null;
 const updateListeners = new Set<(i: UpdateInfo) => void>();
+type TermMsg = Extract<ServerMsg, { type: 'termData' | 'termExit' | 'termList' }>;
+const termListeners = new Set<(m: TermMsg) => void>();
+/** Terminal output and changes, as they stream in. */
+export function onTerminal(f: (m: TermMsg) => void) {
+  termListeners.add(f);
+  return () => void termListeners.delete(f);
+}
 /** Hear about new releases the moment the server finds them. */
 export function onUpdateInfo(f: (i: UpdateInfo) => void) {
   updateListeners.add(f);
@@ -126,6 +133,11 @@ function onMessage(msg: ServerMsg) {
     }
     case 'toast':
       toast(msg.text, msg.level);
+      break;
+    case 'termData':
+    case 'termExit':
+    case 'termList':
+      termListeners.forEach((f) => f(msg));
       break;
     case 'updateInfo':
       updateListeners.forEach((f) => f(msg.info));

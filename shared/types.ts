@@ -174,6 +174,13 @@ export type ClientMsg =
   | { type: 'remoteInfo'; reqId: string }
   | { type: 'awayInfo'; reqId: string }
   | { type: 'ping'; reqId: string }
+  | { type: 'termOpen'; reqId: string; boardId: string; branchId?: string; cols: number; rows: number }
+  | { type: 'termList'; reqId: string; boardId: string }
+  | { type: 'termAttach'; reqId: string; id: string }
+  | { type: 'termInput'; id: string; data: string }
+  | { type: 'termResize'; id: string; cols: number; rows: number }
+  | { type: 'termClose'; id: string }
+  | { type: 'termSettings'; reqId: string; remoteAllowed?: boolean }
   | { type: 'setCompleted'; nodeId: string; completed: boolean }
   | { type: 'organizeConcepts'; reqId: string }
   | { type: 'setAway'; reqId: string; on: boolean; screen?: boolean }
@@ -199,6 +206,10 @@ export type ServerMsg =
   | { type: 'updateProgress'; stage: string; done?: boolean; error?: string }
   /** Pushed when a check finds something new, so every screen knows without asking. */
   | { type: 'updateInfo'; info: UpdateInfo }
+  | { type: 'termData'; id: string; data: string }
+  | { type: 'termExit'; id: string; code: number }
+  /** Terminals on a board changed (one opened or closed). */
+  | { type: 'termList'; boardId: string }
   | { type: 'board'; board: Board }
   | { type: 'boardDeleted'; id: string }
   | { type: 'branch'; branch: Branch }
@@ -349,3 +360,14 @@ export const conceptKey = (s: string) =>
     .replace(/[^a-z0-9+#. ]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+
+export interface TerminalInfo {
+  id: string;
+  boardId: string;
+  branchId?: string;
+  cwd: string;
+  title: string;
+  createdAt: number;
+  /** Exit code once the shell has ended. */
+  exited?: number;
+}

@@ -5998,3 +5998,134 @@ kbd {
 .drawer-tech .facts {
   margin-top: 10px;
 }
+
+/* ---------- terminal ---------- */
+.term-pill.on {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--border-2);
+}
+.term-panel {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-top: 1px solid var(--border-2);
+  background: var(--bg-2);
+  animation: term-up 0.25s var(--ease);
+}
+@keyframes term-up {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+}
+.term-grip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -4px;
+  height: 8px;
+  cursor: ns-resize;
+  z-index: 2;
+}
+.term-grip:hover {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.term-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 8px 0 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+.term-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  min-width: 0;
+}
+.term-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 4px 0 10px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  color: var(--text-2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.term-tab em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--text-3);
+  font-family: var(--mono);
+}
+.term-tab.on {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.term-tab.exited span {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+.term-tab button,
+.term-new {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.term-tab button:hover,
+.term-new:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+.term-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+.term-view {
+  position: absolute;
+  inset: 6px 4px 4px 12px;
+  display: none;
+}
+.term-view.on {
+  display: block;
+}
+.term-view .xterm,
+.term-view .xterm-viewport {
+  height: 100%;
+  background: transparent !important;
+}
+.term-empty {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.mobile .term-panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(58px + var(--sab));
+  z-index: 40;
+  max-height: 65vh;
+}
