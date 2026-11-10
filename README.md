@@ -92,6 +92,20 @@ Already worked in this folder with the Claude Code extension or CLI? When you cr
 - Continuing runs in your real folder, just like the original session.
 - Branching starts from a snapshot of the folder as it is now, including uncommitted work. Your checkout and git staging are never touched.
 
+## What runs behind the scenes
+
+No magic. Here is everything, in plain words.
+
+| Part | What it is |
+|---|---|
+| **The agents** | The same Claude Code you already use, through Anthropic's [Agent SDK](https://docs.anthropic.com/en/docs/claude-code/sdk). Your `~/.claude` settings, `CLAUDE.md`, MCP servers, hooks and skills all come along. |
+| **The concepts** | A small, fast Claude model (Haiku) reads what the agent just did (its steps and changes) and writes one idea in plain words. It has no tools, so it can't read or change your files by itself. |
+| **Your key** | Agents and concepts both run on your Anthropic API key, from your machine. Concepts cost a sliver of what the agents do. |
+| **Your code** | Never leaves your computer. Branches are plain git worktrees. Sessions are saved where Claude Code keeps them (`~/.claude/projects`), so `claude --resume` works on them too. |
+| **Forkspace** | A small Node server on your machine plus a web page. Nothing is sent anywhere except the model calls to Anthropic. |
+
+Why an API key and not your Claude.ai login? Anthropic asks apps built on Claude Code to use API keys. If no key is set, the SDK may fall back to an existing Claude Code login on your machine, but the supported way is a key.
+
 ## On your phone
 
 Agents always run on your Mac. Your phone is a remote control.
@@ -176,7 +190,6 @@ npm run build      # client to dist/, server to build/
 
 - Merge a branch back from the app
 - Search across every step and note
-- Forkspace Cloud: agents that keep working while your laptop sleeps ([join the waitlist](https://forkspace-app.netlify.app/#cloud))
 
 ## Contributing
 
