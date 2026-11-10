@@ -145,7 +145,8 @@ export type ClientMsg =
   | { type: 'listSessions'; reqId: string; boardId: string }
   | { type: 'importSessions'; reqId: string; boardId: string; sessionIds: string[]; at: Position }
   | { type: 'updateInfo'; reqId: string; force?: boolean }
-  | { type: 'applyUpdate'; reqId: string }
+  /** setAside: stash local edits that would block the update (kept in `git stash list`). */
+  | { type: 'applyUpdate'; reqId: string; setAside?: boolean }
   | { type: 'serviceStatus'; reqId: string }
   | { type: 'serviceEnable'; reqId: string }
   | { type: 'serviceDisable'; reqId: string }
@@ -228,14 +229,25 @@ export interface ImportableSession {
   imported: boolean;
 }
 
+export interface Release {
+  version: string;
+  /** "2 days ago" */
+  when: string;
+  notes: string[];
+}
+
 export interface UpdateInfo {
   /** 'git' when installed from a git clone; otherwise updates go through your package manager. */
   channel: 'git' | 'none';
+  /** Version that is running right now. */
   version: string;
   commit?: string;
-  behind: number;
-  changes: { hash: string; subject: string; when: string }[];
-  dirty: boolean;
+  /** Newer releases than the running one, newest first. */
+  releases: Release[];
+  /** The folder already holds newer code than what is running (pulled by hand, or an update that did not restart). */
+  restartPending: boolean;
+  /** Local edits that the update would overwrite. Edits to other files are fine. */
+  conflicts: string[];
   dev: boolean;
   checkedAt?: number;
   error?: string;

@@ -310,6 +310,7 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       const busy = state.nodes.some((n) => n.kind === 'turn' && (n.status === 'running' || n.status === 'waiting'));
       if (busy) throw new Error('Agents are still working. Let them finish (or stop them), then update.');
       return applyUpdate(
+        !!msg.setAside,
         (stage, extra) => broadcast({ type: 'updateProgress', stage, ...extra }),
         () => {
           flush();

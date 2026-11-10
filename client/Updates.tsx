@@ -48,10 +48,10 @@ export function UpdateSection() {
     setChecking(false);
   };
 
-  const apply = async () => {
+  const apply = async (setAside = false) => {
     setRunning(true);
     try {
-      const r = await request<{ restarted: boolean }>({ type: 'applyUpdate' });
+      const r = await request<{ restarted: boolean }>({ type: 'applyUpdate', setAside });
       if (!r.restarted) {
         setRunning(false);
         check();
@@ -62,6 +62,11 @@ export function UpdateSection() {
       setRunning(false);
     }
   };
+
+  const latest = info?.releases[0];
+  const blocked = !!info?.conflicts.length;
+  const ready = !!info && info.channel === 'git' && !info.error && (!!latest || info.restartPending);
+  const label = latest ? `Update to ${latest.version}` : 'Restart to finish';
 
   return (
     <section className="card-section">
@@ -81,36 +86,57 @@ export function UpdateSection() {
                 ? 'Installed without git. Update with your package manager.'
                 : info.error
                   ? info.error
-                  : info.behind
-                    ? `${info.behind} update${info.behind === 1 ? '' : 's'} available.`
-                    : 'You have the latest version.'}
+                  : latest
+                    ? `Version ${latest.version} is available.`
+                    : info.restartPending
+                      ? 'A newer version is downloaded. Restart to use it.'
+                      : 'You have the latest version.'}
           </span>
         </div>
-        {info?.channel === 'git' && !info.behind && (
+        {info?.channel === 'git' && !ready && (
           <button className="btn sm" onClick={check} disabled={checking}>
             {checking ? <span className="spinner" /> : <Icon name="refresh" size={13} />} Check
           </button>
         )}
       </div>
 
-      {info && info.behind > 0 && (
+      {info && info.releases.length > 0 && (
+        <div className="releases">
+          {info.releases.slice(0, 4).map((r) => (
+            <div className="release" key={r.version}>
+              <div className="release-head">
+                <b>{r.version}</b>
+                <span className="faint small">{r.when}</span>
+              </div>
+              {r.notes.length > 0 && (
+                <ul>
+                  {r.notes.map((n, i) => (
+                    <li key={i}>{n}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {ready && (
         <>
-          <ul className="changes">
-            {info.changes.slice(0, 6).map((c) => (
-              <li key={c.hash}>
-                <span className="ellipsis">{c.subject}</span>
-                <span className="faint small">{c.when}</span>
-              </li>
-            ))}
-          </ul>
-          {info.dirty && <div className="error-box">You have local changes in the Forkspace folder. Commit or stash them to update.</div>}
-          <button className="btn primary update-btn" onClick={apply} disabled={running || info.dirty}>
+          {blocked && (
+            <div className="error-box">
+              You edited {info!.conflicts.join(', ')} in the Forkspace folder, and this update changes {info!.conflicts.length === 1 ? 'it' : 'them'} too.
+              Set your edits aside to update. They stay safe in <code>git stash</code>.
+            </div>
+          )}
+          <button className="btn primary update-btn" onClick={() => apply(blocked)} disabled={running}>
             {running ? (
               <>
                 <span className="spinner light" /> {update?.stage ?? 'Updating…'}
               </>
+            ) : blocked ? (
+              `Set aside my edits and ${label.toLowerCase()}`
             ) : (
-              'Update and restart'
+              label
             )}
           </button>
           <span className="faint small">Takes about a minute. Your boards, branches and concepts stay as they are.</span>
@@ -123,10 +149,10 @@ export function UpdateSection() {
 /** Sidebar nudge when an update is waiting. */
 export function UpdatePill({ onOpen }: { onOpen: () => void }) {
   const info = useUpdate();
-  if (!info?.behind || info.channel !== 'git') return null;
+  if (!info || info.channel !== 'git' || (!info.releases.length && !info.restartPending)) return null;
   return (
     <button className="side-link update-pill" onClick={onOpen}>
-      <span className="update-dot" /> Update available
+      <span className="update-dot" /> {info.releases.length ? `Update to ${info.releases[0].version}` : 'Restart to update'}
     </button>
   );
 }
