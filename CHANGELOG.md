@@ -3,6 +3,10 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.7.3
+
+- New versions show up in the sidebar by themselves: Forkspace checks every 15 minutes and tells every open screen right away, and checks again when you come back to it
+
 ## 0.7.2
 
 - One circle per thread, above its first card: click it to complete the thread and fade it back
