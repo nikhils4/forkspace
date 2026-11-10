@@ -442,16 +442,11 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
 
       {node.pending && <Permission node={node} p={node.pending} />}
 
-      <CardComments node={node} />
-
       <div className="turn-foot nodrag">
         <button className="btn ghost sm" onClick={() => onOpen(node.id)}>
           Details
         </button>
-        <button className="btn ghost sm icon-only" onClick={() => startComment(node.id)} title="Add a comment (only for you)" aria-label="Add a comment">
-          <Icon name="comment" size={13} />
-          {node.comments?.length ? <span className="cmt-count">{node.comments.length}</span> : null}
-        </button>
+
         <span className="spacer" />
         {live ? (
           <button className="btn danger-ghost sm" onClick={() => send({ type: 'stop', nodeId: node.id })}>
@@ -467,6 +462,10 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
       </div>
       <Handle type="source" position={Position.Bottom} />
     </div>
+    <button className="cmt-plus nodrag" onClick={() => startComment(node.id)} title="Add a comment (only for you)" aria-label="Add a comment">
+      <Icon name="plus" size={13} />
+    </button>
+    <CardComments node={node} />
     </>
   );
 });

@@ -27,36 +27,52 @@ type Pending = { key: string; name: string; size: number; preview?: string; att?
 export const composerFocus = { current: null as HTMLTextAreaElement | null };
 
 /** Put text into the message box (after what's there) and focus it. */
-let inserter: ((t: string) => void) | null = null;
+// The newest box on screen wins: with the details panel open, that's the one inside it.
+const inserters: ((t: string) => void)[] = [];
 export function composerInsert(t: string) {
-  if (!inserter) return;
-  inserter(t);
+  inserters[inserters.length - 1]?.(t);
 }
 
-export function Composer({ target, board, onSubmit, onClear, drawerOpen }: { target?: TurnNode; board: Board; onSubmit: (p: string, attachments: Attachment[]) => Promise<boolean>; onClear: () => void; drawerOpen?: boolean }) {
+/** The message box: under the board, and (docked) inside the details panel for that step. */
+export function Composer({
+  target,
+  board,
+  onSubmit,
+  onClear,
+  drawerOpen,
+  docked = false,
+}: {
+  target?: TurnNode;
+  board: Board;
+  onSubmit: (p: string, attachments: Attachment[]) => Promise<boolean>;
+  onClear?: () => void;
+  drawerOpen?: boolean;
+  docked?: boolean;
+}) {
   const { branches } = useStore();
   const mobile = useIsMobile();
-  const [text, setText] = useState(() => readDraft(draftKey(board.id)));
+  const key = docked && target ? `${draftKey(board.id)}:${target.id}` : draftKey(board.id);
+  const [text, setText] = useState(() => readDraft(key));
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
   const isFork = !!target && branches[target.branchId]?.headNodeId !== target.id;
   const targetBusy = !!target && isLive(target);
 
   useEffect(() => {
-    composerFocus.current = ref.current;
+    if (!docked) composerFocus.current = ref.current;
   });
   // Views pad themselves by this much so nothing hides under the floating composer.
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = box.current;
-    if (!el) return;
+    if (!el || docked) return;
     const ro = new ResizeObserver(() => document.documentElement.style.setProperty('--composer-h', `${el.offsetHeight}px`));
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  useEffect(() => writeDraft(draftKey(board.id), text), [text, board.id]);
+  useEffect(() => writeDraft(key, text), [text, key]);
   useEffect(() => {
-    inserter = (t) => {
+    const insert = (t: string) => {
       setText((cur) => (cur.trim() ? `${cur.replace(/\s+$/, '')}\n\n${t}` : t));
       setTimeout(() => {
         const el = ref.current;
@@ -66,8 +82,10 @@ export function Composer({ target, board, onSubmit, onClear, drawerOpen }: { tar
       }, 0);
       toast('Added to your prompt');
     };
+    inserters.push(insert);
     return () => {
-      inserter = null;
+      const i = inserters.indexOf(insert);
+      if (i >= 0) inserters.splice(i, 1);
     };
   }, []);
 
@@ -163,7 +181,7 @@ export function Composer({ target, board, onSubmit, onClear, drawerOpen }: { tar
   const color = target ? branchColor(target.branchId) : undefined;
 
   return (
-    <div className="composer" ref={box}>
+    <div className={`composer ${docked ? 'docked' : ''}`} ref={box}>
       <div
         className={`composer-box ${dragOver ? 'drag-over' : ''}`}
         style={color ? { ['--branch' as any]: color } : undefined}
@@ -188,10 +206,16 @@ export function Composer({ target, board, onSubmit, onClear, drawerOpen }: { tar
                 <Icon name={isFork ? 'branch' : 'chat'} size={12} />
                 {isFork ? 'New branch from' : 'Continue'}
               </span>
-              <span className="target-text">{target.prompt}</span>
-              <button className="link-btn" onClick={onClear}>
-                New thread
-              </button>
+              {docked ? (
+                <span className="target-text faint">{isFork ? 'this step, keeping the original' : 'this step'}</span>
+              ) : (
+                <>
+                  <span className="target-text">{target.prompt}</span>
+                  <button className="link-btn" onClick={onClear}>
+                    New thread
+                  </button>
+                </>
+              )}
             </>
           ) : (
             <>

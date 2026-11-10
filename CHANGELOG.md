@@ -3,6 +3,12 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.16.0
+
+- The details panel has its own message box for the step it shows: type, dictate, paste or drop images and files, and send right from there
+- Comments now sit beside the card, joined by a short line. Hover a card and click the + on its edge to add one
+- "Add to prompt" on a comment goes to the box you can see: the panel's when it is open
+
 ## 0.15.0
 
 - Comments on cards: your own quick notes on any step, as many as you like. Add one from the comment button on the card or by right-clicking it

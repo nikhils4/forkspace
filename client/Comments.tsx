@@ -45,7 +45,7 @@ export function CardComments({ node, roomy = false }: { node: TurnNode; roomy?: 
 
   if (!list.length && !adding && !roomy) return null;
   return (
-    <div className={`card-comments nodrag nowheel ${roomy ? 'roomy' : ''}`}>
+    <div className={`card-comments nodrag nowheel ${roomy ? 'roomy' : 'side'}`}>
       {list.map((c) =>
         editing === c.id ? (
           <CommentBox

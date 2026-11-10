@@ -229,11 +229,11 @@ function Shell() {
     return () => window.removeEventListener('keydown', k);
   }, [openId, sheet, board?.id, setTargetId, page]);
 
-  const submit = async (prompt: string, attachments: Attachment[] = []) => {
+  const submit = async (prompt: string, attachments: Attachment[] = [], parentId: string | null = targetId) => {
     if (!board) return false;
-    const position = placeFor(store.nodes, board.id, targetId, { x: 0, y: 0 });
+    const position = placeFor(store.nodes, board.id, parentId, { x: 0, y: 0 });
     try {
-      const { id } = await request<{ id: string }>({ type: 'send', boardId: board.id, parentId: targetId, prompt, position, attachments });
+      const { id } = await request<{ id: string }>({ type: 'send', boardId: board.id, parentId, prompt, position, attachments });
       setTargetId(id);
       setFocus({ id, n: Date.now() });
       return true;
@@ -257,6 +257,12 @@ function Shell() {
     return keys.size;
   }, [store.nodes]);
   const learnOn = board?.learn?.on !== false;
+
+  // The details panel has its own message box, always for the step it shows.
+  const drawerComposer =
+    board && openNode && openNode.sessionId ? (
+      <Composer key={openNode.id} docked target={openNode} board={board} onSubmit={(p, a) => submit(p, a, openNode.id)} />
+    ) : null;
 
   const boardView = board ? (
     <div className="stage" key={board.id}>
@@ -512,7 +518,7 @@ function Shell() {
             <span>Settings</span>
           </button>
         </nav>
-        {openNode && <Drawer node={openNode} onClose={() => setOpenId(null)} onReply={(id) => (setTargetId(id), setTimeout(() => composerFocus.current?.focus(), 0))} />}
+        {openNode && <Drawer node={openNode} onClose={() => setOpenId(null)} onReply={(id) => (setTargetId(id), setTimeout(() => composerFocus.current?.focus(), 0))} composer={drawerComposer} />}
         {sheets}
       <AwayScreen onGoTo={goTo} />
       <ShotViewer />
@@ -672,7 +678,7 @@ function Shell() {
         )}
       </main>
 
-      {openNode && <Drawer node={openNode} onClose={() => setOpenId(null)} onReply={(id) => (setTargetId(id), setTimeout(() => composerFocus.current?.focus(), 0))} />}
+      {openNode && <Drawer node={openNode} onClose={() => setOpenId(null)} onReply={(id) => (setTargetId(id), setTimeout(() => composerFocus.current?.focus(), 0))} composer={drawerComposer} />}
       {sheets}
       <AwayScreen onGoTo={goTo} />
       <ShotViewer />

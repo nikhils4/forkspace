@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Attachments } from './Shots.tsx';
 import { CardComments } from './Comments.tsx';
 import type { TurnNode } from '../shared/types.ts';
@@ -17,7 +17,7 @@ type Tab = 'summary' | 'steps' | 'changes';
 
 const took = (ms?: number) => (!ms ? '' : ms < 60000 ? `${Math.round(ms / 1000)} s` : `${Math.round(ms / 60000)} min`);
 
-export function Drawer({ node, onClose, onReply }: { node: TurnNode; onClose: () => void; onReply?: (id: string) => void }) {
+export function Drawer({ node, onClose, onReply, composer }: { node: TurnNode; onClose: () => void; onReply?: (id: string) => void; composer?: ReactNode }) {
   const { branches } = useStore();
   const branch = branches[node.branchId];
   const [tab, setTab] = useState<Tab>('summary');
@@ -46,7 +46,8 @@ export function Drawer({ node, onClose, onReply }: { node: TurnNode; onClose: ()
   }, [tab, node.id, node.commit]);
 
   useEffect(() => {
-    const k = (e: KeyboardEvent) => e.key === 'Escape' && !menu && onClose();
+    // Esc closes the panel, but not while you're typing in it (the first Esc just leaves the box).
+    const k = (e: KeyboardEvent) => e.key === 'Escape' && !menu && !(e.target as HTMLElement)?.closest?.('textarea, input') && onClose();
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
   }, [onClose, menu]);
@@ -233,6 +234,7 @@ export function Drawer({ node, onClose, onReply }: { node: TurnNode; onClose: ()
             ))}
         </div>
       </div>
+      {composer && <div className="drawer-composer">{composer}</div>}
     </aside>
   );
 }

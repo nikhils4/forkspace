@@ -7468,7 +7468,86 @@ input.thread-title.editing {
   font-size: 11px;
   color: var(--text-2);
 }
-.react-flow__node .card-comments {
+/* on the canvas, comments sit beside the card, joined to it by a short line */
+.card-comments.side {
+  position: absolute;
+  top: 0;
+  left: calc(100% + 18px);
+  width: 230px;
   margin: 0;
-  padding: 0 14px 10px;
+  z-index: 2;
+}
+.card-comments.side::before {
+  content: '';
+  position: absolute;
+  left: -18px;
+  top: 18px;
+  width: 18px;
+  border-top: 1.5px dashed color-mix(in srgb, #f5c542 55%, var(--border));
+}
+.card-comments.side .cmt,
+.card-comments.side .cmt-input {
+  box-shadow: 0 8px 22px -12px rgba(0, 0, 0, 0.45);
+}
+.card-comments.side .cmt {
+  background: color-mix(in srgb, #f5c542 14%, var(--surface));
+}
+.card-comments.side .cmt-input {
+  background: color-mix(in srgb, #f5c542 10%, var(--surface));
+}
+.react-flow__node:has(.card-comments.side) {
+  z-index: 900 !important;
+}
+.cmt-plus {
+  position: absolute;
+  top: 12px;
+  left: calc(100% - 12px);
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, #f5c542 50%, var(--border-2));
+  background: var(--surface);
+  color: color-mix(in srgb, #f5c542 70%, var(--text));
+  box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0.85);
+  transition:
+    opacity 0.15s,
+    transform 0.15s;
+  z-index: 3;
+}
+.react-flow__node:hover .cmt-plus,
+.cmt-plus:focus-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+.cmt-plus:hover {
+  background: color-mix(in srgb, #f5c542 18%, var(--surface));
+}
+@media (pointer: coarse) {
+  .cmt-plus {
+    opacity: 0.85;
+    transform: none;
+  }
+}
+/* the box inside the details panel */
+.drawer-composer {
+  border-top: 1px solid var(--border);
+  background: var(--bg-2);
+}
+.composer.docked {
+  padding: 10px 12px 12px;
+  background: none;
+  z-index: auto;
+}
+.composer.docked .composer-box {
+  max-width: none;
+  box-shadow: none;
+}
+.composer.docked textarea {
+  max-height: 180px;
 }
