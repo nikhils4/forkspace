@@ -1,146 +1,171 @@
 # Forkspace
 
-![Forkspace canvas](site/assets/canvas.webp)
+**The editor for the age of agents.** Direct Claude Code agents, watch every change land, and learn the concepts behind the code.
 
-**Website:** https://forkspace-app.netlify.app · Built by [nikhils4](https://github.com/nikhils4)
+![Forkspace Code view: a live diff with a concept explained beside it](site/assets/code-learn.webp)
 
-A canvas control center for Claude Code agents.
+[Website](https://forkspace-app.netlify.app) · Built by [nikhils4](https://github.com/nikhils4) · MIT
 
-Every prompt becomes a card on an infinite canvas. Reply to a card to keep going. Reply to an **earlier** card to fork the conversation from that exact point, and the code forks with it. Run as many agents as you want side by side, approve their tool calls right on the cards, and drop sticky notes anywhere.
+- **Direct.** Every prompt becomes a step on a canvas. Branch from any step and the code branches with it. Run many agents side by side.
+- **Review.** See each branch's files with a live diff. Follow the agent as it edits. Approve risky steps right where they happen.
+- **Learn.** As agents work, Forkspace explains the concepts behind their code in plain words, using your actual code.
 
-```
-  [ Add auth ]
-       │
-  [ Use JWT ]──────────fork──────────┐
-       │                             │
-  [ Add refresh tokens ]     [ Try sessions instead ]   📝 "sessions felt simpler"
-```
+Runs on your machine. Use it from the browser, as an installed app, or from your phone.
 
 ## Quick start
 
-Requires Node 20+ and git.
+You need Node 20+, git, and an Anthropic API key.
 
 ```bash
 git clone https://github.com/nikhils4/forkspace && cd forkspace
 npm install
-npm start            # builds and serves http://localhost:4747
+export ANTHROPIC_API_KEY=sk-ant-...   # from https://console.anthropic.com
+npm start                             # builds, then serves http://localhost:4747
 ```
 
-Auth: set `ANTHROPIC_API_KEY` (from the [Anthropic Console](https://console.anthropic.com)). Forkspace is a third-party app, and Anthropic's terms ask such apps to use API keys rather than Claude.ai logins.
+Then, in **Settings**:
 
-For development with hot reload (Node 22.18+): `npm run dev`, then open http://localhost:5173.
+- **Keep running in the background** (macOS): starts Forkspace at login and restarts it if it stops. No terminal needed after this.
+- **Install the app** from your browser for its own window and Dock icon.
+
+Forkspace is a third-party app, so it signs in with an API key. Anthropic's terms ask third-party apps not to use Claude.ai logins.
+
+### Updating
+
+When a new version is out, the sidebar shows **Update available**. Open Settings and click **Update and restart**. Forkspace pulls, reinstalls if needed, rebuilds, restarts, and the page reloads itself. It won't update while agents are running or if you have local edits in the Forkspace folder.
+
+By hand: `git pull && npm install && npm start`.
 
 ## How it works
 
-- **Board** = one project folder. Create one from the sidebar.
-- **Card** = one agent turn: your prompt, the agent's output, the tools it ran, files changed, cost.
-- **Reply** on the latest card of a branch continues that branch.
-- **Fork** on any earlier card starts a new branch from that point. The agent keeps the full conversation up to that card and nothing after it.
-- **Notes**: double-click the canvas (or press `n`). Drag from any card's dot to another to draw your own links.
+- **Board:** one project folder.
+- **Step:** one prompt and everything the agent did for it.
+- **Reply** to the latest step to continue. **Branch** from any earlier step to try another idea. The agent remembers the conversation up to that step and nothing after it.
+- **Notes:** double-click the canvas (or press `n`). Drag between dots to link anything.
 
-### Three views of the same work
+### Three views
 
-- **Chat**: any branch as a conversation. Tap a branch point to switch branches.
-- **Canvas**: every step and branch on one map, with your notes.
-- **Code**: the branch's files with an inline diff of everything the agents changed since the thread started. **Follow agent** opens each file the moment it gets edited. A timeline on the right lists the steps and the files each one touched.
+| View | What it's for |
+|---|---|
+| **Chat** | Any branch as a conversation. Tap a branch point to switch. |
+| **Canvas** | Every step and branch on one map, with your notes. **Tidy up** arranges it; zoom out for titles only. |
+| **Code** | The branch's files and a live diff of everything the agents changed. **Follow agent** opens each file as it's edited. |
 
-Press `⌘K` anywhere to jump to a board, branch, file or action.
+Switching views keeps your place. Press `⌘K` to jump to any board, branch, file or action.
 
-### Learn mode
+### Concepts
 
-While agents work, a mentor (a small, fast model with no tools) watches what they do and writes short notes about the ideas behind each change: a **concept**, **why** the agent chose an approach, a **pattern** worth reusing, or something to **watch out** for. Notes use real snippets from your code and sometimes include a one-tap check question.
+While an agent works, a small, fast model (no tools) reads what it did and writes one concept at a time: a short plain-language explanation with the real code behind it. For example, *"Memoization: remembering past answers"* when an agent adds a cache.
 
-- Notes float over the Code view, appear inline in Chat, and show as a count on Canvas cards.
-- **Explain** any step, or **Explain change** on any file, on demand.
-- Choose a level per board: New to this, Growing, or Expert.
-- Everything collects in your **Learning** library, with search and filters.
+- Concepts appear beside the code, in the chat, and on canvas cards.
+- **Explain** any step or file on demand.
+- Every concept is saved to your **Concepts** library.
 
-Turn it off per board with the **Learn** pill in the top bar. Set `FORKSPACE_MENTOR_MODEL` to change the mentor's model (default `haiku`).
+Turn it off per board with the **Learn** pill in the top bar.
 
-### Forking the code, not just the chat
+### Branching the code, not just the chat
 
-With **Worktree per branch** (the default for git repos):
+With **Separate copy per branch** (the default for git repos):
 
-1. Each branch runs in its own git worktree under `~/.forkspace/worktrees/`, on a branch named `forkspace/<id>`.
-2. After every turn, Forkspace commits the worktree. That commit is the card's checkpoint.
-3. Forking from a card creates a new worktree at that card's checkpoint, so the fork sees the code exactly as it was then.
+1. Each branch works in its own git worktree under `~/.forkspace/worktrees/`, on a branch named `forkspace/<id>`.
+2. After every step, Forkspace commits that worktree. The commit is the step's checkpoint.
+3. Branching from a step starts a new worktree at its checkpoint, so the branch sees the code exactly as it was then.
 
-Branches never overwrite each other. To keep a result, merge its `forkspace/<id>` branch like any other git branch. The card's **Open** panel shows the branch, folder, diff, and a command to continue that exact point in your terminal (`claude --resume … --fork-session`).
+Branches never overwrite each other. To keep a result, merge its `forkspace/<id>` branch like any other. A step's **Details** panel shows the branch, folder and diff, plus a command to continue from that exact point in your terminal.
 
-**Same folder** mode works without git, but every agent edits the same files.
+**Same folder** mode works without git, but every agent edits the same files. Agents start from your last commit, so commit anything they need first.
 
-Agents start from your repo's last commit, so uncommitted changes in your main checkout are not included. Commit first if the agent needs them.
+### Bring in your Claude Code sessions
 
-## On your phone (and as an app)
+Already worked in this folder with the Claude Code extension or CLI? When you create a board, Forkspace offers to bring those sessions in (or use **Bring in Claude Code sessions** from the branch list or `⌘K`). Each prompt becomes a step you can continue or branch from.
 
-Forkspace is an installable web app (PWA). Agents always run on your Mac; phones and other browsers are remote controls.
+- Continuing runs in your real folder, just like the original session.
+- Branching starts from a snapshot of the folder as it is now, including uncommitted work. Your checkout and git staging are never touched.
 
-1. **Install it on the Mac**: in Chrome or Edge, click the install icon in the address bar. In Safari: File → Add to Dock.
-2. **Reach it from your phone**: install [Tailscale](https://tailscale.com/download) on the Mac and the phone (same account). In Forkspace, open **Devices & phone** and click **Turn on**. This runs `tailscale serve`, which serves Forkspace over HTTPS to your own devices only.
-3. **Pair the phone**: scan the QR code on the Devices page, or open the address on the phone and type the 6-digit code. On iPhone, tap Share → Add to Home Screen, open the app, and pair there (home-screen apps keep their own storage).
-4. **Notifications**: turn them on per device in Devices. You get one when an agent needs you or finishes, but only while no Forkspace window is open.
+## On your phone
 
-On the phone you get:
-- **Chat view**: any branch as a conversation, with branch points you can tap to switch.
-- **Agents tab**: everything that needs you, with Allow/Deny right there.
-- **Canvas**: the full map, with touch support.
+Agents always run on your Mac. Your phone is a remote control.
 
-Any other HTTPS tunnel works too. Set its address under Devices → "Set your own address".
+1. Install [Tailscale](https://tailscale.com/download) on your Mac and phone, signed in to the same account.
+2. In Forkspace, open **Settings**, find **Use Forkspace on your phone**, and turn it on. This serves Forkspace over HTTPS to your own devices only.
+3. Scan the QR code with your phone, or open the address and type the 6-digit code.
+4. On iPhone: Share, then **Add to Home Screen**, and pair from the installed app.
 
-### Security model
+Turn on **Notifications** per device to get a ping when an agent needs you or finishes. On the phone you get Chat, Canvas and Code views, an **Agents** tab with Allow and Deny, and your Concepts.
 
-- Every connection needs an access key. Pages opened on the Mac itself (`http://localhost`) get it automatically. Other devices get it by pairing with a 6-digit code that expires after 5 minutes, and repeated wrong guesses are rate limited.
-- A request only counts as "local" when it reaches the server directly over loopback, with a localhost `Host` header and no proxy headers. That rules out DNS rebinding and tunnelled requests.
-- **Sign out others** (Devices → Security) rotates the key, so every paired device has to pair again.
-- Keys live in `~/.forkspace/auth.json` and `push.json` (mode 600).
+Any other HTTPS tunnel works too: set its address in Settings.
 
 ## Permissions
 
-Pick per board, change any time:
+Pick per board, change any time.
 
 | Mode | Behaviour |
 |---|---|
-| Ask me | Risky tool calls wait for Allow / Always / Deny on the card |
+| Ask me | Risky steps wait for Allow, Always or Deny |
 | Accept edits | File edits run on their own; commands still ask |
-| Auto | A classifier approves safe calls and asks when unsure |
-| Plan only | Read and plan, no changes |
+| Auto | Safe steps run; unsure ones ask |
+| Plan only | Reads and plans, changes nothing |
 | Full access | Never asks. Only for throwaway folders. |
 
-Cards that need you glow amber, show in **Running agents** in the sidebar, and add a count to the tab title.
+Anything waiting on you glows amber, shows under **Agents** in the sidebar, and adds a count to the tab title.
 
 ## Shortcuts
 
 | Key | Action |
 |---|---|
 | `Enter` | Send (`Shift+Enter` for a new line) |
-| `/` or `r` | Focus the composer |
-| `⌘K` / `⌘P` | Search boards, branches, files and actions |
-| `1` / `2` / `3` | Chat / Canvas / Code view |
-| `Esc` | Clear the target (next prompt starts a new thread) |
+| `/` or `r` | Focus the message box |
+| `⌘K` or `⌘P` | Search boards, branches, files and actions |
+| `1` `2` `3` | Chat, Canvas, Code |
+| `Esc` | Start a new thread instead of replying |
 | `n` | New note |
-| `Backspace` / `Delete` | Delete selected cards (and everything forked from them) or notes |
-| Double-click card | Open details |
+| `Backspace` | Delete selected steps (and their branches) or notes |
+| Double-click a step | Open details |
 
 ## Settings
 
-| Env var | Default | |
+In the app: **Appearance** (System, Light, Dark; also the sun and moon button in the sidebar), phone access and pairing, notifications, background mode, updates, and **Sign out others**.
+
+Environment variables:
+
+| Variable | Default | |
 |---|---|---|
+| `ANTHROPIC_API_KEY` | | Required |
 | `PORT` | `4747` | |
-| `HOST` | `127.0.0.1` | Keep it on localhost: agents can run commands on this machine. |
-| `FORKSPACE_HOME` | `~/.forkspace` | State and worktrees |
-| `FORKSPACE_EDITOR` | `code` | Command for "Open folder in editor" |
+| `HOST` | `127.0.0.1` | Keep it on localhost; agents can run commands on this machine |
+| `FORKSPACE_HOME` | `~/.forkspace` | State, worktrees and logs |
+| `FORKSPACE_EDITOR` | | Editor command for **Open in editor**. Without it, Forkspace tries VS Code, Cursor, then Finder. |
+| `FORKSPACE_MENTOR_MODEL` | `haiku` | Model that writes concepts |
 
 ## Security
 
-Forkspace runs agents with your user's permissions. The server binds to `127.0.0.1`. Use Tailscale (or another private tunnel) for remote access rather than exposing the port. See the security model above.
+- Every connection needs an access key. Pages on the Mac itself get it automatically. Other devices pair with a 6-digit code that expires after 5 minutes, and wrong guesses are rate limited.
+- A request only counts as local when it reaches the server directly over loopback, with a localhost `Host` header and no proxy headers. This blocks DNS rebinding and tunnelled requests.
+- File reads are locked to the board's folder; `../` paths and symlinks that point outside are refused.
+- **Sign out others** (Settings) rotates the key, so every paired device has to pair again.
+- Keys live in `~/.forkspace/auth.json` and `push.json` (mode 600).
+
+Forkspace runs agents with your user's permissions. Use Tailscale or another private tunnel for remote access; don't expose the port publicly.
+
+## Development
+
+```bash
+npm run dev        # server with reload + Vite on http://localhost:5173 (Node 22.18+)
+npm run typecheck
+npm run build      # client to dist/, server to build/
+```
+
+- `server/`: agent runner (Claude Agent SDK), worktrees and checkpoints, concepts, sessions import, updates, auth.
+- `client/`: React app (canvas, chat, code view, settings), installable as a PWA.
+- `shared/`: types shared by both.
+- `site/`: the website.
 
 ## Roadmap
 
-- Merge a branch back from the UI
-- Search across all cards and notes
-- Per-branch cost totals
-- Desktop app wrapper (Tauri)
+- Merge a branch back from the app
+- Search across every step and note
+- Forkspace Cloud: agents that keep working while your laptop sleeps ([join the waitlist](https://forkspace-app.netlify.app/#cloud))
 
 ## License
 
-MIT
+MIT · Built by [nikhils4](https://github.com/nikhils4)
