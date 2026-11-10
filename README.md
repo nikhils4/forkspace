@@ -180,7 +180,7 @@ Anything waiting on you glows amber, shows under **Agents** in the sidebar, and 
 | `⌘\` | Hide or show the sidebar |
 | `Ctrl+`` ` | Terminal |
 | `Backspace` | Delete selected steps (and their branches) or notes |
-| Double-click a step | Open details |
+| Click a step | Open its details (it moves to the middle of what's visible) |
 | Right-click (long-press on a phone) | Menu for a step, note or empty canvas: reply, branch, explain, copy, recolour, delete |
 | Right-click a board, or its `···` | Board settings, **Start fresh** (clear every card, keep the board), Delete board |
 

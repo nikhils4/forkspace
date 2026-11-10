@@ -106,6 +106,11 @@ export function Canvas({
       if (!internal || !n) return;
       const el = document.querySelector('.pane.on .canvas') as HTMLElement | null;
       const viewH = el?.clientHeight ?? 700;
+      // The details panel floats over the right side: centre in the part you can still see.
+      const cr = el?.getBoundingClientRect();
+      const dr = (document.querySelector('.drawer') as HTMLElement | null)?.getBoundingClientRect();
+      const visibleW = cr && dr && dr.left < cr.right && dr.left > cr.left + 200 ? dr.left - cr.left - 12 : (cr?.width ?? 0);
+      const shiftX = cr ? (cr.width - visibleW) / 2 : 0;
       const composer = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--composer-h')) || 120;
       const visibleH = Math.max(200, viewH - composer - 16);
       const zoom = rf.getZoom() < 0.55 ? (mobile ? 0.75 : 0.9) : rf.getZoom();
@@ -116,7 +121,7 @@ export function Canvas({
       // Point (in canvas units) that should land in the middle of the visible area.
       const focusY = h * zoom > visibleH * 0.9 ? pos.y + (visibleH * 0.45) / zoom - 24 / zoom : pos.y + h / 2;
       // setCenter centres in the whole canvas; shift so it centres above the composer instead.
-      rf.setCenter(pos.x + w / 2, focusY + composer / 2 / zoom, { zoom, duration: 480 });
+      rf.setCenter(pos.x + w / 2 + shiftX / zoom, focusY + composer / 2 / zoom, { zoom, duration: 480 });
     },
     [rf, store.nodes, mobile],
   );
@@ -496,9 +501,16 @@ export function Canvas({
         onNodeClick={(e, n) => {
           const node = store.nodes[n.id];
           if (!isTurn(node)) return; // notes: clicking is for typing, don't move the view
+          // Buttons, links, checkboxes and approvals inside the card do their own thing.
+          if ((e.target as HTMLElement).closest('button, a, input, textarea, .perm, .shot-thumb')) {
+            if (!isLive(node) && node.sessionId) setTargetId(n.id);
+            return;
+          }
+          // Anywhere else on the card: select it, open its details, and bring it to the middle of
+          // what's still visible (left of the panel, above the message box).
           if (!isLive(node) && node.sessionId) setTargetId(n.id);
-          // Buttons and approvals inside the card do their own thing; a click on the card itself centres it.
-          if (!(e.target as HTMLElement).closest('button, a, input, textarea, .perm')) centerOn(n.id);
+          openDetails(n.id);
+          setTimeout(() => centerOn(n.id), 60);
         }}
         onNodeDoubleClick={(_, n) => isTurn(store.nodes[n.id]) && openDetails(n.id)}
         onPaneClick={(e) => {

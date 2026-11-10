@@ -1,6 +1,7 @@
 import { Handle, NodeResizer, Position, useStore as useRFStore, type NodeProps } from '@xyflow/react';
 import { memo, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
+import { Markdown } from './Markdown.tsx';
 import { ShotThumb, openShots, readImageText, stepShots, uploadNoteImage } from './Shots.tsx';
 import type { NoteNode, PendingPermission, TurnEvent, TurnNode } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
@@ -96,65 +97,11 @@ export function CodeBlock({ code, className = 'code' }: { code: string; classNam
 }
 
 export function Md({ text, partial }: { text: string; partial?: boolean }) {
-  const parts = text.split(/```[^\n]*\n?/);
   return (
     <div className={`md ${partial ? 'partial' : ''}`}>
-      {parts.map((p, i) =>
-        i % 2 ? (
-          <CodeBlock key={i} code={p.replace(/\n$/, '')} />
-        ) : (
-          <Prose key={i} text={p} />
-        ),
-      )}
+      <Markdown text={text} code={(code, _lang, key) => <CodeBlock key={key} code={code} />} />
     </div>
   );
-}
-
-const inline = (s: string) =>
-  s.split(/(`[^`\n]+`|\*\*[^*\n]+\*\*)/).map((t, j) =>
-    t.startsWith('`') && t.endsWith('`') && t.length > 2 ? (
-      <code key={j}>{t.slice(1, -1)}</code>
-    ) : t.startsWith('**') && t.endsWith('**') && t.length > 4 ? (
-      <b key={j}>{t.slice(2, -2)}</b>
-    ) : (
-      t
-    ),
-  );
-
-/** Paragraph text with "- " / "* " / "1. " lines turned into real lists. */
-function Prose({ text }: { text: string }) {
-  const out: React.ReactNode[] = [];
-  let list: string[] = [];
-  let buf: string[] = [];
-  const flushText = () => {
-    if (buf.length) out.push(<span key={out.length}>{inline(buf.join('\n'))}</span>);
-    buf = [];
-  };
-  const flushList = () => {
-    if (list.length)
-      out.push(
-        <ul key={out.length} className="md-list">
-          {list.map((l, i) => (
-            <li key={i}>{inline(l)}</li>
-          ))}
-        </ul>,
-      );
-    list = [];
-  };
-  for (const line of text.split('\n')) {
-    const m = line.match(/^\s*(?:[-*•]|\d+\.)\s+(.*)$/);
-    if (m) {
-      flushText();
-      list.push(m[1]);
-    } else {
-      if (list.length && !line.trim()) continue;
-      flushList();
-      buf.push(line);
-    }
-  }
-  flushText();
-  flushList();
-  return <>{out}</>;
 }
 
 export function ToolLine({ e, cwd }: { e: Extract<TurnEvent, { t: 'tool' }>; cwd?: string }) {

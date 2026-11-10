@@ -3,6 +3,11 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.13.1
+
+- Click anywhere on a card to open its details; the card glides to the middle of the space left of the panel
+- Agent replies read properly: tables, headings, numbered and nested lists, task lists, quotes, links and code all render cleanly
+
 ## 0.13.0
 
 - "Got it" on concepts: tick a concept and it clears from the step views. It stays in Concepts, marked as reviewed, and you can bring it back
