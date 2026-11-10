@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import type { Board, ChangedFile, FileResult, FilesResult, TurnNode } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
+import { MentorDock } from './Learn.tsx';
 import { Permission, STATUS_LABEL, StatusDot, branchColor } from './nodes.tsx';
 import { request, toast, useStore } from './store.ts';
 import { isLive, leaves, pathTo, turnsOf } from './tree.ts';
@@ -164,6 +165,7 @@ export function CodeView({
   const [showDiff, setShowDiff] = useState(true);
   const [follow, setFollow] = useState(true);
   const [pickBranch, setPickBranch] = useState(false);
+  const [explaining, setExplaining] = useState(false);
 
   const branchTurns = useMemo(() => turnsOf(nodes, board.id).filter((t) => t.branchId === branchId), [nodes, board.id, branchId]);
   const liveTurn = branchTurns.find(isLive);
@@ -401,6 +403,25 @@ export function CodeView({
             ]}
           />
         )}
+        {current && focusTurn && file?.exists && !file.binary && (
+          <button
+            className="btn ghost sm explain-btn"
+            disabled={explaining}
+            onClick={async () => {
+              setExplaining(true);
+              try {
+                await request({ type: 'explain', nodeId: (liveTurn ?? focusTurn).id, path: current });
+              } catch (e: any) {
+                toast(e.message, 'error');
+              }
+              setExplaining(false);
+            }}
+            title="Have the mentor explain this file's changes"
+          >
+            {explaining ? <span className="spinner" /> : <Icon name="spark" size={13} />}
+            {!mobile && (explaining ? 'Explaining…' : canDiff ? 'Explain change' : 'Explain file')}
+          </button>
+        )}
         {liveTurn && (
           <label className="follow" title="Open each file as the agent edits it">
             <span className={`dot ${liveTurn.status}`} />
@@ -415,6 +436,7 @@ export function CodeView({
         </div>
       )}
       <div className="code-body">
+        {!mobile && <MentorDock turns={steps} onOpenFile={openFile} />}
         {!current || !file ? (
           <div className="code-placeholder">
             <div className="hero-mark">

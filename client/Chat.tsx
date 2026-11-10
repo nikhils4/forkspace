@@ -1,9 +1,10 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { LessonCard, MentorWorking } from './Learn.tsx';
 import type { Board, TurnEvent, TurnNode } from '../shared/types.ts';
 import { composerFocus } from './Composer.tsx';
 import { Icon } from './icons.tsx';
 import { DiffStat, Md, Permission, STATUS_LABEL, StatusDot, ToolLine, branchColor, money } from './nodes.tsx';
-import { send, useStore } from './store.ts';
+import { request, send, toast, useStore } from './store.ts';
 import { childrenOf, currentActivity, isLive, lastText, latestLeaf, leaves, pathTo, turnsOf } from './tree.ts';
 import { timeAgo, useTick } from './ui.tsx';
 
@@ -53,6 +54,17 @@ function Turn({ t, isLast, forkHere, openDetails }: { t: TurnNode; isLast: boole
   const cwd = branches[t.branchId]?.cwd;
   const live = isLive(t);
   const groups = group(t.events);
+  const [explaining, setExplaining] = useState(false);
+  const lessons = t.lessons ?? [];
+  const explainStep = async () => {
+    setExplaining(true);
+    try {
+      await request({ type: 'explain', nodeId: t.id });
+    } catch (e: any) {
+      toast(e.message, 'error');
+    }
+    setExplaining(false);
+  };
   return (
     <div className="msg-pair" style={{ ['--branch' as any]: branchColor(t.branchId) }}>
       <div className="bubble-user">{t.prompt}</div>
@@ -69,6 +81,14 @@ function Turn({ t, isLast, forkHere, openDetails }: { t: TurnNode; isLast: boole
           )}
           {t.error && <div className="error-box">{t.error}</div>}
           {t.pending && <Permission node={t} p={t.pending} />}
+          {(lessons.length > 0 || t.learning || explaining) && (
+            <div className="msg-lessons">
+              {lessons.map((l, i) => (
+                <LessonCard key={l.id} lesson={l} compact={i < lessons.length - 1} />
+              ))}
+              {(t.learning || explaining) && <MentorWorking label={explaining ? 'Explaining this step…' : undefined} />}
+            </div>
+          )}
           <div className="msg-meta">
             <StatusDot status={t.status} />
             <span className="meta-status">{STATUS_LABEL[t.status]}</span>
@@ -87,6 +107,11 @@ function Turn({ t, isLast, forkHere, openDetails }: { t: TurnNode; isLast: boole
                   <span className="hide-sm">&nbsp;here</span>
                 </button>
               )
+            )}
+            {!live && t.events.length > 0 && (
+              <button className="btn ghost xs" onClick={explainStep} disabled={explaining} title="Have the mentor explain this step">
+                <Icon name="spark" size={12} /> Explain
+              </button>
             )}
             <button className="btn ghost xs" onClick={openDetails}>
               Details

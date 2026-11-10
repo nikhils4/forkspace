@@ -47,21 +47,58 @@ export function Md({ text, partial }: { text: string; partial?: boolean }) {
             {p.replace(/\n$/, '')}
           </pre>
         ) : (
-          <span key={i}>
-            {p.split(/(`[^`\n]+`|\*\*[^*\n]+\*\*)/).map((t, j) =>
-              t.startsWith('`') && t.endsWith('`') && t.length > 2 ? (
-                <code key={j}>{t.slice(1, -1)}</code>
-              ) : t.startsWith('**') && t.endsWith('**') && t.length > 4 ? (
-                <b key={j}>{t.slice(2, -2)}</b>
-              ) : (
-                t
-              ),
-            )}
-          </span>
+          <Prose key={i} text={p} />
         ),
       )}
     </div>
   );
+}
+
+const inline = (s: string) =>
+  s.split(/(`[^`\n]+`|\*\*[^*\n]+\*\*)/).map((t, j) =>
+    t.startsWith('`') && t.endsWith('`') && t.length > 2 ? (
+      <code key={j}>{t.slice(1, -1)}</code>
+    ) : t.startsWith('**') && t.endsWith('**') && t.length > 4 ? (
+      <b key={j}>{t.slice(2, -2)}</b>
+    ) : (
+      t
+    ),
+  );
+
+/** Paragraph text with "- " / "* " / "1. " lines turned into real lists. */
+function Prose({ text }: { text: string }) {
+  const out: React.ReactNode[] = [];
+  let list: string[] = [];
+  let buf: string[] = [];
+  const flushText = () => {
+    if (buf.length) out.push(<span key={out.length}>{inline(buf.join('\n'))}</span>);
+    buf = [];
+  };
+  const flushList = () => {
+    if (list.length)
+      out.push(
+        <ul key={out.length} className="md-list">
+          {list.map((l, i) => (
+            <li key={i}>{inline(l)}</li>
+          ))}
+        </ul>,
+      );
+    list = [];
+  };
+  for (const line of text.split('\n')) {
+    const m = line.match(/^\s*(?:[-*•]|\d+\.)\s+(.*)$/);
+    if (m) {
+      flushText();
+      list.push(m[1]);
+    } else {
+      if (list.length && !line.trim()) continue;
+      flushList();
+      buf.push(line);
+    }
+  }
+  flushText();
+  flushList();
+  return <>{out}</>;
 }
 
 export function ToolLine({ e, cwd }: { e: Extract<TurnEvent, { t: 'tool' }>; cwd?: string }) {
@@ -214,6 +251,12 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
 
       <div className="turn-foot nodrag">
         <DiffStat s={node.diffStat} />
+        {(node.lessons?.length ?? 0) > 0 && (
+          <button className="lesson-chip" onClick={() => onOpen(node.id)} title="What you can learn from this step">
+            <Icon name="spark" size={11} /> {node.lessons!.length}
+          </button>
+        )}
+        {node.learning && <span className="mentor-orb small" title="Mentor is writing a note" />}
         <span className="spacer" />
         <button className="btn ghost sm" onClick={() => onOpen(node.id)}>
           Details

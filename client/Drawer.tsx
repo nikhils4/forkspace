@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { TurnNode } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
+import { LessonCard } from './Learn.tsx';
 import { DiffStat, Md, STATUS_LABEL, StatusDot, ToolLine, branchColor, money } from './nodes.tsx';
 import { isLocalPage, request, send, toast, useStore } from './store.ts';
 import { Segmented, timeAgo } from './ui.tsx';
@@ -8,7 +9,7 @@ import { Segmented, timeAgo } from './ui.tsx';
 export function Drawer({ node, onClose }: { node: TurnNode; onClose: () => void }) {
   const { branches } = useStore();
   const branch = branches[node.branchId];
-  const [tab, setTab] = useState<'log' | 'diff'>('log');
+  const [tab, setTab] = useState<'log' | 'diff' | 'learn'>(node.lessons?.length ? 'learn' : 'log');
   const [diff, setDiff] = useState<string | null>(null);
 
   useEffect(() => {
@@ -89,12 +90,19 @@ export function Drawer({ node, onClose }: { node: TurnNode; onClose: () => void 
             options={[
               { value: 'log', label: 'Transcript' },
               { value: 'diff', label: 'Changes' },
+              { value: 'learn', label: `Learn${node.lessons?.length ? ` · ${node.lessons.length}` : ''}` },
             ]}
           />
         </div>
 
         <div className="drawer-body">
-          {tab === 'log' ? (
+          {tab === 'learn' ? (
+            node.lessons?.length ? (
+              node.lessons.map((l) => <LessonCard key={l.id} lesson={l} />)
+            ) : (
+              <div className="faint">No notes for this step yet. Use Explain in the chat to ask the mentor.</div>
+            )
+          ) : tab === 'log' ? (
             <>
               {node.events.length === 0 && <div className="faint">Nothing yet.</div>}
               {node.events.map((e, i) =>

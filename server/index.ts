@@ -12,7 +12,8 @@ import * as g from './git.ts';
 import { checkToken, getPublicUrl, getToken, isLocalRequest, newPairCode, redeemPairCode, rotateToken, setPublicUrl } from './auth.ts';
 import * as push from './push.ts';
 import { enableTailscaleServe, tailscaleInfo } from './remote.ts';
-import { answer, isRunning, pruneBranches, setEmitter, setNotifier, startTurn, stop } from './runner.ts';
+import { answer, isRunning, pruneBranches, setActivityHook, setEmitter, setNotifier, startTurn, stop, touch } from './runner.ts';
+import { explain, onActivity, setTutorTouch } from './tutor.ts';
 import { flush, getBoard, getBranch, getNode, getTurn, save, state, subtree } from './store.ts';
 
 const PORT = Number(process.env.PORT || 4747);
@@ -99,6 +100,8 @@ function broadcast(msg: ServerMsg) {
   for (const c of clients) if (c.readyState === c.OPEN) c.send(data);
 }
 setEmitter(broadcast);
+setTutorTouch(touch);
+setActivityHook(onActivity);
 
 const send = (ws: WebSocket, msg: ServerMsg) => ws.send(JSON.stringify(msg));
 
@@ -162,6 +165,7 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
         relPath: root ? path.relative(root, cwd) : undefined,
         isolation,
         permissionMode: msg.permissionMode,
+        learn: { on: true, level: 'growing' },
         createdAt: Date.now(),
         links: [],
       };
@@ -256,6 +260,11 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       const board = turn && getBoard(turn.boardId);
       if (!turn?.baseCommit || !turn.commit || !board?.repoRoot) return '';
       return g.diff(board.repoRoot, turn.baseCommit, turn.commit);
+    }
+    case 'explain': {
+      const turn = getTurn(msg.nodeId);
+      if (!turn) throw new Error('Step not found');
+      return explain(turn, msg.path);
     }
     case 'files': {
       const branch = getBranch(msg.branchId);

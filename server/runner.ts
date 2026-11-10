@@ -23,6 +23,10 @@ interface Running {
 
 const running = new Map<string, Running>();
 
+type Activity = (node: TurnNode, final?: boolean) => void;
+let activityFn: Activity = () => {};
+export const setActivityHook = (fn: Activity) => (activityFn = fn);
+
 type Notify = (node: TurnNode, kind: 'waiting' | 'finished') => void;
 let notifyFn: Notify = () => {};
 export const setNotifier = (fn: Notify) => (notifyFn = fn);
@@ -180,6 +184,7 @@ async function run(board: Board, branch: Branch, node: TurnNode, parent: TurnNod
     }
     touch(node);
     if (node.status === 'done' || node.status === 'error') notifyFn(node, 'finished');
+    if (node.status === 'done') activityFn(node, true);
   }
 }
 
@@ -240,6 +245,7 @@ function handle(node: TurnNode, msg: any) {
         }
       }
       touch(node);
+      activityFn(node);
       return;
     }
     case 'result':

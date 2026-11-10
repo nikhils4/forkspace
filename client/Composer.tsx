@@ -34,6 +34,15 @@ export function Composer({ target, board, onSubmit, onClear }: { target?: TurnNo
   useEffect(() => {
     composerFocus.current = ref.current;
   });
+  // Views pad themselves by this much so nothing hides under the floating composer.
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => document.documentElement.style.setProperty('--composer-h', `${el.offsetHeight}px`));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   useEffect(() => writeDraft(draftKey(board.id), text), [text, board.id]);
 
   // Auto-grow.
@@ -58,7 +67,7 @@ export function Composer({ target, board, onSubmit, onClear }: { target?: TurnNo
   const color = target ? branchColor(target.branchId) : undefined;
 
   return (
-    <div className="composer">
+    <div className="composer" ref={box}>
       <div className="composer-box" style={color ? { ['--branch' as any]: color } : undefined}>
         <div className="composer-target">
           {target ? (

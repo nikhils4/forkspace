@@ -10,17 +10,18 @@ import { Drawer } from './Drawer.tsx';
 import { PairScreen, Splash, UnreachableScreen } from './Gate.tsx';
 import { Icon } from './icons.tsx';
 import { Inbox, SidebarAgents, useAgents } from './Inbox.tsx';
+import { LearnLibrary } from './Learn.tsx';
 import { placeFor } from './layout.ts';
 import { useInstall } from './pwa.ts';
 import { Palette, type PaletteItem } from './Palette.tsx';
 import { Settings } from './Settings.tsx';
-import { request, toast, useStore } from './store.ts';
+import { request, send, toast, useStore } from './store.ts';
 import { branchColor, STATUS_LABEL } from './nodes.tsx';
 import { isLive, isTurn, latestLeaf, leaves } from './tree.ts';
 import { Segmented, Sheet, useIsMobile } from './ui.tsx';
 
 type View = 'chat' | 'canvas' | 'code';
-type Tab = 'board' | 'agents' | 'devices';
+type Tab = 'board' | 'agents' | 'learn' | 'devices';
 
 const ls = {
   get: (k: string) => {
@@ -63,7 +64,7 @@ function Shell() {
   const [targets, setTargets] = useState<Record<string, string | null>>({});
   const [openId, setOpenId] = useState<string | null>(null);
   const [focus, setFocus] = useState<{ id: string; n: number } | null>(null);
-  const [sheet, setSheet] = useState<null | 'new' | 'board' | 'devices' | 'boards'>(null);
+  const [sheet, setSheet] = useState<null | 'new' | 'board' | 'devices' | 'boards' | 'learn'>(null);
   const [tab, setTab] = useState<Tab>('board');
   const [palette, setPalette] = useState(false);
   const [codeOpen, setCodeOpen] = useState<{ path: string; n: number } | null>(null);
@@ -182,8 +183,11 @@ function Shell() {
   const setView = (v: View) => board && setViews((x) => ({ ...x, [board.id]: v }));
   const openNode = openId && isTurn(store.nodes[openId]) ? (store.nodes[openId] as TurnNode) : null;
 
+  const lessonCount = Object.values(store.nodes).reduce((n, x) => n + (isTurn(x) ? (x.lessons?.length ?? 0) : 0), 0);
+  const learnOn = board?.learn?.on !== false;
+
   const boardView = board ? (
-    <>
+    <div className="stage">
       <div className="view">
         {view === 'canvas' ? (
           <Canvas board={board} targetId={targetId} setTargetId={setTargetId} openDetails={setOpenId} focus={focus} />
@@ -194,7 +198,7 @@ function Shell() {
         )}
       </div>
       <Composer key={board.id} target={target} board={board} onSubmit={submit} onClear={() => setTargetId(null)} />
-    </>
+    </div>
   ) : (
     <Welcome onNew={() => setSheet('new')} />
   );
@@ -249,6 +253,7 @@ function Shell() {
       { id: 'a-devices', group: 'Actions', label: 'Devices and phone', icon: 'phone', run: () => (mobile ? setTab('devices') : setSheet('devices')) },
     );
     if (board) paletteItems.push({ id: 'a-settings', group: 'Actions', label: 'Board settings', icon: 'settings', run: () => setSheet('board') });
+    paletteItems.push({ id: 'a-learn', group: 'Actions', label: 'What I’ve learned', icon: 'spark', run: () => (mobile ? setTab('learn') : setSheet('learn')) });
     for (const b of store.boards) paletteItems.push({ id: `b-${b.id}`, group: 'Boards', label: b.name, hint: b.cwd.replace(store.home, '~'), icon: 'grid', run: () => (setBoardId(b.id), setTab('board')) });
     if (board)
       for (const t of leaves(store.nodes, board.id))
@@ -285,6 +290,17 @@ function Shell() {
         />
       )}
       {sheet === 'board' && board && <BoardSettings board={board} onClose={() => setSheet(null)} />}
+      {sheet === 'learn' && (
+        <Sheet title="Learning" onClose={() => setSheet(null)} wide>
+          <LearnLibrary
+            onOpen={(t) => {
+              setSheet(null);
+              goTo(t);
+              setView('chat');
+            }}
+          />
+        </Sheet>
+      )}
       {sheet === 'devices' && (
         <Sheet title="Devices" onClose={() => setSheet(null)} wide>
           <Settings />
@@ -338,6 +354,19 @@ function Shell() {
         <main className="m-main">
           {tab === 'board' && boardView}
           {tab === 'agents' && <Inbox onOpen={goTo} />}
+          {tab === 'learn' && (
+            <div className="page">
+              <div className="page-inner">
+                <h1 className="page-title">Learning</h1>
+                <LearnLibrary
+                  onOpen={(t) => {
+                    goTo(t);
+                    setView('chat');
+                  }}
+                />
+              </div>
+            </div>
+          )}
           {tab === 'devices' && (
             <div className="page">
               <div className="page-inner">
@@ -358,6 +387,10 @@ function Shell() {
               {waiting.length + running.length > 0 && <span className={`tab-badge ${waiting.length ? 'warn' : ''}`}>{waiting.length || running.length}</span>}
             </span>
             <span>Agents</span>
+          </button>
+          <button className={tab === 'learn' ? 'on' : ''} onClick={() => setTab('learn')}>
+            <Icon name="spark" size={22} />
+            <span>Learn</span>
           </button>
           <button className={tab === 'devices' ? 'on' : ''} onClick={() => setTab('devices')}>
             <Icon name="phone" size={22} />
@@ -407,6 +440,10 @@ function Shell() {
 
         <div className="side-foot">
           <InstallButton />
+          <button className="side-link" onClick={() => setSheet('learn')}>
+            <Icon name="spark" size={15} /> Learning
+            {lessonCount > 0 && <span className="count">{lessonCount}</span>}
+          </button>
           <button className="side-link" onClick={() => setSheet('devices')}>
             <Icon name="phone" size={15} /> Devices & phone
           </button>
@@ -427,6 +464,14 @@ function Shell() {
             <button className={`pill mode ${board.permissionMode === 'bypassPermissions' ? 'danger' : ''}`} onClick={() => setSheet('board')} title="Permissions">
               <Icon name="shield" size={12} />
               {MODES.find((m) => m.value === board.permissionMode)?.label}
+            </button>
+            <button
+              className={`pill learn-pill ${learnOn ? 'on' : ''}`}
+              onClick={() => send({ type: 'updateBoard', id: board.id, patch: { learn: { on: !learnOn, level: board.learn?.level ?? 'growing' } } })}
+              title={learnOn ? 'Learn mode is on: a mentor explains what agents do' : 'Turn on Learn mode'}
+            >
+              <span className="mentor-orb small" />
+              Learn {learnOn ? 'on' : 'off'}
             </button>
             <span className="spacer" />
             <button className="kbar-btn" onClick={() => setPalette(true)} title="Search (⌘K)">

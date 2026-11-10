@@ -18,6 +18,30 @@ export interface Board {
   model?: string;
   createdAt: number;
   links: Link[];
+  /** Learn mode: a mentor explains what the agents do as they work. On unless turned off. */
+  learn?: LearnSettings;
+}
+
+export type LearnLevel = 'new' | 'growing' | 'expert';
+
+export interface LearnSettings {
+  on: boolean;
+  level: LearnLevel;
+}
+
+export type LessonKind = 'concept' | 'why' | 'pattern' | 'watch' | 'explain';
+
+export interface Lesson {
+  id: string;
+  kind: LessonKind;
+  title: string;
+  body: string;
+  /** File the lesson is about, relative to the branch folder. */
+  file?: string;
+  /** A few real lines from the change. */
+  snippet?: string;
+  check?: { question: string; options: string[]; answer: number; why?: string };
+  at: number;
 }
 
 /** A user-drawn connection (note to node, node to node). */
@@ -77,6 +101,9 @@ export interface TurnNode {
   durationMs?: number;
   error?: string;
   pending?: PendingPermission;
+  lessons?: Lesson[];
+  /** Mentor is writing a lesson right now. */
+  learning?: boolean;
   position: Position;
   createdAt: number;
   finishedAt?: number;
@@ -106,7 +133,8 @@ export interface State {
 
 export type ClientMsg =
   | { type: 'createBoard'; reqId: string; name: string; cwd: string; isolation: Isolation; permissionMode: PermissionMode }
-  | { type: 'updateBoard'; id: string; patch: Partial<Pick<Board, 'name' | 'permissionMode' | 'model' | 'links'>> }
+  | { type: 'updateBoard'; id: string; patch: Partial<Pick<Board, 'name' | 'permissionMode' | 'model' | 'links' | 'learn'>> }
+  | { type: 'explain'; reqId: string; nodeId: string; path?: string }
   | { type: 'deleteBoard'; id: string }
   | { type: 'send'; reqId: string; boardId: string; parentId: string | null; prompt: string; position: Position }
   | { type: 'stop'; nodeId: string }

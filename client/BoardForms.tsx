@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import type { Board, Isolation, PermissionMode } from '../shared/types.ts';
+import type { Board, Isolation, LearnLevel, PermissionMode } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
 import { request, send, useStore } from './store.ts';
-import { Sheet } from './ui.tsx';
+import { Segmented, Sheet, Switch } from './ui.tsx';
 
 export const MODES: { value: PermissionMode; label: string; hint: string }[] = [
   { value: 'default', label: 'Ask me', hint: 'You approve each risky step' },
@@ -140,7 +140,8 @@ export function NewBoard({ onClose, onCreated }: { onClose: () => void; onCreate
 export function BoardSettings({ board, onClose }: { board: Board; onClose: () => void }) {
   const [name, setName] = useState(board.name);
   const [model, setModel] = useState(board.model ?? '');
-  const update = (patch: Partial<Pick<Board, 'name' | 'permissionMode' | 'model'>>) => send({ type: 'updateBoard', id: board.id, patch });
+  const update = (patch: Partial<Pick<Board, 'name' | 'permissionMode' | 'model' | 'learn'>>) => send({ type: 'updateBoard', id: board.id, patch });
+  const learn = { on: board.learn?.on !== false, level: board.learn?.level ?? ('growing' as LearnLevel) };
 
   return (
     <Sheet title="Board settings" onClose={onClose}>
@@ -157,6 +158,26 @@ export function BoardSettings({ board, onClose }: { board: Board; onClose: () =>
         <div className="field">
           <span className="field-label">Permissions</span>
           <ModePicker value={board.permissionMode} onChange={(m) => update({ permissionMode: m })} />
+        </div>
+        <div className="field learn-field">
+          <div className="setting-row">
+            <div className="setting-text">
+              <b>Learn mode</b>
+              <span>A mentor explains the ideas behind what the agents do, as they do it. Uses a small, fast model.</span>
+            </div>
+            <Switch on={learn.on} onChange={(on) => update({ learn: { ...learn, on } })} />
+          </div>
+          {learn.on && (
+            <Segmented
+              value={learn.level}
+              onChange={(level) => update({ learn: { ...learn, level } })}
+              options={[
+                { value: 'new', label: 'New to this' },
+                { value: 'growing', label: 'Growing' },
+                { value: 'expert', label: 'Expert' },
+              ]}
+            />
+          )}
         </div>
         <label className="field">
           <span className="field-label">Model</span>

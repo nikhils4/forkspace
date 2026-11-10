@@ -3195,3 +3195,515 @@ kbd {
 .code-perm .perm {
   margin: 0 0 10px;
 }
+
+/* =========================================================
+   Floating stage: views run under a glass composer
+   ========================================================= */
+:root {
+  --composer-h: 120px;
+  --glass: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+.stage {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.stage > .view {
+  flex: 1;
+}
+.stage > .composer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: none;
+  pointer-events: none;
+  padding-bottom: 16px;
+}
+.stage > .composer .composer-box {
+  pointer-events: auto;
+  background: var(--glass);
+  backdrop-filter: saturate(180%) blur(24px);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  box-shadow:
+    0 0 0 1px var(--border),
+    0 24px 60px -20px rgba(0, 0, 0, 0.55),
+    0 8px 20px -10px rgba(0, 0, 0, 0.35);
+  border-color: transparent;
+}
+.mobile .stage > .composer {
+  padding-bottom: 8px;
+}
+.stage .chat-inner,
+.stage .thread-list {
+  padding-bottom: calc(var(--composer-h) + 24px);
+}
+.stage .code-list,
+.stage .code-rail {
+  padding-bottom: calc(var(--composer-h) + 16px);
+}
+.stage .canvas .react-flow__panel.bottom {
+  bottom: calc(var(--composer-h) - 6px);
+}
+.mobile .stage .canvas-tools {
+  bottom: calc(var(--composer-h) + 8px);
+}
+.stage .code-view {
+  border-bottom: 0;
+}
+.topbar {
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+}
+
+/* =========================================================
+   Learning
+   ========================================================= */
+.mentor-orb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: radial-gradient(circle at 30% 30%, #fff 0%, #c3cbff 25%, #8b9cff 55%, #6a5cff 100%);
+  box-shadow: 0 0 12px rgba(139, 156, 255, 0.7);
+  animation: orb 2.6s ease-in-out infinite;
+  display: inline-block;
+}
+.mentor-orb.small {
+  width: 9px;
+  height: 9px;
+  box-shadow: 0 0 8px rgba(139, 156, 255, 0.7);
+}
+.mentor-orb.big {
+  width: 40px;
+  height: 40px;
+  box-shadow: 0 0 40px rgba(139, 156, 255, 0.6);
+}
+@keyframes orb {
+  50% {
+    transform: scale(1.12);
+    filter: hue-rotate(25deg) brightness(1.1);
+  }
+}
+.mentor-working {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  padding: 6px 2px;
+}
+
+.lesson {
+  border-radius: 14px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--k) 9%, var(--surface)), var(--surface));
+  border: 1px solid color-mix(in srgb, var(--k) 26%, var(--border));
+  overflow: hidden;
+  animation: lesson-in 0.5s var(--ease);
+}
+@keyframes lesson-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+    filter: blur(2px);
+  }
+}
+.lesson-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: default;
+  min-width: 0;
+}
+.lesson.compact .lesson-head {
+  cursor: pointer;
+}
+.lesson-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--k) 18%, transparent);
+  color: var(--k);
+  flex-shrink: 0;
+}
+.lesson-kind {
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--k);
+  flex-shrink: 0;
+}
+.lesson-title {
+  font-weight: 600;
+  font-size: 13.5px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+.lesson-chev {
+  color: var(--text-3);
+  transition: transform 0.2s var(--ease);
+  flex-shrink: 0;
+}
+.lesson-chev.open {
+  transform: rotate(180deg);
+}
+.lesson-body {
+  padding: 0 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13.5px;
+  color: var(--text);
+}
+.lesson-body .md {
+  line-height: 1.6;
+}
+.lesson-snippet {
+  margin: 0;
+  font-size: 11.5px;
+  max-height: 160px;
+}
+.lesson-file {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--border-2);
+  background: var(--bg-2);
+  border-radius: 7px;
+  padding: 3px 9px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+.lesson-file:hover {
+  color: var(--text);
+  border-color: var(--k);
+}
+.check {
+  border-top: 1px dashed var(--border-2);
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.check-q {
+  display: flex;
+  gap: 7px;
+  align-items: flex-start;
+  font-weight: 600;
+}
+.check-q svg {
+  color: var(--k);
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+.check-opts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.check-opt {
+  text-align: left;
+  border: 1px solid var(--border-2);
+  background: var(--bg-2);
+  border-radius: 10px;
+  padding: 8px 11px;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    transform 0.1s;
+}
+.check-opt:hover:not(:disabled) {
+  border-color: var(--k);
+}
+.check-opt:active:not(:disabled) {
+  transform: scale(0.99);
+}
+.check-opt:disabled {
+  cursor: default;
+}
+.check-opt.right {
+  border-color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
+}
+.check-opt.wrong {
+  border-color: var(--err);
+  background: var(--err-soft);
+}
+.check-result {
+  font-size: 13px;
+  color: var(--text-2);
+  animation: lesson-in 0.35s var(--ease);
+}
+.check-result.right b {
+  color: var(--ok);
+}
+.check-result.wrong b {
+  color: var(--err);
+}
+.msg-lessons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.lesson-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.learn-pill {
+  cursor: pointer;
+}
+.learn-pill:not(.on) .mentor-orb {
+  filter: grayscale(1);
+  opacity: 0.5;
+  animation: none;
+}
+.learn-pill.on {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: var(--accent-soft);
+}
+.explain-btn .spinner {
+  width: 11px;
+  height: 11px;
+}
+.learn-field .segmented {
+  align-self: flex-start;
+}
+.side-link .count {
+  margin-left: auto;
+}
+
+/* floating mentor stack over the code */
+.mentor-dock {
+  position: absolute;
+  right: 16px;
+  top: 14px;
+  width: 340px;
+  max-height: calc(100% - var(--composer-h) - 40px);
+  overflow: auto;
+  z-index: 8;
+  padding: 10px;
+  border-radius: 18px;
+  background: var(--glass);
+  backdrop-filter: saturate(180%) blur(24px);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  box-shadow:
+    0 0 0 1px var(--border),
+    var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: pop 0.35s var(--ease);
+}
+.mentor-dock-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 0 2px 0 4px;
+}
+.dock-item {
+  position: relative;
+}
+.dock-x {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.dock-item:hover .dock-x {
+  opacity: 1;
+}
+.dock-x:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.dock-item .lesson-head {
+  padding-right: 30px;
+}
+.mentor-pill {
+  position: absolute;
+  right: 16px;
+  top: 14px;
+  z-index: 8;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--glass);
+  backdrop-filter: saturate(180%) blur(24px);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  box-shadow:
+    0 0 0 1px var(--border),
+    var(--shadow);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* library */
+.library {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.lib-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.lib-stat {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: var(--bg-2);
+  display: flex;
+  flex-direction: column;
+}
+.lib-stat b {
+  font-size: 22px;
+  letter-spacing: -0.02em;
+}
+.lib-stat span {
+  color: var(--text-3);
+  font-size: 12px;
+}
+.lib-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.lib-search {
+  margin: 0;
+}
+.lib-kinds {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.lib-kinds .chip {
+  font-size: 12.5px;
+  padding: 4px 11px;
+}
+.lib-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.lib-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.lib-src {
+  display: flex;
+  gap: 4px;
+  border: 0;
+  background: none;
+  color: var(--text-3);
+  font-size: 12px;
+  text-align: left;
+  padding: 0 4px;
+  min-width: 0;
+  white-space: nowrap;
+}
+.lib-src:hover {
+  color: var(--text-2);
+}
+.empty-note .mentor-orb.big {
+  margin-bottom: 8px;
+}
+.mobile .tabbar button span:last-child {
+  font-size: 10px;
+}
+.md-list {
+  margin: 4px 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.md-list li::marker {
+  color: var(--text-3);
+}
+.lesson-head-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.lesson-head-text .lesson-kind {
+  font-size: 10.5px;
+}
+.lesson-head-text .lesson-title {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.35;
+}
+.check-open {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid color-mix(in srgb, var(--k) 45%, transparent);
+  background: color-mix(in srgb, var(--k) 10%, transparent);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 12.5px;
+  border-radius: 999px;
+  padding: 5px 12px;
+  transition: transform 0.12s;
+}
+.check-open svg {
+  color: var(--k);
+}
+.check-open .faint {
+  font-weight: 500;
+}
+.check-open:active {
+  transform: scale(0.97);
+}
+.mentor-dock {
+  width: 330px;
+  max-height: min(62%, calc(100% - var(--composer-h) - 40px));
+}
+.mentor-dock .lesson-body {
+  max-height: 300px;
+  overflow: auto;
+}
