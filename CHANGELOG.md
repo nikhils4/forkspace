@@ -3,6 +3,11 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.8.0
+
+- A friendlier concept map: each area of tech is an island with a one-line meaning, ideas are bubbles (bigger when you met them more), and lines show what works together
+- Hover an idea for a one-sentence peek; click it to read it in full
+
 ## 0.7.3
 
 - New versions show up in the sidebar by themselves: Forkspace checks every 15 minutes and tells every open screen right away, and checks again when you come back to it

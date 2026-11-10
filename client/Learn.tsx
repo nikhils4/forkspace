@@ -3,7 +3,7 @@ import { CONCEPT_AREAS, conceptKey, type CanvasNode, type Lesson, type TurnNode 
 import { Icon } from './icons.tsx';
 import { Md, isFresh } from './nodes.tsx';
 import { request, toast, useStore } from './store.ts';
-import { Segmented, timeAgo, useTick } from './ui.tsx';
+import { Segmented, timeAgo, useIsMobile, useTick } from './ui.tsx';
 import { plain } from './tree.ts';
 
 // One idea only: concepts. A title, a plain explanation, and the real code behind it.
@@ -228,7 +228,7 @@ export function LearnLibrary({ onOpen }: { onOpen: (t: TurnNode) => void }) {
       <div className={`lib-body ${current ? 'has-sel' : ''}`}>
         <div className="lib-main">
           {view === 'map' ? (
-            <ConceptMap groups={shown} all={byKey} sel={sel} setSel={setSel} />
+            <ConceptMapView groups={shown} all={byKey} sel={sel} setSel={setSel} />
           ) : (
             <div className="concept-grid">
               {shown.map((g) => (
@@ -405,6 +405,224 @@ function ConceptMap({ groups, all, sel, setSel }: { groups: ConceptGroup[]; all:
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ---- the spatial map: areas as islands, ideas as bubbles, links between them ----
+
+/** What each area means, in one plain line. */
+export const AREA_HINT: Record<string, string> = {
+  Algorithms: 'Step-by-step recipes for solving problems',
+  'Data structures': 'Ways to organise data so it is quick to use',
+  'Language features': 'Tools the programming language gives you',
+  Performance: 'Making things faster and lighter',
+  Testing: 'Checking the code does what you think',
+  Debugging: 'Finding out why something broke',
+  'Architecture and design': 'How the pieces fit together',
+  'Web and networking': 'How browsers, servers and the internet talk',
+  'Data and databases': 'Storing and finding information',
+  Security: 'Keeping data and people safe',
+  'Concurrency and async': 'Doing several things at once',
+  'UI and frontend': 'What people see and touch',
+  'Tooling and build': 'The commands and tools around the code',
+  'DevOps and infrastructure': 'Running and shipping software',
+  'Version control': 'Tracking changes over time',
+  'Not sorted yet': 'Being sorted into the map',
+};
+
+const firstSentence = (t: string) => (t.match(/^.*?[.!?](\s|$)/)?.[0] ?? t).trim();
+
+function ConceptMapView(props: { groups: ConceptGroup[]; all: Map<string, ConceptGroup>; sel: string | null; setSel: (k: string | null) => void }) {
+  const mobile = useIsMobile();
+  // Phones get the compact clusters; the spatial map needs room.
+  return mobile ? <ConceptMap {...props} /> : <IslandMap {...props} />;
+}
+
+const CELL_W = 270;
+const CELL_H = 240;
+const PAD = 28;
+
+function IslandMap({ groups, all, sel, setSel }: { groups: ConceptGroup[]; all: Map<string, ConceptGroup>; sel: string | null; setSel: (k: string | null) => void }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(900);
+  const [hover, setHover] = useState<string | null>(null);
+  const [sorting, setSorting] = useState(false);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setWidth(el.clientWidth));
+    ro.observe(el);
+    setWidth(el.clientWidth);
+    return () => ro.disconnect();
+  }, []);
+
+  // Older concepts have no area yet: sort them once, in the background.
+  const untagged = [...all.values()].filter((g) => !g.area).length;
+  useEffect(() => {
+    if (!untagged || organizedThisSession) return;
+    organizedThisSession = true;
+    setSorting(true);
+    request<number>({ type: 'organizeConcepts' })
+      .catch((e: Error) => toast(e.message, 'error'))
+      .finally(() => setSorting(false));
+  }, [untagged]);
+
+  const layout = useMemo(() => {
+    const byArea = new Map<string, ConceptGroup[]>();
+    for (const g of groups) byArea.set(g.area ?? 'Not sorted yet', [...(byArea.get(g.area ?? 'Not sorted yet') ?? []), g]);
+    const order = [...CONCEPT_AREAS, 'Not sorted yet'] as string[];
+    const areas = [...byArea].sort((a, b) => b[1].length - a[1].length || order.indexOf(a[0]) - order.indexOf(b[0]));
+    const cols = Math.max(1, Math.min(3, areas.length));
+    const rows = Math.ceil(areas.length / cols);
+    const islands = areas.map(([name, list], i) => {
+      const r = Math.floor(i / cols);
+      const c = i % cols;
+      // A gentle stagger so it reads as a map, not a table.
+      const cx = PAD + c * CELL_W + CELL_W / 2 + (r % 2 ? 18 : -18) * (cols > 1 ? 1 : 0);
+      const cy = PAD + r * CELL_H + CELL_H / 2 + 16 + (c % 2 ? 14 : -8);
+      const step = Math.min(46, 92 / Math.sqrt(Math.max(1, list.length)));
+      const sorted = [...list].sort((a, b) => b.seen.length - a.seen.length);
+      const nodes = sorted.map((g, j) => {
+        const rr = list.length === 1 ? 0 : step * Math.sqrt(j + 0.6);
+        const a = j * 2.39996 - Math.PI / 2;
+        const W = cols * CELL_W + PAD * 2;
+        // Keep every bubble fully inside the map.
+        return { g, x: Math.max(PAD + 72, Math.min(W - PAD - 72, cx + rr * Math.cos(a) * 1.35)), y: cy + rr * Math.sin(a) * 0.8 };
+      });
+      const radius = Math.max(92, step * Math.sqrt(list.length + 0.6) * 1.25 + 64);
+      return { name, cx, cy, radius: Math.min(radius, CELL_W / 2 - 6), nodes };
+    });
+    // Nudge bubbles apart until none overlap, pulling each gently back toward its island.
+    const W = cols * CELL_W + PAD * 2;
+    const H = rows * CELL_H + PAD * 2;
+    const items = islands.flatMap((isl) =>
+      isl.nodes.map((n) => {
+        const name = conceptName(n.g);
+        const w = Math.min(170, name.length * 7.4 + 36);
+        return { n, isl, w, h: name.length * 7.4 + 36 > 170 ? 46 : 32 };
+      }),
+    );
+    for (let it = 0; it < 120; it++) {
+      for (let i = 0; i < items.length; i++)
+        for (let j = i + 1; j < items.length; j++) {
+          const a = items[i];
+          const b = items[j];
+          const ox = (a.w + b.w) / 2 + 10 - Math.abs(a.n.x - b.n.x);
+          const oy = (a.h + b.h) / 2 + 8 - Math.abs(a.n.y - b.n.y);
+          if (ox <= 0 || oy <= 0) continue;
+          if (oy < ox) {
+            const d = (oy / 2) * (a.n.y <= b.n.y ? -1 : 1);
+            a.n.y += d;
+            b.n.y -= d;
+          } else {
+            const d = (ox / 2) * (a.n.x <= b.n.x ? -1 : 1);
+            a.n.x += d;
+            b.n.x -= d;
+          }
+        }
+      for (const m of items) {
+        m.n.x += (m.isl.cx - m.n.x) * 0.02;
+        m.n.y += (m.isl.cy - m.n.y) * 0.02;
+        m.n.x = Math.max(PAD + m.w / 2, Math.min(W - PAD - m.w / 2, m.n.x));
+        m.n.y = Math.max(PAD + 44, Math.min(H - PAD - m.h / 2, m.n.y));
+      }
+    }
+    const pos = new Map<string, { x: number; y: number; area: string }>();
+    for (const isl of islands) for (const n of isl.nodes) pos.set(n.g.key, { x: n.x, y: n.y, area: isl.name });
+    const links: { a: string; b: string }[] = [];
+    for (const g of groups) for (const r of g.related) if (g.key < r && pos.has(r)) links.push({ a: g.key, b: r });
+    return { islands, pos, links, w: cols * CELL_W + PAD * 2, h: rows * CELL_H + PAD * 2 };
+  }, [groups]);
+
+  const scale = Math.min(1.15, width / layout.w);
+  const focus = hover ?? sel;
+  const focusG = focus ? all.get(focus) : undefined;
+  const near = (k: string) => !focusG || k === focusG.key || focusG.related.has(k);
+  const top = [...layout.islands].sort((a, b) => b.nodes.length - a.nodes.length)[0];
+  const tip = hover ? all.get(hover) : undefined;
+  const tipPos = hover ? layout.pos.get(hover) : undefined;
+
+  return (
+    <div className="island-wrap">
+      <p className="island-summary">
+        {sorting ? (
+          <>
+            <span className="mentor-orb small" /> <span className="shimmer-text">Sorting your concepts into the map…</span>
+          </>
+        ) : (
+          <>
+            <b>{groups.length}</b> idea{groups.length === 1 ? '' : 's'} across <b>{layout.islands.length}</b> area{layout.islands.length === 1 ? '' : 's'} of software.
+            {top && layout.islands.length > 1 && (
+              <>
+                {' '}You know the most about&nbsp;<b style={{ color: areaColor(top.name) }}>{top.name.toLowerCase()}</b>.
+              </>
+            )}
+          </>
+        )}
+      </p>
+      <div className="island-box" ref={box} style={{ height: layout.h * scale }} onClick={(e) => e.target === e.currentTarget && setSel(null)}>
+        <div className="island-stage" style={{ width: layout.w, height: layout.h, transform: `scale(${scale})` }} onClick={(e) => e.target === e.currentTarget && setSel(null)}>
+          {layout.islands.map((isl) => (
+            <div
+              key={isl.name}
+              className={`island ${focusG && !isl.nodes.some((n) => near(n.g.key)) ? 'far' : ''}`}
+              style={{ left: isl.cx - isl.radius, top: isl.cy - isl.radius * 0.82, width: isl.radius * 2, height: isl.radius * 1.64, ['--area' as any]: areaColor(isl.name) }}
+            >
+              <div className="island-label">
+                <b>{isl.name}</b>
+                <span>{AREA_HINT[isl.name] ?? ''}</span>
+              </div>
+            </div>
+          ))}
+          <svg className="island-links" width={layout.w} height={layout.h}>
+            {layout.links.map(({ a, b }) => {
+              const p = layout.pos.get(a)!;
+              const q = layout.pos.get(b)!;
+              const on = !!focusG && (a === focusG.key || b === focusG.key);
+              const mx = (p.x + q.x) / 2;
+              const my = (p.y + q.y) / 2 - Math.min(60, Math.hypot(q.x - p.x, q.y - p.y) / 5);
+              return <path key={`${a}|${b}`} className={on ? 'on' : focusG ? 'off' : ''} d={`M${p.x} ${p.y} Q${mx} ${my} ${q.x} ${q.y}`} />;
+            })}
+          </svg>
+          {layout.islands.flatMap((isl) =>
+            isl.nodes.map(({ g, x, y }) => {
+              const seen = new Set(g.seen.map((s) => s.t.id)).size;
+              return (
+                <button
+                  key={g.key}
+                  className={`idea ${sel === g.key ? 'on' : ''} ${near(g.key) ? '' : 'dim'} ${focusG && focusG.related.has(g.key) ? 'linked' : ''}`}
+                  style={{ left: x, top: y, ['--area' as any]: areaColor(isl.name), ['--size' as any]: `${Math.min(17, 13 + (seen - 1) * 1.5)}px` }}
+                  onMouseEnter={() => setHover(g.key)}
+                  onMouseLeave={() => setHover(null)}
+                  onFocus={() => setHover(g.key)}
+                  onBlur={() => setHover(null)}
+                  onClick={() => setSel(sel === g.key ? null : g.key)}
+                >
+                  <i />
+                  {conceptName(g)}
+                </button>
+              );
+            }),
+          )}
+          {tip && tipPos && (
+            <div className={`idea-tip ${tipPos.y < 150 ? 'below' : ''}`} style={{ left: Math.max(150, Math.min(layout.w - 150, tipPos.x)), top: tipPos.y }}>
+              <b>{conceptName(tip)}</b>
+              <span>{firstSentence(tip.lesson.body)}</span>
+              {tip.related.size > 0 && <em>Connects to {tip.related.size} other idea{tip.related.size === 1 ? '' : 's'}. Click to read more.</em>}
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="island-legend">
+        <span>
+          <i className="lg-dot" /> An idea you learned. Bigger means you met it more often.
+        </span>
+        <span>
+          <i className="lg-line" /> Ideas that work together.
+        </span>
+        <span>Hover to peek, click to read.</span>
+      </div>
     </div>
   );
 }
