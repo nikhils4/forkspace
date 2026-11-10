@@ -98,8 +98,18 @@ export interface Position {
   y: number;
 }
 
+/** A file attached to a prompt. Images are stored with screenshots. */
+export interface Attachment {
+  id: string;
+  name: string;
+  kind: 'image' | 'file';
+  size: number;
+}
+
 export interface TurnNode {
   kind: 'turn';
+  /** Images and files sent with the prompt. */
+  attachments?: Attachment[];
   /** Screenshots attached to this step, oldest first. */
   shots?: string[];
   /** On a thread's first step: the thread's title (from Claude Code, written for you, or yours). */
@@ -179,7 +189,7 @@ export type ClientMsg =
   | { type: 'deleteBoard'; id: string }
   /** Start fresh: remove every step, note and worktree but keep the board and its settings. */
   | { type: 'clearBoard'; id: string }
-  | { type: 'send'; reqId: string; boardId: string; parentId: string | null; prompt: string; position: Position }
+  | { type: 'send'; reqId: string; boardId: string; parentId: string | null; prompt: string; position: Position; attachments?: Attachment[] }
   | { type: 'stop'; nodeId: string }
   | { type: 'permission'; nodeId: string; requestId: string; decision: 'allow' | 'always' | 'deny'; answers?: Record<string, string>; message?: string }
   | { type: 'upsertNote'; note: NoteNode }

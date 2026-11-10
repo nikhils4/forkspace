@@ -3,6 +3,12 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.14.0
+
+- Attach images and files to a prompt: the paperclip in the message box, paste, or drag and drop
+- Images go to Claude as images; other files (PDFs, logs, code, anything) are saved and Claude reads them
+- What you attached shows on the card, in the details panel and in Chat; click an image to open it big
+
 ## 0.13.4
 
 - Concepts are plainer and more direct: a comparison only when it really helps

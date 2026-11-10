@@ -20,6 +20,7 @@ import { enableTailscaleServe, tailscaleInfo } from './remote.ts';
 import { awayStatus, noteDevice, setAway } from './away.ts';
 import { capture, deleteShot, imageType, readShot, saveShot } from './shots.ts';
 import { attachTerminal, closeBoardTerminals, closeTerminal, listTerminals, openTerminal, resizeTerminal, setTerminalEmitter, setTerminalRemoteAllowed, terminalRemoteAllowed, terminalSupported, writeTerminal } from './terminal.ts';
+import { checkAttachments, deleteAttachment, saveAttachment } from './attachments.ts';
 import { answer, isRunning, pruneBranches, setActivityHook, setEmitter, setNotifier, startTurn, stop, touch } from './runner.ts';
 import { explain, onActivity, organizeConcepts, readImageText, setTutorTouch, threadTitle } from './tutor.ts';
 import { flush, getBoard, getBranch, getNode, getTurn, save, state, subtree } from './store.ts';
@@ -85,6 +86,7 @@ const server = http.createServer((req, res) => {
   }
   if (url.pathname.startsWith('/api/workspace/')) return workspaceApi(req, res, url);
   if (url.pathname.startsWith('/api/shots')) return shotsApi(req, res, url);
+  if (url.pathname === '/api/attachments') return attachApi(req, res, url);
   let file = path.join(DIST, path.normalize(url.pathname).replace(/^(\.\.[/\\])+/, ''));
   if (!file.startsWith(DIST) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
     if (url.pathname.startsWith('/assets/')) {
@@ -166,6 +168,21 @@ async function workspaceApi(req: http.IncomingMessage, res: http.ServerResponse,
   }
 }
 
+// ---- files attached to a prompt (uploaded before sending) ----
+async function attachApi(req: http.IncomingMessage, res: http.ServerResponse, url: URL) {
+  const json = (code: number, body: unknown) => {
+    res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+    res.end(JSON.stringify(body));
+  };
+  if (!checkToken((req.headers.authorization ?? '').replace(/^Bearer /, ''))) return json(401, { error: 'Sign in first.' });
+  if (req.method !== 'POST') return json(405, { error: 'Use POST' });
+  try {
+    json(200, saveAttachment(await readBody(req, 31 * 1024 * 1024), url.searchParams.get('name') ?? 'file'));
+  } catch (err: any) {
+    json(400, { error: String(err?.message ?? err) });
+  }
+}
+
 // ---- screenshots on steps (images are too big for the socket) ----
 async function shotsApi(req: http.IncomingMessage, res: http.ServerResponse, url: URL) {
   const json = (code: number, body: unknown) => {
@@ -213,6 +230,7 @@ const dropShots = (ids: Iterable<string>) => {
   for (const id of ids) {
     const n = getNode(id);
     for (const s of (n?.kind === 'turn' ? n.shots : n?.images) ?? []) deleteShot(s);
+    if (n?.kind === 'turn') for (const a of n.attachments ?? []) a.kind === 'image' ? deleteShot(a.id) : deleteAttachment(a);
   }
 };
 
@@ -399,9 +417,10 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       return;
     }
     case 'send': {
-      const prompt = msg.prompt.trim();
+      const attachments = checkAttachments(msg.attachments);
+      const prompt = msg.prompt.trim() || (attachments.length ? `Take a look at the attached ${attachments.length === 1 ? 'file' : 'files'}.` : '');
       if (!prompt) throw new Error('Empty prompt');
-      const node = await startTurn(msg.boardId, msg.parentId, prompt, goodPos(msg.position) ? msg.position : { x: 0, y: 0 });
+      const node = await startTurn(msg.boardId, msg.parentId, prompt, goodPos(msg.position) ? msg.position : { x: 0, y: 0 }, attachments);
       return { id: node.id };
     }
     case 'stop':

@@ -1,6 +1,6 @@
 import { ReactFlowProvider } from '@xyflow/react';
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { conceptKey, type Board, type TurnNode } from '../shared/types.ts';
+import { conceptKey, type Attachment, type Board, type TurnNode } from '../shared/types.ts';
 import { BoardSettings, MODES, NewBoard } from './BoardForms.tsx';
 import { Canvas } from './Canvas.tsx';
 import { Chat } from './Chat.tsx';
@@ -229,11 +229,11 @@ function Shell() {
     return () => window.removeEventListener('keydown', k);
   }, [openId, sheet, board?.id, setTargetId, page]);
 
-  const submit = async (prompt: string) => {
+  const submit = async (prompt: string, attachments: Attachment[] = []) => {
     if (!board) return false;
     const position = placeFor(store.nodes, board.id, targetId, { x: 0, y: 0 });
     try {
-      const { id } = await request<{ id: string }>({ type: 'send', boardId: board.id, parentId: targetId, prompt, position });
+      const { id } = await request<{ id: string }>({ type: 'send', boardId: board.id, parentId: targetId, prompt, position, attachments });
       setTargetId(id);
       setFocus({ id, n: Date.now() });
       return true;

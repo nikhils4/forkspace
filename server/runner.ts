@@ -1,7 +1,8 @@
 import { query, type CanUseTool, type PermissionResult, type PermissionUpdate } from '@anthropic-ai/claude-agent-sdk';
 import { nanoid } from 'nanoid';
 import path from 'node:path';
-import type { Board, Branch, PendingPermission, Position, TurnEvent, TurnNode } from '../shared/types.ts';
+import type { Attachment, Board, Branch, PendingPermission, Position, TurnEvent, TurnNode } from '../shared/types.ts';
+import { INLINE_IMAGE_MAX, attachmentPath, imageBytes } from './attachments.ts';
 import * as g from './git.ts';
 import { commitMessage, threadTitle } from './tutor.ts';
 import { capture } from './shots.ts';
@@ -84,7 +85,7 @@ async function pickBranch(board: Board, parent: TurnNode | null): Promise<Branch
 
 // ---- turns ----
 
-export async function startTurn(boardId: string, parentId: string | null, prompt: string, position: Position): Promise<TurnNode> {
+export async function startTurn(boardId: string, parentId: string | null, prompt: string, position: Position, attachments: Attachment[] = []): Promise<TurnNode> {
   const board = getBoard(boardId);
   if (!board) throw new Error('Board not found');
   const parent = parentId ? getTurn(parentId) : null;
@@ -101,6 +102,7 @@ export async function startTurn(boardId: string, parentId: string | null, prompt
     parentId,
     branchId: branch.id,
     prompt,
+    ...(attachments.length ? { attachments } : {}),
     events: [],
     status: 'running',
     position,
@@ -136,6 +138,26 @@ async function run(board: Board, branch: Branch, node: TurnNode, parent: TurnNod
         `use the new path for all reads and edits.]\n\n${node.prompt}`;
   }
 
+  // Attachments: small images go in as images; everything else as a path Claude reads.
+  const inline: { type: 'image'; source: { type: 'base64'; media_type: 'image/png'; data: string } }[] = [];
+  const onDisk: string[] = [];
+  for (const a of node.attachments ?? []) {
+    const img = a.kind === 'image' ? imageBytes(a) : null;
+    if (img && img.bytes.length <= INLINE_IMAGE_MAX) inline.push({ type: 'image', source: { type: 'base64', media_type: img.type as 'image/png', data: img.bytes.toString('base64') } });
+    else {
+      const f = attachmentPath(a);
+      if (f) onDisk.push(f);
+    }
+  }
+  if (onDisk.length) promptText += `\n\n[Attached ${onDisk.length === 1 ? 'file' : 'files'}, read with the Read tool:\n${onDisk.map((f) => `- ${f}`).join('\n')}]`;
+  // Streamed input stays open until the answer arrives, so permission prompts keep working.
+  let release = () => {};
+  const finished = new Promise<void>((res) => (release = res));
+  async function* withImages() {
+    yield { type: 'user' as const, parent_tool_use_id: null, message: { role: 'user' as const, content: [...inline, { type: 'text' as const, text: promptText }] } };
+    await finished;
+  }
+
   r.showNext = () => {
     const next = r.queue[0];
     node.pending = next ? { requestId: next.requestId, toolName: next.toolName, input: next.input, canAlways: next.canAlways } : undefined;
@@ -153,9 +175,10 @@ async function run(board: Board, branch: Branch, node: TurnNode, parent: TurnNod
     });
 
   const q = query({
-    prompt: promptText,
+    prompt: inline.length ? (withImages() as any) : promptText,
     options: {
       cwd: branch.cwd,
+      ...(onDisk.length ? { additionalDirectories: [...new Set(onDisk.map((f) => path.dirname(f)))] } : {}),
       resume: parent?.sessionId,
       forkSession: !!parent?.sessionId,
       // Imported cards share one transcript; resume it exactly where this card ended.
@@ -172,12 +195,17 @@ async function run(board: Board, branch: Branch, node: TurnNode, parent: TurnNod
   });
 
   try {
-    for await (const msg of q) handle(node, msg as any);
+    for await (const msg of q) {
+      handle(node, msg as any);
+      // The answer is in: close the image input so the run can end.
+      if ((msg as any).type === 'result') release();
+    }
     if (node.status !== 'error') node.status = r.abort.signal.aborted ? 'stopped' : 'done';
   } catch (err: any) {
     node.status = r.abort.signal.aborted ? 'stopped' : 'error';
     if (node.status === 'error') node.error = String(err?.message ?? err);
   } finally {
+    release();
     running.delete(node.id);
     node.pending = undefined;
     node.events = node.events.filter((e) => !(e.t === 'text' && e.partial));

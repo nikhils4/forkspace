@@ -2,7 +2,7 @@ import { Handle, NodeResizer, Position, useStore as useRFStore, type NodeProps }
 import { memo, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Markdown } from './Markdown.tsx';
-import { ShotThumb, openShots, readImageText, stepShots, uploadNoteImage } from './Shots.tsx';
+import { Attachments, ShotThumb, openShots, readImageText, stepShots, uploadNoteImage } from './Shots.tsx';
 import type { NoteNode, PendingPermission, TurnEvent, TurnNode } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
 import { send, useStore, toast } from './store.ts';
@@ -370,6 +370,7 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
       </div>
 
       <div className="turn-prompt">{node.prompt}</div>
+      <Attachments list={node.attachments} label={node.prompt} />
       {!!node.shots?.length && (
         <ShotThumb
           id={node.shots[node.shots.length - 1]}

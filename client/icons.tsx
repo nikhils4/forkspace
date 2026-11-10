@@ -3,6 +3,7 @@ import type { SVGProps } from 'react';
 // Small stroke icon set (24px grid, 1.75 stroke), drawn for Forkspace.
 const P: Record<string, string> = {
   plus: 'M12 5v14M5 12h14',
+  clip: 'M20.5 11.5l-8.3 8.3a5 5 0 0 1-7.1-7.1l8.6-8.6a3.3 3.3 0 0 1 4.7 4.7l-8.6 8.6a1.7 1.7 0 0 1-2.4-2.4l7.9-7.9',
   x: 'M6 6l12 12M18 6L6 18',
   check: 'M5 12.5l4.5 4.5L19 7.5',
   fork: 'M6 3v6a6 6 0 0 0 6 6h0a6 6 0 0 0 6-6V3M12 15v6M6 3h0M18 3h0',

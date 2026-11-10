@@ -55,6 +55,15 @@ export function readShot(id: string): { bytes: Buffer; type: string } | null {
   return null;
 }
 
+export function shotPath(id: string): string | null {
+  if (!ID.test(id)) return null;
+  for (const ext of Object.keys(TYPES)) {
+    const f = path.join(SHOTS, `${id}.${ext}`);
+    if (fs.existsSync(f)) return f;
+  }
+  return null;
+}
+
 export function deleteShot(id: string) {
   if (!ID.test(id)) return;
   for (const ext of Object.keys(TYPES)) fs.rmSync(path.join(SHOTS, `${id}.${ext}`), { force: true });

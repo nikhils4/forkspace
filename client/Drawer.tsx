@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Attachments } from './Shots.tsx';
 import type { TurnNode } from '../shared/types.ts';
 import { ContextMenu, type MenuItem } from './ContextMenu.tsx';
 import { Icon } from './icons.tsx';
@@ -97,6 +98,7 @@ export function Drawer({ node, onClose, onReply }: { node: TurnNode; onClose: ()
         <div className={`drawer-prompt ${long ? 'open' : ''}`} onClick={() => setLong(!long)} title={long ? '' : 'Show all'}>
           {node.prompt}
         </div>
+        <Attachments list={node.attachments} label={node.prompt} />
 
         <div className="drawer-outcome">
           {node.diffStat?.files ? (

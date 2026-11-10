@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { TurnNode } from '../shared/types.ts';
+import type { Attachment, TurnNode } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
 import { getToken, request, send, toast } from './store.ts';
 
@@ -56,6 +56,37 @@ export async function readImageText(file: Blob): Promise<string> {
   return String(data?.text ?? '');
 }
 
+/** Upload a file for the next prompt. */
+export async function uploadAttachment(file: Blob, name: string): Promise<Attachment> {
+  const r = await fetch(`/api/attachments?name=${encodeURIComponent(name)}`, { method: 'POST', body: file, headers: auth() });
+  const data = await r.json().catch(() => null);
+  if (!r.ok) throw new Error(data?.error ?? 'Could not attach that file.');
+  return data as Attachment;
+}
+
+export const fileSize = (n: number) => (n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${Math.round(n / 1024)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
+
+/** What was sent with a prompt: image previews (open big) and file chips. */
+export function Attachments({ list, label }: { list?: Attachment[]; label: string }) {
+  if (!list?.length) return null;
+  const images = list.filter((a) => a.kind === 'image');
+  return (
+    <div className="atts nodrag">
+      {images.map((a, i) => (
+        <ShotThumb key={a.id} id={a.id} className="att-img" onOpen={() => openShots(images.map((x) => ({ id: x.id, label: x.name || label, })), i)} />
+      ))}
+      {list
+        .filter((a) => a.kind === 'file')
+        .map((a) => (
+          <span key={a.id} className="att-file" title={`${a.name} · ${fileSize(a.size)}`}>
+            <Icon name="file" size={12} />
+            <span className="ellipsis">{a.name}</span>
+          </span>
+        ))}
+    </div>
+  );
+}
+
 export async function uploadShot(nodeId: string, file: Blob) {
   if (!file.type.startsWith('image/')) throw new Error('That is not an image.');
   const r = await fetch(`/api/shots?node=${encodeURIComponent(nodeId)}`, { method: 'POST', body: file, headers: { authorization: `Bearer ${getToken() ?? ''}` } });
@@ -103,7 +134,7 @@ export function ShotThumb({ id, className = '', onOpen, count }: { id: string; c
 }
 
 // ---- full-size viewer, shared by every preview ----
-export type ShotItem = { id: string; label: string; remove: () => void };
+export type ShotItem = { id: string; label: string; remove?: () => void };
 type Open = { shots: ShotItem[]; at: number } | null;
 let openState: Open = null;
 const subs = new Set<(o: Open) => void>();
@@ -141,18 +172,18 @@ export function ShotViewer() {
         <span className="faint small">
           {o.at + 1} of {o.shots.length}
         </span>
-        <button
+        {cur.remove && <button
           className="icon-btn"
           title="Remove this screenshot"
           aria-label="Remove screenshot"
           onClick={() => {
-            cur.remove();
+            cur.remove!();
             const rest = o.shots.filter((s) => s.id !== cur.id);
             setO(rest.length ? { shots: rest, at: Math.min(o.at, rest.length - 1) } : null);
           }}
         >
           <Icon name="trash" size={15} />
-        </button>
+        </button>}
         <button className="icon-btn" onClick={() => setO(null)} aria-label="Close">
           <Icon name="x" size={16} />
         </button>

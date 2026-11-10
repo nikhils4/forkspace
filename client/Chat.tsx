@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Attachments } from './Shots.tsx';
 import { LessonCard, MentorWorking } from './Learn.tsx';
 import type { Board, TurnEvent, TurnNode } from '../shared/types.ts';
 import { composerFocus } from './Composer.tsx';
@@ -67,7 +68,10 @@ function Turn({ t, isLast, forkHere, openDetails }: { t: TurnNode; isLast: boole
   };
   return (
     <div className={`msg-pair ${isFresh(t.createdAt) ? 'fresh' : ''}`} style={{ ['--branch' as any]: branchColor(t.branchId) }}>
-      <div className="bubble-user">{t.prompt}</div>
+      <div className="bubble-user">
+        {t.prompt}
+        <Attachments list={t.attachments} label={t.prompt} />
+      </div>
       <div className={`msg-agent status-${t.status}`}>
         <div className="msg-rail" />
         <div className="msg-content">
