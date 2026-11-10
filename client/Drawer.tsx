@@ -27,6 +27,7 @@ export function Drawer({ node, onClose, onReply }: { node: TurnNode; onClose: ()
   // New concepts never pull you away from what you're reading: they just appear, folded,
   // at the end. Only one you asked for (Explain) brings the Summary tab forward.
   const count = node.lessons?.length ?? 0;
+  const open = (node.lessons ?? []).filter((l) => !l.reviewed);
   const seenCount = useRef(count);
   useEffect(() => {
     const newest = node.lessons?.[count - 1];
@@ -137,8 +138,10 @@ export function Drawer({ node, onClose, onReply }: { node: TurnNode; onClose: ()
                 <div className="drawer-label">
                   <span className="mentor-orb small" /> Concepts in this step
                 </div>
-                {count ? (
-                  (node.lessons ?? []).map((l, i) => <LessonCard key={l.id} lesson={l} compact={i > 0} />)
+                {open.length ? (
+                  open.map((l, i) => <LessonCard key={l.id} lesson={l} compact={i > 0} review />)
+                ) : count ? (
+                  <div className="faint small">You've reviewed the concepts from this step. They're in Concepts.</div>
                 ) : (
                   <div className="faint small">None yet. Right-click the card and choose Explain this step.</div>
                 )}

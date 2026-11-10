@@ -3,6 +3,11 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.13.0
+
+- "Got it" on concepts: tick a concept and it clears from the step views. It stays in Concepts, marked as reviewed, and you can bring it back
+- Dictate in the message box: the microphone button types what you say as you speak (Chrome and Safari)
+
 ## 0.12.1
 
 - Scrolling and zooming work over notes and cards too: notes grow to fit their content, and scroll areas inside cards hand the wheel to the canvas when there's nothing left to scroll. Pinch or ⌘-scroll always zooms

@@ -2,13 +2,19 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { CONCEPT_AREAS, conceptKey, type CanvasNode, type Lesson, type TurnNode } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
 import { CodeBlock, Md, isFresh } from './nodes.tsx';
-import { request, toast, useStore } from './store.ts';
+import { request, send, toast, useStore } from './store.ts';
 import { Segmented, timeAgo, useIsMobile, useTick } from './ui.tsx';
 import { plain } from './tree.ts';
 
 // One idea only: concepts. A title, a plain explanation, and the real code behind it.
 
-export function ConceptCard({ lesson, onOpenFile, compact }: { lesson: Lesson; onOpenFile?: (path: string) => void; compact?: boolean }) {
+/** Mark a concept as understood: it leaves the step views and stays in Concepts. */
+export const reviewConcept = (l: Lesson, reviewed = true) => {
+  send({ type: 'reviewConcept', key: l.key || conceptKey(l.title), reviewed });
+  if (reviewed) toast('Got it. You\'ll find it in Concepts.');
+};
+
+export function ConceptCard({ lesson, onOpenFile, compact, review }: { lesson: Lesson; onOpenFile?: (path: string) => void; compact?: boolean; review?: boolean }) {
   // Decided once, when the card appears. After that only you open or close it: nothing new
   // arriving ever folds away the one you're reading. One you just asked for opens itself.
   const [open, setOpen] = useState(() => !compact || (!!lesson.asked && Date.now() - lesson.at < 15_000));
@@ -27,6 +33,28 @@ export function ConceptCard({ lesson, onOpenFile, compact }: { lesson: Lesson; o
       >
         <span className="mentor-orb small" />
         <span className="concept-title">{lesson.title}</span>
+        {review && (
+          <span
+            role="button"
+            tabIndex={0}
+            className="concept-got"
+            title="Got it: clear it from here (it stays in Concepts)"
+            aria-label="Got it"
+            onClick={(e) => {
+              e.stopPropagation();
+              reviewConcept(lesson);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                reviewConcept(lesson);
+              }
+            }}
+          >
+            <Icon name="check" size={12} strokeWidth={2.6} />
+          </span>
+        )}
         {!seen && Date.now() - lesson.at < 10 * 60_000 && <span className="concept-new">New</span>}
         <Icon name="chevronDown" size={14} className="concept-chev" />
       </button>
@@ -73,7 +101,7 @@ export function MentorWorking({ label = 'Finding a concept…' }: { label?: stri
 /** Floating stack of the newest concepts, over the code. */
 export function MentorDock({ turns, onOpenFile }: { turns: TurnNode[]; onOpenFile: (p: string) => void }) {
   const [min, setMin] = useState(false);
-  const all = turns.flatMap((t) => t.lessons ?? []).sort((a, b) => a.at - b.at);
+  const all = turns.flatMap((t) => (t.lessons ?? []).filter((l) => !l.reviewed)).sort((a, b) => a.at - b.at);
   // The one you're reading stays put. New ones wait behind a "new" button until you want them.
   const [readId, setReadId] = useState<string | null>(null);
   const [seenCount, setSeenCount] = useState(0);
@@ -113,7 +141,7 @@ export function MentorDock({ turns, onOpenFile }: { turns: TurnNode[]; onOpenFil
           <Icon name="chevronDown" size={14} />
         </button>
       </div>
-      {current ? <ConceptCard key={current.id} lesson={current} onOpenFile={onOpenFile} /> : working && <MentorWorking />}
+      {current ? <ConceptCard key={current.id} lesson={current} onOpenFile={onOpenFile} review /> : working && <MentorWorking />}
       {all.length > 0 && (
         <div className="dock-nav">
           <button className="icon-btn sm" disabled={idx <= 0} onClick={() => go(idx - 1)} aria-label="Previous concept">
@@ -147,6 +175,8 @@ export interface ConceptGroup {
   related: Set<string>;
   seen: { l: Lesson; t: TurnNode }[];
   last: number;
+  /** Every lesson about it is marked "Got it". */
+  reviewed: boolean;
 }
 
 export function groupConcepts(nodes: Record<string, CanvasNode>): ConceptGroup[] {
@@ -157,7 +187,8 @@ export function groupConcepts(nodes: Record<string, CanvasNode>): ConceptGroup[]
   for (const x of all) {
     const key = x.l.key || conceptKey(x.l.title);
     let g = groups.get(key);
-    if (!g) groups.set(key, (g = { key, lesson: x.l, area: x.l.area, related: new Set(), seen: [], last: x.l.at }));
+    if (!g) groups.set(key, (g = { key, lesson: x.l, area: x.l.area, related: new Set(), seen: [], last: x.l.at, reviewed: true }));
+    if (!x.l.reviewed) g.reviewed = false;
     g.area ??= x.l.area;
     for (const r of x.l.related ?? []) g.related.add(r);
     g.seen.push(x);
@@ -269,12 +300,19 @@ export function LearnLibrary({ onOpen }: { onOpen: (t: TurnNode) => void }) {
           ) : (
             <div className="concept-grid">
               {shown.map((g) => (
-                <button key={g.key} className={`concept-tile ${sel === g.key ? 'on' : ''}`} onClick={() => setSel(sel === g.key ? null : g.key)}>
+                <button key={g.key} className={`concept-tile ${sel === g.key ? 'on' : ''} ${g.reviewed ? 'reviewed' : ''}`} onClick={() => setSel(sel === g.key ? null : g.key)}>
                   <span className="tile-area">
                     <i style={{ background: areaColor(g.area ?? 'Not sorted yet') }} />
                     {g.area ?? 'Not sorted yet'}
                   </span>
-                  <span className="tile-name">{conceptName(g)}</span>
+                  <span className="tile-name">
+                    {conceptName(g)}
+                    {g.reviewed && (
+                      <span className="tile-got" title="You marked it Got it">
+                        <Icon name="check" size={11} strokeWidth={2.6} />
+                      </span>
+                    )}
+                  </span>
                   <span className="tile-body">{g.lesson.body}</span>
                   <span className="tile-foot">
                     {(() => {
@@ -321,6 +359,9 @@ function ConceptDetail({ g, all, onPick, onOpen }: { g: ConceptGroup; all: Map<s
         {g.area ?? 'Not sorted yet'}
       </div>
       <h2 className="detail-name">{conceptName(g)}</h2>
+      <button className={`btn sm ${g.reviewed ? '' : 'primary'} self-start`} onClick={() => reviewConcept(g.lesson, !g.reviewed)}>
+        <Icon name="check" size={13} /> {g.reviewed ? 'Reviewed. Show it on steps again' : 'Got it'}
+      </button>
       <ConceptCard key={g.key} lesson={g.lesson} />
       {g.related.size > 0 && (
         <div className="cmap-links">

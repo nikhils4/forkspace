@@ -6960,3 +6960,111 @@ input.thread-title.editing {
     margin: 0;
   }
 }
+
+/* ---------- dictation ---------- */
+.mic-btn {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    color 0.2s;
+  align-self: flex-end;
+}
+.mic-btn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.mic-btn.on {
+  background: color-mix(in srgb, var(--err) 16%, transparent);
+  color: var(--err);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--err) 40%, transparent);
+  animation: mic-ring 1.6s ease-out infinite;
+}
+@keyframes mic-ring {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--err) 40%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 10px transparent;
+  }
+}
+.mic-wave {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 16px;
+}
+.mic-wave i {
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: currentColor;
+  animation: mic-bar 0.9s ease-in-out infinite;
+}
+.mic-wave i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.mic-wave i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+.mic-wave i:nth-child(4) {
+  animation-delay: 0.45s;
+}
+@keyframes mic-bar {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+/* ---------- "Got it" on concepts ---------- */
+.concept-got {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-left: auto;
+  margin-right: 4px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-2);
+  color: var(--text-3);
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    color 0.2s,
+    border-color 0.2s;
+}
+.concept-got:hover {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: #fff;
+}
+.concept-new + .concept-got {
+  margin-left: 0;
+}
+.tile-got {
+  display: inline-grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  margin-left: 7px;
+  vertical-align: 2px;
+  border-radius: 50%;
+  background: var(--ok);
+  color: #fff;
+}
+.concept-tile.reviewed .tile-body {
+  opacity: 0.7;
+}

@@ -55,7 +55,7 @@ function Turn({ t, isLast, forkHere, openDetails }: { t: TurnNode; isLast: boole
   const live = isLive(t);
   const groups = group(t.events);
   const [explaining, setExplaining] = useState(false);
-  const lessons = t.lessons ?? [];
+  const lessons = (t.lessons ?? []).filter((l) => !l.reviewed);
   const explainStep = async () => {
     setExplaining(true);
     try {
@@ -84,7 +84,7 @@ function Turn({ t, isLast, forkHere, openDetails }: { t: TurnNode; isLast: boole
           {(lessons.length > 0 || t.learning || explaining) && (
             <div className="msg-lessons">
               {lessons.map((l, i) => (
-                <LessonCard key={l.id} lesson={l} compact={i > 0} />
+                <LessonCard key={l.id} lesson={l} compact={i > 0} review />
               ))}
               {(t.learning || explaining) && <MentorWorking label={explaining ? 'Explaining…' : undefined} />}
             </div>

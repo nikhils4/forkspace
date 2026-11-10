@@ -54,6 +54,8 @@ export interface Lesson {
   related?: string[];
   /** You asked for this one (Explain), rather than the mentor offering it. */
   asked?: boolean;
+  /** You marked it "Got it": it leaves the step views and stays in Concepts. */
+  reviewed?: boolean;
 }
 
 /** A user-drawn connection (note to node, node to node). */
@@ -190,6 +192,7 @@ export type ClientMsg =
   | { type: 'remoteInfo'; reqId: string }
   | { type: 'awayInfo'; reqId: string }
   | { type: 'ping'; reqId: string }
+  | { type: 'reviewConcept'; key: string; reviewed: boolean }
   | { type: 'captureShot'; reqId: string; nodeId: string }
   | { type: 'removeShot'; nodeId: string; shotId: string }
   | { type: 'setTitle'; nodeId: string; title: string }

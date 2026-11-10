@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { MicButton } from './Mic.tsx';
 import type { Board, TurnNode } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
 import { branchColor } from './nodes.tsx';
@@ -106,6 +107,7 @@ export function Composer({ target, board, onSubmit, onClear }: { target?: TurnNo
               if (e.key === 'Escape') (e.target as HTMLTextAreaElement).blur();
             }}
           />
+          <MicButton text={text} setText={(v) => setText(v)} onStop={() => ref.current?.focus()} />
           <button
             className="send-btn"
             // Keep focus in the textarea: on phones a blur here hides the keyboard and shifts the layout mid-tap.

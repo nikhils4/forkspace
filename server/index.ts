@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { nanoid } from 'nanoid';
 import { WebSocketServer, type WebSocket } from 'ws';
-import type { Board, ClientMsg, ServerMsg } from '../shared/types.ts';
+import { conceptKey, type Board, type ClientMsg, type ServerMsg } from '../shared/types.ts';
 import { openFolder } from './editor.ts';
 import { listFiles, readFile } from './files.ts';
 import { importSessions, listImportable } from './importer.ts';
@@ -599,6 +599,23 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       deleteShot(msg.shotId);
       save();
       broadcast({ type: 'node', node: t });
+      return;
+    }
+    case 'reviewConcept': {
+      // A concept is one idea, so "Got it" applies to every lesson about it, on every step.
+      const key = conceptKey(String(msg.key ?? ''));
+      if (!key) return;
+      for (const n of state.nodes) {
+        if (n.kind !== 'turn' || !n.lessons?.length) continue;
+        let changed = false;
+        for (const l of n.lessons)
+          if ((l.key || conceptKey(l.title)) === key && !!l.reviewed !== !!msg.reviewed) {
+            l.reviewed = !!msg.reviewed || undefined;
+            changed = true;
+          }
+        if (changed) broadcast({ type: 'node', node: n });
+      }
+      save();
       return;
     }
     case 'setTitle': {

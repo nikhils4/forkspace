@@ -374,7 +374,7 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
   const isHead = branch?.headNodeId === node.id;
   const tools = node.events.filter((e): e is Extract<TurnEvent, { t: 'tool' }> => e.t === 'tool');
   const files = editedFiles(node, branch?.cwd);
-  const lessons = node.lessons ?? [];
+  const lessons = (node.lessons ?? []).filter((l) => !l.reviewed);
   const summary = live ? '' : lastText(node);
 
   const root = !node.parentId;
