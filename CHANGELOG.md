@@ -3,6 +3,11 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.2.1
+
+- Deleted the cards from a Claude Code session? It can be brought in again
+- Website: clearer search listing, questions answered, better share image
+
 ## 0.2.0
 
 - Right-click or long-press anything on the canvas for a menu: reply, branch, explain, copy, recolour, delete
