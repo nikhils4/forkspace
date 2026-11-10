@@ -116,7 +116,23 @@ export type ClientMsg =
   | { type: 'deleteNodes'; ids: string[] }
   | { type: 'openEditor'; nodeId: string }
   | { type: 'diff'; reqId: string; nodeId: string }
-  | { type: 'listDir'; reqId: string; path: string };
+  | { type: 'listDir'; reqId: string; path: string }
+  | { type: 'presence'; visible: boolean }
+  | { type: 'remoteInfo'; reqId: string }
+  | { type: 'enableTailscale'; reqId: string }
+  | { type: 'setPublicUrl'; reqId: string; url: string }
+  | { type: 'rotateToken'; reqId: string }
+  | { type: 'pushKey'; reqId: string }
+  | { type: 'pairCode'; reqId: string }
+  | { type: 'pushSubscribe'; reqId: string; subscription: unknown }
+  | { type: 'pushUnsubscribe'; reqId: string; endpoint: string }
+  | { type: 'pushStatus'; reqId: string; endpoint: string };
+
+export interface RemoteInfo {
+  tailscale: { installed: boolean; running: boolean; url?: string; serving: boolean };
+  publicUrl?: string;
+  port: number;
+}
 
 export type ServerMsg =
   | { type: 'state'; state: State; home: string }

@@ -23,6 +23,10 @@ interface Running {
 
 const running = new Map<string, Running>();
 
+type Notify = (node: TurnNode, kind: 'waiting' | 'finished') => void;
+let notifyFn: Notify = () => {};
+export const setNotifier = (fn: Notify) => (notifyFn = fn);
+
 // ---- throttled node broadcast ----
 const dirty = new Set<string>();
 let flushTimer: NodeJS.Timeout | null = null;
@@ -133,6 +137,7 @@ async function run(board: Board, branch: Branch, node: TurnNode, parent: TurnNod
     new Promise<PermissionResult>((resolve) => {
       const p: Pending = { requestId: nanoid(8), toolName, input, canAlways: !!suggestions?.length, suggestions, resolve };
       r.queue.push(p);
+      if (r.queue.length === 1) queueMicrotask(() => notifyFn(node, 'waiting'));
       signal.addEventListener('abort', () => answer(node.id, p.requestId, 'deny'));
       r.showNext();
     });
@@ -174,6 +179,7 @@ async function run(board: Board, branch: Branch, node: TurnNode, parent: TurnNod
       }
     }
     touch(node);
+    if (node.status === 'done' || node.status === 'error') notifyFn(node, 'finished');
   }
 }
 

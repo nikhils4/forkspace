@@ -48,6 +48,29 @@ Branches never overwrite each other. To keep a result, merge its `forkspace/<id>
 
 Agents start from your repo's last commit, so uncommitted changes in your main checkout are not included. Commit first if the agent needs them.
 
+## On your phone (and as an app)
+
+Forkspace is an installable web app (PWA). Agents always run on your Mac; phones and other browsers are remote controls.
+
+1. **Install it on the Mac**: in Chrome or Edge, click the install icon in the address bar. In Safari: File → Add to Dock.
+2. **Reach it from your phone**: install [Tailscale](https://tailscale.com/download) on the Mac and the phone (same account). In Forkspace, open **Devices & phone** and click **Turn on**. This runs `tailscale serve`, which serves Forkspace over HTTPS to your own devices only.
+3. **Pair the phone**: scan the QR code on the Devices page, or open the address on the phone and type the 6-digit code. On iPhone, tap Share → Add to Home Screen, open the app, and pair there (home-screen apps keep their own storage).
+4. **Notifications**: turn them on per device in Devices. You get one when an agent needs you or finishes, but only while no Forkspace window is open.
+
+On the phone you get:
+- **Chat view**: any branch as a conversation, with branch points you can tap to switch.
+- **Agents tab**: everything that needs you, with Allow/Deny right there.
+- **Canvas**: the full map, with touch support.
+
+Any other HTTPS tunnel works too. Set its address under Devices → "Set your own address".
+
+### Security model
+
+- Every connection needs an access key. Pages opened on the Mac itself (`http://localhost`) get it automatically. Other devices get it by pairing with a 6-digit code that expires after 5 minutes, and repeated wrong guesses are rate limited.
+- A request only counts as "local" when it reaches the server directly over loopback, with a localhost `Host` header and no proxy headers. That rules out DNS rebinding and tunnelled requests.
+- **Sign out others** (Devices → Security) rotates the key, so every paired device has to pair again.
+- Keys live in `~/.forkspace/auth.json` and `push.json` (mode 600).
+
 ## Permissions
 
 Pick per board, change any time:
@@ -66,8 +89,9 @@ Cards that need you glow amber, show in **Running agents** in the sidebar, and a
 
 | Key | Action |
 |---|---|
-| `⌘/Ctrl + Enter` | Send |
+| `Enter` | Send (`Shift+Enter` for a new line) |
 | `/` or `r` | Focus the composer |
+| `1` / `2` | Chat view / Canvas view |
 | `Esc` | Clear the target (next prompt starts a new thread) |
 | `n` | New note |
 | `Backspace` / `Delete` | Delete selected cards (and everything forked from them) or notes |
@@ -84,7 +108,7 @@ Cards that need you glow amber, show in **Running agents** in the sidebar, and a
 
 ## Security
 
-Forkspace runs agents with your user's permissions. The server binds to `127.0.0.1` and only accepts WebSocket connections from localhost pages. Don't expose it to a network.
+Forkspace runs agents with your user's permissions. The server binds to `127.0.0.1`. Use Tailscale (or another private tunnel) for remote access rather than exposing the port. See the security model above.
 
 ## Roadmap
 

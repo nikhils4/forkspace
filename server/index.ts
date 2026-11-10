@@ -8,7 +8,10 @@ import { nanoid } from 'nanoid';
 import { WebSocketServer, type WebSocket } from 'ws';
 import type { Board, ClientMsg, ServerMsg } from '../shared/types.ts';
 import * as g from './git.ts';
-import { answer, isRunning, pruneBranches, setEmitter, startTurn, stop } from './runner.ts';
+import { checkToken, getPublicUrl, getToken, isLocalRequest, newPairCode, redeemPairCode, rotateToken, setPublicUrl } from './auth.ts';
+import * as push from './push.ts';
+import { enableTailscaleServe, tailscaleInfo } from './remote.ts';
+import { answer, isRunning, pruneBranches, setEmitter, setNotifier, startTurn, stop } from './runner.ts';
 import { flush, getBoard, getBranch, getNode, getTurn, save, state, subtree } from './store.ts';
 
 const PORT = Number(process.env.PORT || 4747);
@@ -25,10 +28,45 @@ const TYPES: Record<string, string> = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.ico': 'image/x-icon',
+  '.webmanifest': 'application/manifest+json',
+  '.json': 'application/json',
+  '.woff2': 'font/woff2',
 };
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url || '/', 'http://x');
+  if (url.pathname === '/api/local-token') {
+    // Only a browser on this Mac, talking to us directly, may read the key.
+    if (!isLocalRequest(req)) {
+      res.writeHead(403, { 'content-type': 'application/json' });
+      res.end('{"error":"not local"}');
+      return;
+    }
+    res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+    res.end(JSON.stringify({ token: getToken() }));
+    return;
+  }
+  if (url.pathname === '/api/check') {
+    const ok = checkToken((req.headers.authorization ?? '').replace(/^Bearer /, ''));
+    res.writeHead(ok ? 200 : 401, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+    res.end(JSON.stringify({ ok }));
+    return;
+  }
+  if (url.pathname === '/api/pair' && req.method === 'POST') {
+    let body = '';
+    req.on('data', (c) => (body += c).length > 1000 && req.destroy());
+    req.on('end', () => {
+      try {
+        const token = redeemPairCode(JSON.parse(body).code);
+        res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+        res.end(JSON.stringify({ token }));
+      } catch (err: any) {
+        res.writeHead(400, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: String(err?.message ?? err) }));
+      }
+    });
+    return;
+  }
   let file = path.join(DIST, path.normalize(url.pathname).replace(/^(\.\.[/\\])+/, ''));
   if (!file.startsWith(DIST) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(DIST, 'index.html');
   if (!fs.existsSync(file)) {
@@ -36,23 +74,23 @@ const server = http.createServer((req, res) => {
     res.end('Forkspace server is running. Build the client with `npm run build`, or use `npm run dev` and open http://localhost:5173');
     return;
   }
-  res.writeHead(200, { 'content-type': TYPES[path.extname(file)] || 'application/octet-stream' });
+  const ext = path.extname(file);
+  const hashed = file.includes(`${path.sep}assets${path.sep}`);
+  res.writeHead(200, {
+    'content-type': TYPES[ext] || 'application/octet-stream',
+    // Hashed bundles never change; everything else (index.html, sw.js, manifest) must revalidate.
+    'cache-control': hashed ? 'public, max-age=31536000, immutable' : 'no-cache',
+  });
   fs.createReadStream(file).pipe(res);
 });
 
 // ---- websocket ----
-// Agents can run commands on this machine, so only pages served from localhost may connect.
-const allowedOrigin = (origin?: string) => {
-  if (!origin) return true; // non-browser clients
-  try {
-    const h = new URL(origin).hostname;
-    return h === 'localhost' || h === '127.0.0.1' || h === '[::1]';
-  } catch {
-    return false;
-  }
-};
-
-const wss = new WebSocketServer({ server, path: '/ws', verifyClient: ({ origin }: { origin?: string }) => allowedOrigin(origin) });
+// Agents can run commands on this machine, so every connection must carry the access key.
+const wss = new WebSocketServer({
+  server,
+  path: '/ws',
+  verifyClient: ({ req }: { req: http.IncomingMessage }) => checkToken(new URL(req.url || '/', 'http://x').searchParams.get('t')),
+});
 const clients = new Set<WebSocket>();
 
 function broadcast(msg: ServerMsg) {
@@ -63,8 +101,24 @@ setEmitter(broadcast);
 
 const send = (ws: WebSocket, msg: ServerMsg) => ws.send(JSON.stringify(msg));
 
+const visible = new Map<WebSocket, boolean>();
+
+// Push to phones/desktops only when nobody is looking at Forkspace right now.
+setNotifier((node, kind) => {
+  if ([...visible.values()].some(Boolean)) return;
+  const board = getBoard(node.boardId);
+  const short = node.prompt.replace(/\s+/g, ' ').slice(0, 90);
+  const url = `/?board=${node.boardId}&node=${node.id}`;
+  if (kind === 'waiting')
+    push.notify({ title: `Needs you · ${board?.name ?? 'Forkspace'}`, body: node.pending ? `Allow ${node.pending.toolName}? ${short}` : short, tag: node.id, url });
+  else
+    push.notify({ title: `${node.status === 'error' ? 'Failed' : 'Done'} · ${board?.name ?? 'Forkspace'}`, body: short, tag: node.id, url });
+});
+
 wss.on('connection', (ws) => {
   clients.add(ws);
+  visible.set(ws, false);
+  ws.on('close', () => visible.delete(ws));
   send(ws, { type: 'state', state, home: os.homedir() });
   ws.on('close', () => clients.delete(ws));
   ws.on('message', async (raw) => {
@@ -76,7 +130,7 @@ wss.on('connection', (ws) => {
     }
     const reqId = 'reqId' in msg ? msg.reqId : undefined;
     try {
-      const data = await handle(msg);
+      const data = await handle(msg, ws);
       if (reqId) send(ws, { type: 'reply', reqId, ok: true, data });
     } catch (err: any) {
       const error = String(err?.message ?? err);
@@ -88,7 +142,7 @@ wss.on('connection', (ws) => {
 
 const expand = (p: string) => path.resolve(p.replace(/^~(?=$|\/)/, os.homedir()));
 
-async function handle(msg: ClientMsg): Promise<unknown> {
+async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
   switch (msg.type) {
     case 'createBoard': {
       const cwd = expand(msg.cwd.trim());
@@ -202,6 +256,38 @@ async function handle(msg: ClientMsg): Promise<unknown> {
       if (!turn?.baseCommit || !turn.commit || !board?.repoRoot) return '';
       return g.diff(board.repoRoot, turn.baseCommit, turn.commit);
     }
+    case 'presence':
+      for (const [c] of visible) if (c === currentWs) visible.set(c, msg.visible);
+      return;
+    case 'remoteInfo':
+      return { tailscale: await tailscaleInfo(PORT), publicUrl: getPublicUrl(), port: PORT };
+    case 'enableTailscale':
+      await enableTailscaleServe(PORT);
+      return { tailscale: await tailscaleInfo(PORT), publicUrl: getPublicUrl(), port: PORT };
+    case 'setPublicUrl':
+      if (msg.url && !/^https?:\/\//.test(msg.url.trim())) throw new Error('Use a full URL, like https://my-mac.example.com');
+      setPublicUrl(msg.url);
+      return { tailscale: await tailscaleInfo(PORT), publicUrl: getPublicUrl(), port: PORT };
+    case 'rotateToken': {
+      const token = rotateToken();
+      // Everyone else has to pair again.
+      setTimeout(() => {
+        for (const c of clients) if (c !== currentWs) c.close(4001, 'Access key changed');
+      }, 200);
+      return { token };
+    }
+    case 'pairCode':
+      return newPairCode();
+    case 'pushKey':
+      return push.publicKey();
+    case 'pushSubscribe':
+      push.subscribe(msg.subscription as any);
+      return;
+    case 'pushUnsubscribe':
+      push.unsubscribe(msg.endpoint);
+      return;
+    case 'pushStatus':
+      return push.hasSubscription(msg.endpoint);
     case 'listDir': {
       const dir = expand(msg.path || '~');
       const entries = fs
