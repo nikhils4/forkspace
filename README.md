@@ -2,6 +2,8 @@
 
 ![Forkspace canvas](site/assets/canvas.webp)
 
+**Website:** https://forkspace-app.netlify.app
+
 A canvas control center for Claude Code agents.
 
 Every prompt becomes a card on an infinite canvas. Reply to a card to keep going. Reply to an **earlier** card to fork the conversation from that exact point, and the code forks with it. Run as many agents as you want side by side, approve their tool calls right on the cards, and drop sticky notes anywhere.
