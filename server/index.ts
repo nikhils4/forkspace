@@ -19,7 +19,7 @@ import * as push from './push.ts';
 import { enableTailscaleServe, tailscaleInfo } from './remote.ts';
 import { awayStatus, noteDevice, setAway } from './away.ts';
 import { answer, isRunning, pruneBranches, setActivityHook, setEmitter, setNotifier, startTurn, stop, touch } from './runner.ts';
-import { explain, onActivity, setTutorTouch } from './tutor.ts';
+import { explain, onActivity, organizeConcepts, setTutorTouch } from './tutor.ts';
 import { flush, getBoard, getBranch, getNode, getTurn, save, state, subtree } from './store.ts';
 
 const PORT = Number(process.env.PORT || 4747);
@@ -452,6 +452,8 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
         },
       );
     }
+    case 'organizeConcepts':
+      return organizeConcepts(os.homedir());
     case 'explain': {
       const turn = getTurn(msg.nodeId);
       if (!turn) throw new Error('Step not found');

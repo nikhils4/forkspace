@@ -44,6 +44,12 @@ export interface Lesson {
   snippet?: string;
   check?: { question: string; options: string[]; answer: number; why?: string };
   at: number;
+  /** Canonical name, lowercase ("memoization"). Two lessons with the same key are the same concept. */
+  key?: string;
+  /** Where in tech the concept belongs (one of CONCEPT_AREAS). */
+  area?: string;
+  /** Keys of other concepts this one connects to. */
+  related?: string[];
 }
 
 /** A user-drawn connection (note to node, node to node). */
@@ -166,6 +172,7 @@ export type ClientMsg =
   | { type: 'remoteInfo'; reqId: string }
   | { type: 'awayInfo'; reqId: string }
   | { type: 'ping'; reqId: string }
+  | { type: 'organizeConcepts'; reqId: string }
   | { type: 'setAway'; reqId: string; on: boolean; screen?: boolean }
   | { type: 'enableTailscale'; reqId: string }
   | { type: 'setPublicUrl'; reqId: string; url: string }
@@ -310,3 +317,30 @@ export interface AwayInfo {
   /** Devices that will get a notification when an agent needs you. */
   pushDevices: number;
 }
+
+/** Where a concept lives in tech. Used to group the concept map. */
+export const CONCEPT_AREAS = [
+  'Algorithms',
+  'Data structures',
+  'Language features',
+  'Performance',
+  'Testing',
+  'Debugging',
+  'Architecture and design',
+  'Web and networking',
+  'Data and databases',
+  'Security',
+  'Concurrency and async',
+  'UI and frontend',
+  'Tooling and build',
+  'DevOps and infrastructure',
+  'Version control',
+] as const;
+
+/** Normalise a concept key so small differences ("Memoization!", "memoization ") match. */
+export const conceptKey = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9+#. ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();

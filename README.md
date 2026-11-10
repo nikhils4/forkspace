@@ -71,6 +71,10 @@ While an agent works, a small, fast model (no tools) reads what it did and write
 - **Explain** any step or file on demand.
 - Every concept is saved to your **Concepts** library.
 
+Each idea is taught once. Concepts get one short name across all your boards (like "memoization"), so the same idea showing up again links to the one you already have instead of repeating.
+
+The **Map** view (Concepts → Map) groups everything by where it belongs in tech: Algorithms, Performance, Web and networking, and so on. Pick a concept to read it, see what it connects to, and jump to the steps where you learned it.
+
 Turn it off per board with the **Learn** pill in the top bar.
 
 ### Branching the code, not just the chat

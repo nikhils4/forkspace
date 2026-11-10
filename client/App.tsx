@@ -1,6 +1,6 @@
 import { ReactFlowProvider } from '@xyflow/react';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Board, TurnNode } from '../shared/types.ts';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { conceptKey, type Board, type TurnNode } from '../shared/types.ts';
 import { BoardSettings, MODES, NewBoard } from './BoardForms.tsx';
 import { Canvas } from './Canvas.tsx';
 import { Chat } from './Chat.tsx';
@@ -195,7 +195,12 @@ function Shell() {
   const wasOpened = (v: View) => v === view || (board ? (visited[board.id] ?? []).includes(v) : false);
   const openNode = openId && isTurn(store.nodes[openId]) ? (store.nodes[openId] as TurnNode) : null;
 
-  const lessonCount = Object.values(store.nodes).reduce((n, x) => n + (isTurn(x) ? (x.lessons?.length ?? 0) : 0), 0);
+  // Unique concepts: the same idea seen in several steps counts once.
+  const lessonCount = useMemo(() => {
+    const keys = new Set<string>();
+    for (const x of Object.values(store.nodes)) if (isTurn(x)) for (const l of x.lessons ?? []) keys.add(l.key || conceptKey(l.title));
+    return keys.size;
+  }, [store.nodes]);
   const learnOn = board?.learn?.on !== false;
 
   const boardView = board ? (

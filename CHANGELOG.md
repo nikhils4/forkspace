@@ -3,6 +3,12 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.6.0
+
+- Concepts are never repeated: each idea has one name across all your boards, and the same idea seen again links to it
+- Concept map: your concepts grouped by where they belong in tech, with the links between them and where you learned each one
+- The library shows each concept once, with every step it came up in
+
 ## 0.5.1
 
 - Explain this step (right-click a card) now shows it's working and opens the explanation when it's ready
