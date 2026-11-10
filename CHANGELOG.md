@@ -3,6 +3,17 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.4.0
+
+- Away mode: keeps your computer awake while you're gone (Mac, Windows, Linux), with phone setup step by step
+- Phones reconnect by themselves after waking up, and get notifications reliably
+- Safer imports: damaged or tampered files are refused, Full access never comes in from a file
+- A bad message from any device can no longer stop Forkspace
+- Deleting a board now cleans up its branch copies
+- Updates work cleanly when Forkspace runs in the background
+- A broken state file is kept for recovery instead of being replaced
+- Many smaller fixes from a full security review
+
 ## 0.3.0
 
 - Move to another Mac: export every board, conversation and code branch to one file, then import it anywhere (Settings)
