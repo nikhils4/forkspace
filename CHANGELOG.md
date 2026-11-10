@@ -3,6 +3,10 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.9.5
+
+- The message box has a soft watercolour glow that drifts slowly, and brightens while you type
+
 ## 0.9.4
 
 - A calmer top bar: the board name opens a menu with its folder, permissions, Learn on or off and settings; terminal and search are icons. Full access still shows, in red, when it's on

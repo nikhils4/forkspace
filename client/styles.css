@@ -6221,3 +6221,83 @@ kbd {
   background: var(--surface-2);
   color: var(--text);
 }
+
+/* ---------- message box: a soft watercolour glow that drifts around it ---------- */
+.composer-box {
+  position: relative;
+  isolation: isolate;
+}
+.composer-box::before,
+.composer-box::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+}
+/* the moving colour, blurred like wet paint */
+.composer-box::before {
+  inset: -14px;
+  background:
+    radial-gradient(40% 70% at 15% 50%, rgba(139, 120, 255, 0.85), transparent 70%),
+    radial-gradient(35% 80% at 50% 40%, rgba(62, 207, 190, 0.7), transparent 70%),
+    radial-gradient(40% 70% at 85% 60%, rgba(255, 150, 110, 0.75), transparent 70%),
+    radial-gradient(30% 60% at 60% 90%, rgba(236, 120, 200, 0.6), transparent 70%);
+  background-size: 200% 200%;
+  filter: blur(22px) saturate(1.2);
+  opacity: 0.32;
+  animation: watercolour 14s ease-in-out infinite alternate;
+  transition: opacity 0.5s var(--ease);
+}
+/* a thin moving rim of the same colours */
+.composer-box::after {
+  inset: -1px;
+  padding: 1px;
+  background: linear-gradient(110deg, rgba(139, 120, 255, 0.9), rgba(62, 207, 190, 0.8), rgba(255, 150, 110, 0.85), rgba(236, 120, 200, 0.8), rgba(139, 120, 255, 0.9));
+  background-size: 300% 100%;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.35;
+  animation: rim 10s linear infinite;
+  transition: opacity 0.4s;
+}
+.composer-box:focus-within::before {
+  opacity: 0.52;
+}
+.composer-box:focus-within::after {
+  opacity: 0.9;
+}
+@keyframes watercolour {
+  0% {
+    background-position: 0% 30%;
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    background-position: 100% 60%;
+    transform: rotate(1.5deg) scale(1.03);
+  }
+  100% {
+    background-position: 30% 100%;
+    transform: rotate(-1.5deg) scale(1);
+  }
+}
+@keyframes rim {
+  to {
+    background-position: 300% 0;
+  }
+}
+:root[data-theme='light'] .composer-box::before {
+  opacity: 0.22;
+}
+:root[data-theme='light'] .composer-box:focus-within::before {
+  opacity: 0.32;
+}
+@media (prefers-reduced-motion: reduce) {
+  .composer-box::before,
+  .composer-box::after {
+    animation: none;
+  }
+}
