@@ -988,6 +988,16 @@
         .waitlist {
           flex-direction: column;
         }
+        /* Stacked: size the field by its own height, not by flex (which collapsed it). */
+        .waitlist input[type='email'] {
+          flex: none;
+          width: 100%;
+          height: 52px;
+        }
+        .waitlist .btn {
+          width: 100%;
+          height: 52px;
+        }
         pre.cmd {
           font-size: 12.5px;
           padding: 16px;
