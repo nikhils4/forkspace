@@ -195,7 +195,7 @@
 
       /* ---------- hero ---------- */
       .hero {
-        padding: 150px 0 0;
+        padding: 140px 0 0;
       }
       .hero-top {
         display: grid;
@@ -359,7 +359,7 @@
       }
       .shift-row {
         display: grid;
-        grid-template-columns: 180px 1fr 1fr;
+        grid-template-columns: 1fr 1fr;
         gap: 40px;
         align-items: baseline;
         padding: 22px 0;
@@ -479,82 +479,129 @@
         color: var(--ink);
       }
 
-      /* ---------- concepts ---------- */
-      .concepts {
+      /* ---------- concepts explorer ---------- */
+      .explorer {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 0;
+        grid-template-columns: 0.85fr 1.15fr;
+        gap: 56px;
         margin-top: 48px;
         border-top: 1px solid var(--rule-2);
+        padding-top: 36px;
       }
-      .concept {
-        display: flex !important;
+      .ex-list {
+        display: flex;
         flex-direction: column;
-        justify-content: flex-start;
+        position: relative;
+      }
+      .ex-item {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
         text-align: left;
         border: 0;
-        border-right: 1px solid var(--rule);
-        background: transparent;
-        padding: 26px 28px 30px 0;
+        background: none;
+        padding: 16px 0 16px 22px;
+        border-left: 2px solid var(--rule);
         cursor: pointer;
-        display: block;
-        width: 100%;
+        transition: border-color 0.3s;
       }
-      .concept + .concept {
-        padding-left: 28px;
-      }
-      .concept:last-child {
-        border-right: 0;
-      }
-      .concept .label {
-        width: 100%;
-        display: flex;
-        justify-content: space-between;
-      }
-      .concept .label b {
-        font-weight: 500;
-        color: var(--accent);
-      }
-      .concept h3 {
+      .ex-title {
         font-family: var(--serif);
-        font-weight: 400;
-        font-size: 32px;
-        line-height: 1.05;
-        letter-spacing: -0.01em;
-        margin: 16px 0 12px;
+        font-size: clamp(30px, 3.2vw, 44px);
+        line-height: 1.02;
+        letter-spacing: -0.015em;
+        color: var(--ink-3);
+        transition: color 0.3s;
       }
-      .concept p {
-        margin: 0;
+      .ex-sub {
+        font-size: 15px;
+        color: var(--ink-3);
+        opacity: 0.8;
+      }
+      .ex-item:hover .ex-title {
         color: var(--ink-2);
-        font-size: 16px;
       }
-      .concept-code {
-        display: grid;
-        grid-template-rows: 0fr;
-        transition: grid-template-rows 0.45s var(--ease);
+      .ex-item.on {
+        border-left-color: var(--accent);
       }
-      .concept-code > div {
-        min-height: 0;
+      .ex-item.on .ex-title {
+        color: var(--ink);
+      }
+      .ex-item.on .ex-sub {
+        color: var(--ink-2);
+        opacity: 1;
+      }
+      .ex-timer {
+        height: 2px;
+        margin-top: 18px;
+        background: var(--rule);
         overflow: hidden;
       }
-      .concept.open .concept-code {
-        grid-template-rows: 1fr;
+      .ex-timer i {
+        display: block;
+        height: 100%;
+        width: 100%;
+        background: var(--ink-3);
+        transform-origin: left;
+        transform: scaleX(0);
       }
-      .concept pre {
-        margin: 18px 0 0;
-        padding: 14px 16px;
+      .ex-timer.stopped {
+        visibility: hidden;
+      }
+      .ex-panels {
+        display: grid;
+      }
+      .ex-panel {
+        grid-area: 1 / 1;
+        opacity: 0;
+        transform: translateY(10px);
+        transition:
+          opacity 0.45s var(--ease),
+          transform 0.5s var(--ease);
+        pointer-events: none;
+      }
+      .ex-panel.on {
+        opacity: 1;
+        transform: none;
+        pointer-events: auto;
+      }
+      .ex-body {
+        font-size: clamp(19px, 1.7vw, 23px);
+        line-height: 1.5;
+        margin: 6px 0 26px;
+        max-width: 560px;
+      }
+      .ex-code {
+        margin: 0;
+        padding: 20px 22px;
         background: var(--night);
         color: #d8dae3;
-        border-radius: 8px;
-        font: 12.5px/1.65 var(--mono);
+        border-radius: 10px;
+        font: 13.5px/1.75 var(--mono);
         font-variant-ligatures: none;
         white-space: pre-wrap;
+        box-shadow: 0 30px 60px -36px rgba(40, 30, 10, 0.5);
       }
-      .concept:hover h3 {
-        color: var(--accent);
+      .ex-code .k {
+        color: #c4a7ff;
       }
-      .concept h3 {
-        transition: color 0.2s;
+      .ex-code .n {
+        color: #ffb38a;
+      }
+      .ex-code .s {
+        color: #a6d8a8;
+      }
+      .ex-code .f {
+        color: #8fb8ff;
+      }
+      .ex-from {
+        margin-top: 16px;
+        font-size: 15px;
+        color: var(--ink-2);
+      }
+      .ex-from .label {
+        margin-right: 10px;
       }
 
       /* ---------- phones ---------- */
@@ -885,14 +932,33 @@
         .story-device {
           display: none;
         }
-        .concepts {
+        .explorer {
           grid-template-columns: 1fr;
+          gap: 22px;
+          padding-top: 22px;
         }
-        .concept,
-        .concept + .concept {
-          padding: 24px 0;
-          border-right: 0;
-          border-bottom: 1px solid var(--rule);
+        .ex-list {
+          flex-direction: row;
+          gap: 8px;
+          overflow-x: auto;
+          scrollbar-width: none;
+        }
+        .ex-item {
+          border-left: 0;
+          border-bottom: 2px solid var(--rule);
+          padding: 6px 4px 10px;
+          flex-shrink: 0;
+        }
+        .ex-item.on {
+          border-bottom-color: var(--accent);
+        }
+        .ex-title {
+          font-size: 24px;
+          white-space: nowrap;
+        }
+        .ex-sub,
+        .ex-timer {
+          display: none;
         }
         .plan,
         .plan + .plan {
@@ -971,7 +1037,6 @@
 
     <header class="hero">
       <div class="wrap">
-        <div class="label fade" style="--d: 0s">An editor for agents · Open source · No. 01</div>
         <div class="hero-top">
           <h1>
             <span class="word" style="--i: 0">The</span> <span class="word" style="--i: 1">editor</span> <span class="word" style="--i: 2">for</span> <span class="word" style="--i: 3">the</span><br />
@@ -995,7 +1060,7 @@
             </div>
           </div>
           <figcaption>
-            <span class="mono">Fig. 1 · Code view</span>
+            <span class="mono">Code view</span>
             <span class="mono">The agent adds caching; a note explains memoization beside the diff.</span>
           </figcaption>
         </figure>
@@ -1015,11 +1080,11 @@
           <h2 class="reveal">What changes.</h2>
         </div>
         <div class="shift">
-          <div class="shift-row"><span class="label n">01</span><span><span class="then">Tabs and terminals everywhere</span></span><span class="now">One canvas of every agent</span></div>
-          <div class="shift-row"><span class="label n">02</span><span><span class="then">Undo and hope</span></span><span class="now">Branch from any step, code included</span></div>
-          <div class="shift-row"><span class="label n">03</span><span><span class="then">Read the diff at the end</span></span><span class="now">Watch every change land</span></div>
-          <div class="shift-row"><span class="label n">04</span><span><span class="then">Docs open in another tab</span></span><span class="now">Concepts explained as it codes</span></div>
-          <div class="shift-row"><span class="label n">05</span><span><span class="then">Stuck at your desk</span></span><span class="now">Approve from your phone</span></div>
+          <div class="shift-row"><span><span class="then">Tabs and terminals everywhere</span></span><span class="now">One canvas of every agent</span></div>
+          <div class="shift-row"><span><span class="then">Undo and hope</span></span><span class="now">Branch from any step, code included</span></div>
+          <div class="shift-row"><span><span class="then">Read the diff at the end</span></span><span class="now">Watch every change land</span></div>
+          <div class="shift-row"><span><span class="then">Docs open in another tab</span></span><span class="now">Concepts explained as it codes</span></div>
+          <div class="shift-row"><span><span class="then">Stuck at your desk</span></span><span class="now">Approve from your phone</span></div>
         </div>
       </div>
     </section>
@@ -1028,19 +1093,19 @@
       <div class="wrap story-sticky">
         <div class="story-text">
           <div class="step on">
-            <div class="label">01 · Direct</div>
+            <div class="label">Direct</div>
             <h2>Many agents. <em>One map.</em></h2>
             <p>Branch from any step. The code branches too.</p>
             <div class="step-inline shot"><img src="/assets/canvas.webp" width="2880" height="1800" alt="Canvas with a branching tree of steps" loading="lazy" /></div>
           </div>
           <div class="step">
-            <div class="label">02 · Review</div>
+            <div class="label">Review</div>
             <h2>Watch the code <em>change.</em></h2>
             <p>Every edit, live, the moment it lands.</p>
             <div class="step-inline shot"><img src="/assets/code-learn.webp" width="2880" height="1800" alt="Code view with a live diff" loading="lazy" /></div>
           </div>
           <div class="step">
-            <div class="label">03 · Learn</div>
+            <div class="label">Learn</div>
             <h2>Get better <em>while you ship.</em></h2>
             <p>The concept behind every change, in plain words.</p>
             <div class="step-inline shot"><img src="/assets/chat-learn.webp" width="2880" height="1800" alt="Chat view with a concept and its code" loading="lazy" /></div>
@@ -1052,7 +1117,7 @@
             <div class="shot"><img src="/assets/code-learn.webp" width="2880" height="1800" alt="Code view" loading="lazy" /></div>
             <div class="shot"><img src="/assets/chat-learn.webp" width="2880" height="1800" alt="Chat view" loading="lazy" /></div>
           </div>
-          <div class="progress mono"><span class="on">01 Direct</span><span>02 Review</span><span>03 Learn</span></div>
+          <div class="progress mono"><span class="on">Direct</span><span>Review</span><span>Learn</span></div>
         </div>
       </div>
     </section>
@@ -1063,35 +1128,51 @@
           <div class="label">Concepts</div>
           <div>
             <h2 class="reveal">Not a spectator. <em>A better engineer.</em></h2>
-            <p class="lede reveal">Real concepts from a real run. Tap one to see the code.</p>
+            <p class="lede reveal">While an agent wrote a small calculator, Forkspace explained the ideas behind its code. These are the real notes.</p>
           </div>
         </div>
-        <div class="concepts">
-          <button class="concept reveal">
-            <span class="label"><span>Concept 01</span><b>See the code</b></span>
-            <h3>Recursion: a function calling itself</h3>
-            <p>It calls itself on a simpler version of the problem. A negative exponent becomes a positive one, and that case does the work.</p>
-            <div class="concept-code"><div><pre>if (exp &lt; 0) return 1 / power(base, -exp);
-let result = 1;
-for (let i = 0; i &lt; exp; i++) result *= base;
-return result;</pre></div></div>
-          </button>
-          <button class="concept reveal" style="--d: 0.1s">
-            <span class="label"><span>Concept 02</span><b>See the code</b></span>
-            <h3>Memoization: remembering past answers</h3>
-            <p>Save answers you already worked out. Same inputs again? Return the saved one. It never forgets, so memory grows.</p>
-            <div class="concept-code"><div><pre>const key = `${base}^${exp}`;
-const cached = powerCache.get(key);
-if (cached !== undefined) return cached;</pre></div></div>
-          </button>
-          <button class="concept reveal" style="--d: 0.2s">
-            <span class="label"><span>Concept 03</span><b>See the code</b></span>
-            <h3>Power by repeated multiplication</h3>
-            <p>Start at 1 and multiply by the base once per step. A negative exponent flips it: divide 1 by the result.</p>
-            <div class="concept-code"><div><pre>let result = 1;
-for (let i = 0; i &lt; Math.abs(exp); i++) result *= base;
-return exp &lt; 0 ? 1 / result : result;</pre></div></div>
-          </button>
+
+        <div class="explorer reveal" id="explorer">
+          <div class="ex-list" role="tablist" aria-label="Concepts">
+            <button class="ex-item on" role="tab" aria-selected="true" data-i="0">
+              <span class="ex-title">Recursion</span>
+              <span class="ex-sub">a function calling itself</span>
+            </button>
+            <button class="ex-item" role="tab" aria-selected="false" data-i="1">
+              <span class="ex-title">Memoization</span>
+              <span class="ex-sub">remembering past answers</span>
+            </button>
+            <button class="ex-item" role="tab" aria-selected="false" data-i="2">
+              <span class="ex-title">Loops</span>
+              <span class="ex-sub">computing a power step by step</span>
+            </button>
+            <div class="ex-timer"><i id="ex-bar"></i></div>
+          </div>
+
+          <div class="ex-panels">
+            <article class="ex-panel on" role="tabpanel">
+              <p class="ex-body">The function calls itself on a simpler version of the same problem. Here a negative exponent becomes a positive one, and the positive case does the real work.</p>
+              <pre class="ex-code"><span class="k">if</span> (exp &lt; <span class="n">0</span>) <span class="k">return</span> <span class="n">1</span> / <span class="f">power</span>(base, -exp);
+<span class="k">let</span> result = <span class="n">1</span>;
+<span class="k">for</span> (<span class="k">let</span> i = <span class="n">0</span>; i &lt; exp; i++) result *= base;
+<span class="k">return</span> result;</pre>
+              <div class="ex-from"><span class="label">From the request</span> Make power handle negative exponents.</div>
+            </article>
+            <article class="ex-panel" role="tabpanel">
+              <p class="ex-body">Save answers you have already worked out. When the same inputs come back, return the saved answer and skip the work. The trade-off: it never forgets, so memory grows.</p>
+              <pre class="ex-code"><span class="k">const</span> key = <span class="s">`${base}^${exp}`</span>;
+<span class="k">const</span> cached = powerCache.<span class="f">get</span>(key);
+<span class="k">if</span> (cached !== <span class="k">undefined</span>) <span class="k">return</span> cached;</pre>
+              <div class="ex-from"><span class="label">From the request</span> Make repeated calls instant.</div>
+            </article>
+            <article class="ex-panel" role="tabpanel">
+              <p class="ex-body">Start at 1 and multiply by the base once per step. A negative exponent means divide instead, so the result is flipped: 1 divided by it.</p>
+              <pre class="ex-code"><span class="k">let</span> result = <span class="n">1</span>;
+<span class="k">for</span> (<span class="k">let</span> i = <span class="n">0</span>; i &lt; Math.<span class="f">abs</span>(exp); i++) result *= base;
+<span class="k">return</span> exp &lt; <span class="n">0</span> ? <span class="n">1</span> / result : result;</pre>
+              <div class="ex-from"><span class="label">From the request</span> Add power(base, exp), no Math.pow.</div>
+            </article>
+          </div>
         </div>
       </div>
     </section>
@@ -1255,12 +1336,44 @@ return exp &lt; 0 ? 1 / result : result;</pre></div></div>
       addEventListener('resize', frame);
       frame();
 
-      $$('.concept').forEach((c) =>
-        c.addEventListener('click', () => {
-          c.classList.toggle('open');
-          $('.label b', c).textContent = c.classList.contains('open') ? 'Hide the code' : 'See the code';
+      // Concept explorer: cycles on its own until you pick one.
+      const exItems = $$('.ex-item');
+      const exPanels = $$('.ex-panel');
+      const exBar = $('#ex-bar');
+      let exIdx = 0;
+      let exAuto = !reduce;
+      const showConcept = (i) => {
+        exIdx = i;
+        exItems.forEach((b, j) => {
+          b.classList.toggle('on', j === i);
+          b.setAttribute('aria-selected', String(j === i));
+        });
+        exPanels.forEach((p, j) => p.classList.toggle('on', j === i));
+        if (exAuto) {
+          exBar.style.transition = 'none';
+          exBar.style.transform = 'scaleX(0)';
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            exBar.style.transition = 'transform 6s linear';
+            exBar.style.transform = 'scaleX(1)';
+          }));
+        }
+      };
+      let exTimer = null;
+      const startAuto = () => {
+        if (!exAuto || exTimer) return;
+        showConcept(exIdx);
+        exTimer = setInterval(() => showConcept((exIdx + 1) % exItems.length), 6000);
+      };
+      exItems.forEach((b, i) =>
+        b.addEventListener('click', () => {
+          exAuto = false;
+          clearInterval(exTimer);
+          $('.ex-timer').classList.add('stopped');
+          showConcept(i);
         }),
       );
+      new IntersectionObserver(([e]) => e.isIntersecting && startAuto(), { threshold: 0.4 }).observe($('#explorer'));
+      if (reduce) $('.ex-timer').classList.add('stopped');
 
       const lines = [
         ['cmd', 'git clone https://github.com/nikhils4/forkspace'],
