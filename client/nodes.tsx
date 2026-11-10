@@ -2,7 +2,7 @@ import { Handle, NodeResizer, Position, useStore as useRFStore, type NodeProps }
 import { memo, useEffect, useRef, useState } from 'react';
 import type { NoteNode, PendingPermission, TurnEvent, TurnNode } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
-import { send, useStore } from './store.ts';
+import { send, useStore, toast } from './store.ts';
 import { currentActivity, isLive, lastText } from './tree.ts';
 
 export const NOTE_COLORS = ['#fde68a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#e9d5ff', '#e5e7eb'];
@@ -41,15 +41,40 @@ export function StatusDot({ status }: { status: TurnNode['status'] }) {
 }
 
 /** Tiny, safe markdown: fenced code, inline code, bold. Rendered as React nodes, never HTML. */
+/** A code block with a copy button in its corner. */
+export function CodeBlock({ code, className = 'code' }: { code: string; className?: string }) {
+  const [done, setDone] = useState(false);
+  return (
+    <div className="code-wrap">
+      <pre className={className}>{code}</pre>
+      <button
+        className={`code-copy ${done ? 'done' : ''}`}
+        title={done ? 'Copied' : 'Copy'}
+        aria-label="Copy code"
+        onClick={(e) => {
+          e.stopPropagation();
+          navigator.clipboard?.writeText(code).then(
+            () => {
+              setDone(true);
+              setTimeout(() => setDone(false), 1400);
+            },
+            () => toast('Could not copy', 'error'),
+          );
+        }}
+      >
+        <Icon name={done ? 'check' : 'copy'} size={13} />
+      </button>
+    </div>
+  );
+}
+
 export function Md({ text, partial }: { text: string; partial?: boolean }) {
   const parts = text.split(/```[^\n]*\n?/);
   return (
     <div className={`md ${partial ? 'partial' : ''}`}>
       {parts.map((p, i) =>
         i % 2 ? (
-          <pre key={i} className="code">
-            {p.replace(/\n$/, '')}
-          </pre>
+          <CodeBlock key={i} code={p.replace(/\n$/, '')} />
         ) : (
           <Prose key={i} text={p} />
         ),

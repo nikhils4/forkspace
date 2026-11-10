@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { CONCEPT_AREAS, conceptKey, type CanvasNode, type Lesson, type TurnNode } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
-import { Md, isFresh } from './nodes.tsx';
+import { CodeBlock, Md, isFresh } from './nodes.tsx';
 import { request, toast, useStore } from './store.ts';
 import { Segmented, timeAgo, useIsMobile, useTick } from './ui.tsx';
 import { plain } from './tree.ts';
@@ -41,7 +41,7 @@ export function ConceptCard({ lesson, onOpenFile, compact }: { lesson: Lesson; o
                 </button>
                 <div className={`fold ${code ? 'open' : ''}`}>
                   <div className="fold-inner">
-                    <pre className="code concept-snippet">{lesson.snippet}</pre>
+                    <CodeBlock className="code concept-snippet" code={lesson.snippet} />
                   </div>
                 </div>
               </>

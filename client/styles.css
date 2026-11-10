@@ -6161,3 +6161,43 @@ kbd {
   cursor: pointer;
   animation: pop 0.25s var(--ease);
 }
+
+/* ---------- copy button on code ---------- */
+.code-wrap {
+  position: relative;
+}
+.code-copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border-2);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text-2);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 0.15s,
+    color 0.15s;
+}
+.code-wrap:hover .code-copy,
+.code-copy:focus-visible,
+.code-copy.done {
+  opacity: 1;
+}
+.code-copy:hover {
+  color: var(--text);
+}
+.code-copy.done {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 50%, var(--border-2));
+}
+@media (pointer: coarse) {
+  .code-copy {
+    opacity: 0.85;
+  }
+}

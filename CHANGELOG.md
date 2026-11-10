@@ -3,6 +3,11 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.9.2
+
+- The terminal follows the card you click: it switches to that branch's terminal, or opens one in its folder
+- Every code block has a copy button
+
 ## 0.9.1
 
 - Concepts in even simpler words: an everyday comparison first, then what it means in your code
