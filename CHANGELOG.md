@@ -3,6 +3,10 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.3.0
+
+- Move to another Mac: export every board, conversation and code branch to one file, then import it anywhere (Settings)
+
 ## 0.2.2
 
 - Help and feedback in Settings: report a bug, suggest an idea or ask a question on GitHub, with your version and device filled in
