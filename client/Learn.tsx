@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Lesson, LessonKind, TurnNode } from '../shared/types.ts';
 import { Icon, type IconName } from './icons.tsx';
 import { Md } from './nodes.tsx';
@@ -72,6 +72,8 @@ function Check({ lesson }: { lesson: Lesson }) {
 export function LessonCard({ lesson, onOpenFile, compact }: { lesson: Lesson; onOpenFile?: (path: string) => void; compact?: boolean }) {
   const k = KIND[lesson.kind] ?? KIND.concept;
   const [open, setOpen] = useState(!compact);
+  // Promoted to the top of a stack (e.g. the note above was dismissed): open it.
+  useEffect(() => setOpen(!compact), [compact]);
   return (
     <div className={`lesson ${compact ? 'compact' : ''}`} style={{ ['--k' as any]: k.color }}>
       <button className="lesson-head" onClick={() => compact && setOpen(!open)}>

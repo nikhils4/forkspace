@@ -26,7 +26,7 @@ npm install
 npm start            # builds and serves http://localhost:4747
 ```
 
-Auth: set `ANTHROPIC_API_KEY`, or Forkspace uses your existing Claude Code login on this machine.
+Auth: set `ANTHROPIC_API_KEY` (from the [Anthropic Console](https://console.anthropic.com)). Forkspace is a third-party app, and Anthropic's terms ask such apps to use API keys rather than Claude.ai logins.
 
 For development with hot reload (Node 22.18+): `npm run dev`, then open http://localhost:5173.
 
@@ -45,6 +45,17 @@ For development with hot reload (Node 22.18+): `npm run dev`, then open http://l
 - **Code**: the branch's files with an inline diff of everything the agents changed since the thread started. **Follow agent** opens each file the moment it gets edited. A timeline on the right lists the steps and the files each one touched.
 
 Press `⌘K` anywhere to jump to a board, branch, file or action.
+
+### Learn mode
+
+While agents work, a mentor (a small, fast model with no tools) watches what they do and writes short notes about the ideas behind each change: a **concept**, **why** the agent chose an approach, a **pattern** worth reusing, or something to **watch out** for. Notes use real snippets from your code and sometimes include a one-tap check question.
+
+- Notes float over the Code view, appear inline in Chat, and show as a count on Canvas cards.
+- **Explain** any step, or **Explain change** on any file, on demand.
+- Choose a level per board: New to this, Growing, or Expert.
+- Everything collects in your **Learning** library, with search and filters.
+
+Turn it off per board with the **Learn** pill in the top bar. Set `FORKSPACE_MENTOR_MODEL` to change the mentor's model (default `haiku`).
 
 ### Forking the code, not just the chat
 

@@ -3707,3 +3707,9 @@ kbd {
   max-height: 300px;
   overflow: auto;
 }
+.mobile .st-pill {
+  display: none;
+}
+.mobile .stage > .composer .composer-box {
+  background: color-mix(in srgb, var(--surface) 97%, transparent);
+}
