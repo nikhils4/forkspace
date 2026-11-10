@@ -71,6 +71,8 @@ function Shell() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [focus, setFocus] = useState<{ id: string; n: number } | null>(null);
   const [sheet, setSheet] = useState<null | 'new' | 'board' | 'devices' | 'boards' | 'learn' | 'import'>(null);
+  // Desktop: the main area shows a board, or the Concepts page.
+  const [page, setPage] = useState<'board' | 'concepts'>('board');
   const [tab, setTab] = useState<Tab>('board');
   const [palette, setPalette] = useState(false);
   const [codeOpen, setCodeOpen] = useState<{ path: string; n: number } | null>(null);
@@ -167,12 +169,16 @@ function Shell() {
         e.preventDefault();
         composerFocus.current?.focus();
       }
+      if (e.key === 'Escape' && !openId && !sheet && page === 'concepts') return setPage('board');
       if (e.key === 'Escape' && !openId && !sheet) setTargetId(null);
-      if (board && ['1', '2', '3'].includes(e.key)) setViews((v) => ({ ...v, [board.id]: (['chat', 'canvas', 'code'] as const)[Number(e.key) - 1] }));
+      if (board && ['1', '2', '3'].includes(e.key)) {
+        setPage('board');
+        setViews((v) => ({ ...v, [board.id]: (['chat', 'canvas', 'code'] as const)[Number(e.key) - 1] }));
+      }
     };
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
-  }, [openId, sheet, board?.id, setTargetId]);
+  }, [openId, sheet, board?.id, setTargetId, page]);
 
   const submit = async (prompt: string) => {
     if (!board) return false;
@@ -210,7 +216,7 @@ function Shell() {
           {wasOpened('chat') && <Chat board={board} targetId={targetId} setTargetId={setTargetId} openDetails={setOpenId} onImport={() => setSheet('import')} />}
         </div>
         <div className={`pane ${view === 'canvas' ? 'on' : ''}`} aria-hidden={view !== 'canvas'} inert={view !== 'canvas'}>
-          {wasOpened('canvas') && <Canvas board={board} targetId={targetId} setTargetId={setTargetId} openDetails={setOpenId} focus={focus} active={view === 'canvas'} />}
+          {wasOpened('canvas') && <Canvas board={board} targetId={targetId} setTargetId={setTargetId} openDetails={setOpenId} focus={focus} active={view === 'canvas' && page === 'board'} />}
         </div>
         <div className={`pane ${view === 'code' ? 'on' : ''}`} aria-hidden={view !== 'code'} inert={view !== 'code'}>
           {wasOpened('code') && <CodeView board={board} target={target} setTargetId={setTargetId} openRequest={codeOpen} />}
@@ -279,7 +285,7 @@ function Shell() {
     if (board) paletteItems.push({ id: 'a-import', group: 'Actions', label: 'Bring in Claude Code sessions', icon: 'download', run: () => setSheet('import') });
     paletteItems.push({ id: 'a-away', group: 'Actions', label: 'Away mode', hint: 'Keep this computer awake', icon: 'moon', run: goAway });
     paletteItems.push({ id: 'a-update', group: 'Actions', label: 'Check for updates', icon: 'refresh', run: () => (settingsTab('updates'), mobile ? setTab('devices') : setSheet('devices')) });
-    paletteItems.push({ id: 'a-learn', group: 'Actions', label: 'Concepts I’ve learned', icon: 'spark', run: () => (mobile ? setTab('learn') : setSheet('learn')) });
+    paletteItems.push({ id: 'a-learn', group: 'Actions', label: 'Concepts I’ve learned', icon: 'spark', run: () => (mobile ? setTab('learn') : setPage('concepts')) });
     for (const b of store.boards) paletteItems.push({ id: `b-${b.id}`, group: 'Boards', label: b.name, hint: b.cwd.replace(store.home, '~'), icon: 'grid', run: () => (setBoardId(b.id), setTab('board')) });
     if (board)
       for (const t of leaves(store.nodes, board.id))
@@ -332,17 +338,6 @@ function Shell() {
             }
           }}
         />
-      )}
-      {sheet === 'learn' && (
-        <Sheet title="Concepts" onClose={() => setSheet(null)} wide>
-          <LearnLibrary
-            onOpen={(t) => {
-              setSheet(null);
-              goTo(t);
-              setView('chat');
-            }}
-          />
-        </Sheet>
       )}
       {sheet === 'devices' && (
         <Sheet title="Settings" onClose={() => setSheet(null)} wide>
@@ -468,6 +463,11 @@ function Shell() {
         </div>
 
         <div className="side-scroll">
+          <button className={`side-link side-top ${page === 'concepts' ? 'on' : ''}`} onClick={() => setPage(page === 'concepts' ? 'board' : 'concepts')}>
+            <span className="mentor-orb small" /> Concepts
+            <span className="spacer" />
+            {lessonCount > 0 && <span className="count">{lessonCount}</span>}
+          </button>
           <div className="side-head">
             <span>Boards</span>
             <button className="icon-btn sm" onClick={() => setSheet('new')} aria-label="New board" title="New board">
@@ -480,6 +480,7 @@ function Shell() {
             onPick={(id) => {
               setBoardId(id);
               setOpenId(null);
+              setPage('board');
             }}
             onSettings={(id) => {
               setBoardId(id);
@@ -491,17 +492,13 @@ function Shell() {
             <span>Agents</span>
             {waiting.length > 0 && <span className="pill warn">{waiting.length} need you</span>}
           </div>
-          <SidebarAgents onOpen={goTo} />
+          <SidebarAgents onOpen={(t) => (setPage('board'), goTo(t))} />
         </div>
 
         <div className="side-foot">
           <UpdatePill onOpen={() => (settingsTab('updates'), setSheet('devices'))} />
           <InstallButton />
           <AwayLink />
-          <button className="side-link" onClick={() => setSheet('learn')}>
-            <Icon name="spark" size={15} /> Concepts
-            {lessonCount > 0 && <span className="count">{lessonCount}</span>}
-          </button>
           <button className="side-link" onClick={() => setSheet('devices')}>
             <Icon name="settings" size={15} /> Settings
           </button>
@@ -513,7 +510,33 @@ function Shell() {
 
       <main className="main">
         <ConnectionBanner />
-        {board && (
+        {page === 'concepts' && (
+          <div className="concepts-page">
+            <header className="topbar">
+              <div className="concepts-title">
+                <span className="mentor-orb" /> Concepts
+              </div>
+              <span className="spacer" />
+              {board && (
+                <button className="btn sm ghost" onClick={() => setPage('board')}>
+                  <Icon name="chevronLeft" size={14} /> Back to {board.name}
+                </button>
+              )}
+            </header>
+            <div className="page">
+              <div className="page-inner concepts-inner">
+                <LearnLibrary
+                  onOpen={(t) => {
+                    setPage('board');
+                    goTo(t);
+                    setView('chat');
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+        {board && page === 'board' && (
           <header className="topbar">
             <button className="board-title" onClick={() => setSheet('board')} title="Board settings">
               {board.name}
@@ -543,7 +566,10 @@ function Shell() {
             {viewSwitch}
           </header>
         )}
-        <div className="main-body">{boardView}</div>
+        {/* Kept mounted behind the Concepts page so the canvas keeps its place. */}
+        <div className="main-body" style={page === 'concepts' ? { display: 'none' } : undefined}>
+          {boardView}
+        </div>
       </main>
 
       {openNode && <Drawer node={openNode} onClose={() => setOpenId(null)} />}

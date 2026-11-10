@@ -3,6 +3,10 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.7.1
+
+- Concepts is a full page now, opened from the top of the sidebar (Esc or a board takes you back)
+
 ## 0.7.0
 
 - Mark a step complete: click the circle at the top of a finished card. It fills with a green tick and every card after it fades back

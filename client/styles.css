@@ -5513,3 +5513,40 @@ kbd {
 .turn.completed .status-label {
   color: var(--ok);
 }
+
+/* ---------- Concepts as a page ---------- */
+.side-link.side-top {
+  width: 100%;
+  margin: 4px 0 2px;
+  font-weight: 500;
+}
+.side-link.side-top.on {
+  background: var(--surface-2);
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--border);
+}
+.concepts-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.concepts-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.page-inner.concepts-inner {
+  max-width: 1180px;
+  width: 100%;
+  padding: 18px 28px 48px;
+}
+.concepts-inner .lib-list,
+.concepts-inner .lib-search {
+  max-width: 760px;
+}
+.concepts-inner .cmap {
+  grid-template-columns: 1fr 360px;
+}
