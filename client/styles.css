@@ -5457,3 +5457,59 @@ kbd {
   width: min(1080px, calc(100vw - 48px));
   max-width: none;
 }
+
+/* ---------- mark a step complete ---------- */
+.complete-circle {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  margin-right: 2px;
+  border-radius: 50%;
+  border: 1.5px solid var(--text-3);
+  background: transparent;
+  color: transparent;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+  transition:
+    background 0.25s var(--ease),
+    border-color 0.2s,
+    color 0.2s,
+    transform 0.25s var(--ease);
+}
+.complete-circle:hover {
+  border-color: var(--ok);
+  color: color-mix(in srgb, var(--ok) 60%, transparent);
+  transform: scale(1.08);
+}
+.complete-circle.on {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: #fff;
+  animation: complete-pop 0.35s var(--ease);
+}
+@keyframes complete-pop {
+  40% {
+    transform: scale(1.25);
+  }
+}
+.turn.completed,
+.turn.faded {
+  transition: opacity 0.4s var(--ease);
+}
+.turn.completed {
+  opacity: 0.62;
+}
+.turn.faded {
+  opacity: 0.38;
+}
+.turn.completed:hover,
+.turn.faded:hover,
+.react-flow__node.selected .turn.completed,
+.react-flow__node.selected .turn.faded {
+  opacity: 1;
+}
+.turn.completed .status-label {
+  color: var(--ok);
+}

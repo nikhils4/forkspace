@@ -210,6 +210,28 @@ export interface TurnData extends Record<string, unknown> {
   onOpen: (id: string) => void;
   onReply: (id: string) => void;
   isTarget: boolean;
+  /** An earlier step was marked complete: this one fades back too. */
+  faded?: boolean;
+}
+
+/** The circle at the top of a finished card: click to mark the step complete. */
+function CompleteCircle({ node }: { node: TurnNode }) {
+  if (isLive(node)) return null;
+  const on = !!node.completed;
+  return (
+    <button
+      className={`complete-circle nodrag ${on ? 'on' : ''}`}
+      title={on ? 'Completed. Click to undo' : 'Mark complete'}
+      aria-label={on ? 'Mark not complete' : 'Mark complete'}
+      aria-pressed={on}
+      onClick={(e) => {
+        e.stopPropagation();
+        send({ type: 'setCompleted', nodeId: node.id, completed: !on });
+      }}
+    >
+      <Icon name="check" size={11} strokeWidth={3} />
+    </button>
+  );
 }
 
 const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
@@ -228,7 +250,8 @@ function editedFiles(node: TurnNode, cwd?: string) {
 }
 
 export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: TurnData }) {
-  const { node, onOpen, onReply, isTarget } = data;
+  const { node, onOpen, onReply, isTarget, faded } = data;
+  const dim = node.completed ? 'completed' : faded ? 'faded' : '';
   const { branches } = useStore();
   // Zoomed far out: show just the essentials so big boards stay readable.
   const far = useRFStore((st) => st.transform[2] < 0.55);
@@ -244,9 +267,10 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
 
   if (far)
     return (
-      <div className={`turn far status-${node.status} ${isTarget ? 'target' : ''}`} style={{ ['--branch' as any]: color }}>
+      <div className={`turn far status-${node.status} ${isTarget ? 'target' : ''} ${dim}`} style={{ ['--branch' as any]: color }}>
         <Handle type="target" position={Position.Top} />
         <div className="far-status">
+          <CompleteCircle node={node} />
           <StatusDot status={node.status} />
           {STATUS_LABEL[node.status]}
           {lessons.length > 0 && (
@@ -261,12 +285,13 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
     );
 
   return (
-    <div className={`turn status-${node.status} ${isTarget ? 'target' : ''} ${isFresh(node.createdAt) ? 'fresh' : ''}`} style={{ ['--branch' as any]: color }}>
+    <div className={`turn status-${node.status} ${isTarget ? 'target' : ''} ${isFresh(node.createdAt) ? 'fresh' : ''} ${dim}`} style={{ ['--branch' as any]: color }}>
       <Handle type="target" position={Position.Top} />
       {live && <div className="turn-progress" />}
       <div className="turn-head">
-        <StatusDot status={node.status} />
-        <span className="status-label">{STATUS_LABEL[node.status]}</span>
+        <CompleteCircle node={node} />
+        {!node.completed && <StatusDot status={node.status} />}
+        <span className="status-label">{node.completed ? 'Completed' : STATUS_LABEL[node.status]}</span>
         <span className="spacer" />
         {node.imported ? (
           <span className="branch-tag" title="Brought in from Claude Code">

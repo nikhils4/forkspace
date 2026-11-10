@@ -476,6 +476,14 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       return;
     case 'ping':
       return 'pong';
+    case 'setCompleted': {
+      const t = getTurn(msg.nodeId);
+      if (!t) throw new Error('Step not found');
+      t.completed = !!msg.completed;
+      save();
+      broadcast({ type: 'node', node: t });
+      return;
+    }
     case 'awayInfo':
     case 'setAway': {
       if (msg.type === 'setAway') setAway(!!msg.on, typeof msg.screen === 'boolean' ? msg.screen : undefined);

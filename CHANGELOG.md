@@ -3,6 +3,11 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.7.0
+
+- Mark a step complete: click the circle at the top of a finished card. It fills with a green tick and every card after it fades back
+- Website: the big statement lights up as you scroll in dark mode too
+
 ## 0.6.0
 
 - Concepts are never repeated: each idea has one name across all your boards, and the same idea seen again links to it

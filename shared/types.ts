@@ -94,6 +94,8 @@ export interface Position {
 
 export interface TurnNode {
   kind: 'turn';
+  /** You marked this step finished: it and everything after it fade on the canvas. */
+  completed?: boolean;
   id: string;
   boardId: string;
   parentId: string | null;
@@ -172,6 +174,7 @@ export type ClientMsg =
   | { type: 'remoteInfo'; reqId: string }
   | { type: 'awayInfo'; reqId: string }
   | { type: 'ping'; reqId: string }
+  | { type: 'setCompleted'; nodeId: string; completed: boolean }
   | { type: 'organizeConcepts'; reqId: string }
   | { type: 'setAway'; reqId: string; on: boolean; screen?: boolean }
   | { type: 'enableTailscale'; reqId: string }

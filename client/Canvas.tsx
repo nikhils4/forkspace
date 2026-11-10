@@ -54,6 +54,12 @@ export function Canvas({
     [setTargetId],
   );
 
+  /** True when an earlier step on this card's path was marked complete. */
+  const belowCompleted = (n: TurnNode) => {
+    for (let p = n.parentId ? store.nodes[n.parentId] : undefined; p && isTurn(p); p = p.parentId ? store.nodes[p.parentId] : undefined) if (p.completed) return true;
+    return false;
+  };
+
   const [rfNodes, setRfNodes] = useState<Node[]>([]);
   useEffect(() => {
     setRfNodes((prev) => {
@@ -68,7 +74,7 @@ export function Canvas({
           const h = n.height ?? 160;
           return { ...base, data: { node: n }, width: w, height: h, style: { width: w, height: h } };
         }
-        return { ...base, data: { node: n, onOpen: openDetails, onReply, isTarget: n.id === targetId }, width: CARD_W };
+        return { ...base, data: { node: n, onOpen: openDetails, onReply, isTarget: n.id === targetId, faded: belowCompleted(n) }, width: CARD_W };
       });
     });
   }, [items, targetId, openDetails, onReply]);
@@ -331,6 +337,7 @@ export function Canvas({
     const isHead = store.branches[node.branchId]?.headNodeId === node.id;
     const gone = subtree(node.id).length;
     const out: MenuItem[] = [];
+    if (!live) out.push({ label: node.completed ? 'Mark not complete' : 'Mark complete', icon: 'check', onClick: () => send({ type: 'setCompleted', nodeId: node.id, completed: !node.completed }) });
     if (live) out.push({ label: 'Stop', icon: 'stop', onClick: () => send({ type: 'stop', nodeId: node.id }) });
     else if (node.sessionId) out.push({ label: isHead ? 'Reply' : 'Branch from here', icon: isHead ? 'chat' : 'branch', hint: 'R', onClick: () => onReply(node.id) });
     out.push(
