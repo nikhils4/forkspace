@@ -1,6 +1,6 @@
 {
   "name": "forkspace",
-  "version": "0.13.4",
+  "version": "0.14.0",
   "description": "A canvas control center for Claude Code agents: branch any conversation, run many agents, keep notes.",
   "homepage": "https://forkspace-app.netlify.app",
   "repository": {
