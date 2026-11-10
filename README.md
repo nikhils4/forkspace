@@ -32,9 +32,14 @@ Forkspace is a third-party app, so it signs in with an API key. Anthropic's term
 
 ### Updating
 
-When a new version is out, the sidebar shows **Update available**. Open Settings and click **Update and restart**. Forkspace pulls, reinstalls if needed, rebuilds, restarts, and the page reloads itself. It won't update while agents are running or if you have local edits in the Forkspace folder.
+Forkspace ships as versions (see [CHANGELOG.md](CHANGELOG.md)). When one is out, the sidebar shows **Update to x.y.z**. Open Settings to read what's new and click **Update**. Forkspace downloads it, reinstalls if needed, rebuilds, restarts, and the page reloads itself. It won't update while agents are running.
+
+- Edits you made in the Forkspace folder are kept. If the update changes the same files, you get **Set aside my edits and update**, which moves them into `git stash` (bring them back with `git stash pop`).
+- Pulled by hand while Forkspace was running? Settings shows **Update** to rebuild and restart.
 
 By hand: `git pull && npm install && npm start`.
+
+Maintainers: add a section to CHANGELOG.md, then `npm run release -- 0.3.0` (or `patch`, `minor`, `major`). It bumps the version, tags it with the notes, pushes, and makes a GitHub release.
 
 ## How it works
 
