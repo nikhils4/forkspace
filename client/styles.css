@@ -597,6 +597,47 @@ a.btn {
 .board-item.add {
   color: var(--text-3);
 }
+.board-row {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.board-row .board-item {
+  padding-right: 34px;
+}
+.board-more {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  translate: 0 -50%;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.board-row:hover .board-more,
+.board-more:focus-visible,
+.board-more.open {
+  opacity: 1;
+}
+.board-more:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+@media (pointer: coarse) {
+  .board-more {
+    opacity: 1;
+    width: 36px;
+    height: 36px;
+  }
+}
 .board-initial {
   width: 22px;
   height: 22px;
@@ -943,12 +984,18 @@ a.btn {
     transform: translateY(8px) scale(0.98);
   }
 }
+/* The coloured line on top shows only while the agent works, then fades away. */
 .turn::before {
   content: '';
   position: absolute;
   inset: 0 0 auto 0;
   height: 3px;
   background: var(--branch);
+  opacity: 0;
+  transition: opacity 0.6s var(--ease);
+}
+.turn.status-running::before,
+.turn.status-waiting::before {
   opacity: 0.9;
 }
 .react-flow__node.selected .turn,
@@ -4100,6 +4147,9 @@ kbd {
 }
 .turn::before {
   height: 2px;
+}
+.turn.status-running::before,
+.turn.status-waiting::before {
   opacity: 0.65;
 }
 .branch-tag {
@@ -4675,4 +4725,7 @@ kbd {
     width: 28px;
     height: 28px;
   }
+}
+.danger-zone + .danger-zone {
+  margin-top: 10px;
 }

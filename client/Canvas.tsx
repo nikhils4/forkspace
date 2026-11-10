@@ -99,6 +99,41 @@ export function Canvas({
     [rf, store.nodes, mobile],
   );
 
+  /**
+   * Fit every card into the part of the canvas you can see (above the floating composer), centred.
+   * React Flow's own fitView centres in the whole canvas, so things sat high and to one side.
+   */
+  const fitVisible = useCallback(
+    (duration = 0) => {
+      const nodes = rf.getNodes();
+      const el = document.querySelector('.pane.on .canvas') as HTMLElement | null;
+      if (!nodes.length || !el || !el.clientWidth) return false;
+      const b = rf.getNodesBounds(nodes);
+      const composer = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--composer-h')) || 120;
+      const W = el.clientWidth;
+      const H = Math.max(200, el.clientHeight - composer - 16);
+      const pad = mobile ? 24 : 64;
+      const zoom = Math.max(0.1, Math.min((W - pad * 2) / Math.max(b.width, 1), (H - pad * 2) / Math.max(b.height, 1), mobile ? 0.8 : 1));
+      rf.setViewport({ x: W / 2 - (b.x + b.width / 2) * zoom, y: H / 2 - (b.y + b.height / 2) * zoom, zoom }, { duration });
+      return true;
+    },
+    [rf, mobile],
+  );
+
+  // Opening a board (or switching to the canvas for the first time) centres its cards.
+  const fittedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!active || fittedFor.current === board.id) return;
+    if (!items.length) {
+      fittedFor.current = board.id;
+      return;
+    }
+    // Wait until the cards are drawn and measured.
+    if (!rfNodes.length || rfNodes.some((n) => !n.measured?.width)) return;
+    const t = setTimeout(() => fitVisible() && (fittedFor.current = board.id), 30);
+    return () => clearTimeout(t);
+  }, [active, board.id, rfNodes, items.length, fitVisible]);
+
   // Pan to a card when asked (new card sent, sidebar click, notification tap).
   useEffect(() => {
     if (!focus) return;
@@ -184,7 +219,7 @@ export function Canvas({
       x += width.get(r.id)! + GAP_X * 2.5;
     }
     send({ type: 'move', moves });
-    setTimeout(() => rf.fitView({ padding: 0.15, duration: 500, maxZoom: 1 }), 120);
+    setTimeout(() => fitVisible(500), 120);
   };
 
   const deleteSelected = () => {
@@ -275,7 +310,7 @@ export function Canvas({
         { label: 'New thread', icon: 'plus', onClick: () => onReply(null) },
         'sep',
         { label: 'Tidy up', icon: 'grid', onClick: tidy },
-        { label: 'Fit everything', icon: 'canvas', onClick: () => rf.fitView({ padding: 0.15, duration: 400, maxZoom: 1 }) },
+        { label: 'Fit everything', icon: 'canvas', onClick: () => fitVisible(400) },
       ];
     }
     if (!isTurn(node)) {
@@ -399,14 +434,12 @@ export function Canvas({
         zoomOnDoubleClick={false}
         minZoom={0.1}
         maxZoom={2}
-        fitView
-        fitViewOptions={{ maxZoom: mobile ? 0.8 : 1, padding: 0.15 }}
         colorMode={theme}
         proOptions={{ hideAttribution: true }}
         panOnScroll={!mobile}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1.3} />
-        {!mobile && <Controls showInteractive={false} position="bottom-left" />}
+        {!mobile && <Controls showInteractive={false} position="bottom-left" onFitView={() => fitVisible(400)} />}
         {!mobile && (
           <MiniMap
             pannable
@@ -437,7 +470,7 @@ export function Canvas({
         <button className="fab" onClick={tidy} title="Tidy up: arrange every branch neatly" aria-label="Tidy up">
           <Icon name="grid" size={18} />
         </button>
-        <button className="fab" onClick={() => rf.fitView({ padding: 0.15, duration: 400, maxZoom: 1 })} title="Fit everything" aria-label="Fit everything">
+        <button className="fab" onClick={() => fitVisible(400)} title="Fit everything" aria-label="Fit everything">
           <Icon name="canvas" size={18} />
         </button>
       </div>

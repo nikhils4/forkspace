@@ -122,6 +122,7 @@ Anything waiting on you glows amber, shows under **Agents** in the sidebar, and 
 | `Backspace` | Delete selected steps (and their branches) or notes |
 | Double-click a step | Open details |
 | Right-click (long-press on a phone) | Menu for a step, note or empty canvas: reply, branch, explain, copy, recolour, delete |
+| Right-click a board, or its `···` | Board settings, **Start fresh** (clear every card, keep the board), Delete board |
 
 ## Settings
 

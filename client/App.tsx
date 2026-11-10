@@ -4,6 +4,7 @@ import type { Board, TurnNode } from '../shared/types.ts';
 import { BoardSettings, MODES, NewBoard } from './BoardForms.tsx';
 import { Canvas } from './Canvas.tsx';
 import { Chat } from './Chat.tsx';
+import { ContextMenu, type MenuItem } from './ContextMenu.tsx';
 import { CodeView, fileCache } from './CodeView.tsx';
 import { Composer, composerFocus } from './Composer.tsx';
 import { Drawer } from './Drawer.tsx';
@@ -346,6 +347,10 @@ function Shell() {
               setSheet(null);
             }}
             onNew={() => setSheet('new')}
+            onSettings={(id) => {
+              setBoardId(id);
+              setSheet('board');
+            }}
           />
         </Sheet>
       )}
@@ -463,6 +468,10 @@ function Shell() {
               setBoardId(id);
               setOpenId(null);
             }}
+            onSettings={(id) => {
+              setBoardId(id);
+              setSheet('board');
+            }}
           />
 
           <div className="side-head">
@@ -529,20 +538,83 @@ function Shell() {
   );
 }
 
-function BoardList({ boards, current, onPick, onNew }: { boards: Board[]; current?: string; onPick: (id: string) => void; onNew?: () => void }) {
+function BoardList({
+  boards,
+  current,
+  onPick,
+  onNew,
+  onSettings,
+}: {
+  boards: Board[];
+  current?: string;
+  onPick: (id: string) => void;
+  onNew?: () => void;
+  onSettings?: (id: string) => void;
+}) {
   const { nodes } = useStore();
+  const [menu, setMenu] = useState<{ x: number; y: number; board: Board } | null>(null);
+  const items = (b: Board): MenuItem[] => {
+    const steps = Object.values(nodes).filter((n) => n.boardId === b.id).length;
+    return [
+      { label: 'Open', icon: 'canvas', onClick: () => onPick(b.id) },
+      ...(onSettings ? [{ label: 'Board settings', icon: 'settings' as const, onClick: () => onSettings(b.id) }] : []),
+      'sep',
+      {
+        label: 'Start fresh',
+        icon: 'refresh',
+        disabled: steps === 0,
+        confirm: `Click again to clear ${steps} card${steps === 1 ? '' : 's'}`,
+        onClick: () => {
+          send({ type: 'clearBoard', id: b.id });
+          onPick(b.id);
+          toast(`${b.name} is fresh`);
+        },
+      },
+      {
+        label: 'Delete board',
+        icon: 'trash',
+        danger: true,
+        confirm: 'Click again to delete',
+        onClick: () => {
+          send({ type: 'deleteBoard', id: b.id });
+          toast(`Deleted ${b.name}`);
+        },
+      },
+    ];
+  };
   return (
     <div className="board-list">
+      {menu && <ContextMenu key={`${menu.x},${menu.y}`} x={menu.x} y={menu.y} items={items(menu.board)} onClose={() => setMenu(null)} />}
       {boards.map((b) => {
         const live = Object.values(nodes).filter((n): n is TurnNode => isTurn(n) && n.boardId === b.id && isLive(n));
         const needs = live.filter((n) => n.status === 'waiting').length;
         return (
-          <button key={b.id} className={`board-item ${b.id === current ? 'on' : ''}`} onClick={() => onPick(b.id)}>
-            <span className="board-initial">{b.name.slice(0, 1).toUpperCase()}</span>
-            <span className="ellipsis">{b.name}</span>
-            <span className="spacer" />
-            {needs > 0 ? <span className="count warn">{needs}</span> : live.length > 0 ? <span className="count">{live.length}</span> : null}
-          </button>
+          <div key={b.id} className="board-row">
+            <button
+              className={`board-item ${b.id === current ? 'on' : ''}`}
+              onClick={() => onPick(b.id)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setMenu({ x: e.clientX, y: e.clientY, board: b });
+              }}
+            >
+              <span className="board-initial">{b.name.slice(0, 1).toUpperCase()}</span>
+              <span className="ellipsis">{b.name}</span>
+              <span className="spacer" />
+              {needs > 0 ? <span className="count warn">{needs}</span> : live.length > 0 ? <span className="count">{live.length}</span> : null}
+            </button>
+            <button
+              className={`board-more ${menu?.board.id === b.id ? 'open' : ''}`}
+              aria-label={`More for ${b.name}`}
+              title="More"
+              onClick={(e) => {
+                const r = e.currentTarget.getBoundingClientRect();
+                setMenu({ x: r.left, y: r.bottom + 4, board: b });
+              }}
+            >
+              <Icon name="more" size={16} />
+            </button>
+          </div>
         );
       })}
       {boards.length === 0 && <div className="side-empty">No boards yet</div>}

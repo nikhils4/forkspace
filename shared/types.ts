@@ -150,6 +150,8 @@ export type ClientMsg =
   | { type: 'serviceEnable'; reqId: string }
   | { type: 'serviceDisable'; reqId: string }
   | { type: 'deleteBoard'; id: string }
+  /** Start fresh: remove every step, note and worktree but keep the board and its settings. */
+  | { type: 'clearBoard'; id: string }
   | { type: 'send'; reqId: string; boardId: string; parentId: string | null; prompt: string; position: Position }
   | { type: 'stop'; nodeId: string }
   | { type: 'permission'; nodeId: string; requestId: string; decision: 'allow' | 'always' | 'deny'; answers?: Record<string, string>; message?: string }

@@ -198,6 +198,19 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       broadcast({ type: 'boardDeleted', id: msg.id });
       return;
     }
+    case 'clearBoard': {
+      const board = getBoard(msg.id);
+      if (!board) throw new Error('Board not found');
+      const ids = state.nodes.filter((n) => n.boardId === msg.id).map((n) => n.id);
+      ids.forEach(stop);
+      state.nodes = state.nodes.filter((n) => n.boardId !== msg.id);
+      board.links = [];
+      board.imported = []; // its Claude Code sessions can be brought in again
+      await pruneBranches();
+      broadcast({ type: 'board', board });
+      broadcast({ type: 'nodesDeleted', ids });
+      return;
+    }
     case 'send': {
       const prompt = msg.prompt.trim();
       if (!prompt) throw new Error('Empty prompt');

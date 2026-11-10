@@ -182,6 +182,23 @@ export function BoardSettings({ board, onClose }: { board: Board; onClose: () =>
         </label>
         <div className="danger-zone">
           <div>
+            <b>Start fresh</b>
+            <span>Clears every card, note and worktree. Keeps the folder and these settings.</span>
+          </div>
+          <button
+            className="btn"
+            onClick={() => {
+              if (confirm(`Clear everything on "${board.name}" and start fresh?`)) {
+                send({ type: 'clearBoard', id: board.id });
+                onClose();
+              }
+            }}
+          >
+            <Icon name="refresh" size={14} /> Start fresh
+          </button>
+        </div>
+        <div className="danger-zone">
+          <div>
             <b>Delete board</b>
             <span>Removes every card, note and worktree on this board.</span>
           </div>
