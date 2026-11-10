@@ -86,6 +86,9 @@ async function releases(): Promise<(Release & { tag: string })[]> {
 
 const LOCK = 'package-lock.json';
 
+/** Tracked files with local edits, staged or not. */
+const edited = async () => (await git('diff', '--name-only', 'HEAD')).split('\n').filter(Boolean);
+
 const isAncestor = (a: string, b: string) =>
   git('merge-base', '--is-ancestor', a, b).then(
     () => true,
@@ -109,10 +112,7 @@ export async function checkForUpdate(force = false): Promise<UpdateInfo> {
     const target = all[0];
     if (target && compareVersions(target.version, RUNNING_VERSION) > 0 && !(await isAncestor(target.tag, 'HEAD'))) {
       // Local edits only block the files this update changes.
-      const dirty = (await git('status', '--porcelain', '--untracked-files=no'))
-        .split('\n')
-        .filter(Boolean)
-        .map((l) => l.slice(3).trim());
+      const dirty = await edited();
       if (dirty.length) {
         const touched = new Set((await git('diff', '--name-only', 'HEAD', target.tag)).split('\n'));
         // package-lock.json changes come from npm install; the update reinstalls anyway.
@@ -153,7 +153,7 @@ export async function applyUpdate(setAside: boolean, progress: Progress, beforeR
   try {
     const from = RUNNING_COMMIT || (await git('rev-parse', 'HEAD'));
     if (needsPull) {
-      const dirty = (await git('status', '--porcelain', '--untracked-files=no')).split('\n').filter(Boolean).map((l) => l.slice(3).trim());
+      const dirty = await edited();
       if (dirty.includes(LOCK)) await git('checkout', '--', LOCK);
       if (info.conflicts.length) {
         progress('Setting your changes aside…');
