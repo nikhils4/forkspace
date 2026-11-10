@@ -72,12 +72,36 @@ export function Canvas({
     });
   }, [items, targetId, openDetails, onReply]);
 
+  /**
+   * Glide a card to the middle of the part of the canvas you can see (above the floating composer).
+   * Zoomed far out, come back in so it is readable; a card taller than the view lines up its top instead.
+   */
+  const centerOn = useCallback(
+    (id: string) => {
+      const internal = rf.getInternalNode(id);
+      const n = store.nodes[id];
+      if (!internal || !n) return;
+      const el = document.querySelector('.pane.on .canvas') as HTMLElement | null;
+      const viewH = el?.clientHeight ?? 700;
+      const composer = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--composer-h')) || 120;
+      const visibleH = Math.max(200, viewH - composer - 16);
+      const zoom = rf.getZoom() < 0.55 ? (mobile ? 0.75 : 0.9) : rf.getZoom();
+      const w = internal.measured?.width ?? CARD_W;
+      // Zoomed far out the card is drawn short; use its remembered full-size height.
+      const h = heights.get(id) ?? internal.measured?.height ?? 320;
+      const pos = internal.internals.positionAbsolute;
+      // Point (in canvas units) that should land in the middle of the visible area.
+      const focusY = h * zoom > visibleH * 0.9 ? pos.y + (visibleH * 0.45) / zoom - 24 / zoom : pos.y + h / 2;
+      // setCenter centres in the whole canvas; shift so it centres above the composer instead.
+      rf.setCenter(pos.x + w / 2, focusY + composer / 2 / zoom, { zoom, duration: 480 });
+    },
+    [rf, store.nodes, mobile],
+  );
+
   // Pan to a card when asked (new card sent, sidebar click, notification tap).
   useEffect(() => {
     if (!focus) return;
-    const n = store.nodes[focus.id];
-    if (!n) return;
-    const t = setTimeout(() => rf.setCenter(n.position.x + CARD_W / 2, n.position.y + 180, { zoom: Math.max(rf.getZoom(), mobile ? 0.75 : 0.9), duration: 450 }), 60);
+    const t = setTimeout(() => centerOn(focus.id), 80);
     return () => clearTimeout(t);
   }, [focus?.n]);
 
@@ -191,9 +215,12 @@ export function Canvas({
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
         onNodeDragStop={(_, __, nodes) => send({ type: 'move', moves: nodes.map((n) => ({ id: n.id, position: n.position })) })}
-        onNodeClick={(_, n) => {
+        onNodeClick={(e, n) => {
           const node = store.nodes[n.id];
-          if (isTurn(node) && !isLive(node) && node.sessionId) setTargetId(n.id);
+          if (!isTurn(node)) return; // notes: clicking is for typing, don't move the view
+          if (!isLive(node) && node.sessionId) setTargetId(n.id);
+          // Buttons and approvals inside the card do their own thing; a click on the card itself centres it.
+          if (!(e.target as HTMLElement).closest('button, a, input, textarea, .perm')) centerOn(n.id);
         }}
         onNodeDoubleClick={(_, n) => isTurn(store.nodes[n.id]) && openDetails(n.id)}
         onPaneClick={(e) => {
