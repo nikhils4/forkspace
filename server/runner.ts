@@ -273,7 +273,7 @@ export function answer(nodeId: string, requestId: string, decision: 'allow' | 'a
   const i = r.queue.findIndex((p) => p.requestId === requestId);
   if (i < 0) return;
   const [p] = r.queue.splice(i, 1);
-  if (decision === 'deny') p.resolve({ behavior: 'deny', message: message || 'The user denied this action.' });
+  if (decision !== 'allow' && decision !== 'always') p.resolve({ behavior: 'deny', message: message || 'The user denied this action.' });
   else
     p.resolve({
       behavior: 'allow',
@@ -293,11 +293,19 @@ export function stop(nodeId: string) {
 export const isRunning = (nodeId: string) => running.has(nodeId);
 
 /** Remove worktrees for branches that no longer have any turns. */
-export async function pruneBranches() {
+let pruning: Promise<void> = Promise.resolve();
+/** One prune at a time: two at once could each remove the other's branches. */
+export function pruneBranches() {
+  pruning = pruning.then(prune, prune);
+  return pruning;
+}
+async function prune() {
   const used = new Set(state.nodes.flatMap((n) => (n.kind === 'turn' ? [n.branchId] : [])));
   for (const b of [...state.branches]) {
     if (used.has(b.id)) continue;
-    state.branches.splice(state.branches.indexOf(b), 1);
+    const i = state.branches.indexOf(b);
+    if (i < 0) continue;
+    state.branches.splice(i, 1);
     const board = getBoard(b.boardId);
     if (b.worktree && board?.repoRoot) await g.removeWorktree(board.repoRoot, b.worktree, b.gitBranch).catch(() => {});
   }

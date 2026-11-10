@@ -42,8 +42,11 @@ self.addEventListener('fetch', (e) => {
         (hit) =>
           hit ||
           fetch(req).then((res) => {
-            const copy = res.clone();
-            caches.open(CACHE).then((c) => c.put(req, copy));
+            // Only cache real assets, never an error or a page served in their place.
+            if (res.ok && !String(res.headers.get('content-type')).includes('text/html')) {
+              const copy = res.clone();
+              caches.open(CACHE).then((c) => c.put(req, copy));
+            }
             return res;
           }),
       ),

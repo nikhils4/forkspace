@@ -235,10 +235,29 @@ export function setToken(t: string) {
 function sendPresence() {
   if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'presence', visible: document.visibilityState === 'visible' }));
 }
+/**
+ * Coming back to the app (phone unlocked, tab shown): a socket can look open but be dead after
+ * the network changed. Ask the server something small; no answer in 3 s means reconnect.
+ */
+async function checkAlive() {
+  if (!snap.connected) return reconnectNow();
+  const ok = await Promise.race([request({ type: 'ping' }).then(() => true, () => false), new Promise<boolean>((r) => setTimeout(() => r(false), 3000))]);
+  if (!ok) {
+    const dead = ws;
+    ws = null;
+    dead?.close();
+    set({ connected: false });
+    for (const w of waiting.values()) w.reject(new Error('Disconnected'));
+    waiting.clear();
+    backoff = 500;
+    connect();
+  }
+}
 document.addEventListener('visibilitychange', () => {
   sendPresence();
-  if (document.visibilityState === 'visible') reconnectNow();
+  if (document.visibilityState === 'visible') checkAlive();
 });
+window.addEventListener('pageshow', (e) => e.persisted && checkAlive());
 window.addEventListener('online', reconnectNow);
 
 /** Fire-and-forget message. */

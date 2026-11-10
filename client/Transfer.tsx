@@ -33,7 +33,8 @@ export function MoveSection() {
       a.download = name;
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
-      toast(`Exported ${name} (${mb(blob.size)})`);
+      const skipped = Number(r.headers.get('x-forkspace-skipped') ?? 0);
+      toast(skipped ? `Exported ${name} (${mb(blob.size)}). ${skipped} very large conversation${skipped === 1 ? ' was' : 's were'} left out.` : `Exported ${name} (${mb(blob.size)})`, skipped ? 'error' : 'info');
     } catch (e: any) {
       toast(e.message, 'error');
     }
@@ -143,7 +144,7 @@ function ImportPanel({ plan, onDone }: { plan: ImportPlan; onDone: () => void })
             <div>
               <b>{b.name}</b>
               <span className="faint small">
-                {b.already ? 'Already on this Mac' : `${b.steps} step${b.steps === 1 ? '' : 's'}${b.notes ? ` · ${b.notes} note${b.notes === 1 ? '' : 's'}` : ''}${b.code ? ' · code branches' : ''}`}
+                {b.already ? 'Already on this Mac' : `${b.steps} step${b.steps === 1 ? '' : 's'}${b.notes ? ` · ${b.notes} note${b.notes === 1 ? '' : 's'}` : ''}${b.code ? ' · code branches' : ''}${b.fullAccess ? ' · Full access comes in as Ask me' : ''}`}
               </span>
             </div>
           </label>

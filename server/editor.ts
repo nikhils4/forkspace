@@ -5,7 +5,12 @@ import { spawn } from 'node:child_process';
 
 function tryCommand(cmd: string, args: string[], waitForExit: boolean): Promise<boolean> {
   return new Promise((resolve) => {
-    const child = spawn(cmd, args, { detached: !waitForExit, stdio: 'ignore', shell: process.platform === 'win32' });
+    // Windows: .cmd shims need a shell, so quote every argument for cmd.exe.
+    const win = process.platform === 'win32';
+    const q = (a: string) => `"${a.replace(/"/g, '""')}"`;
+    const child = win
+      ? spawn(q(cmd), args.map(q), { detached: !waitForExit, stdio: 'ignore', shell: true, windowsVerbatimArguments: true })
+      : spawn(cmd, args, { detached: !waitForExit, stdio: 'ignore' });
     child.on('error', () => resolve(false));
     if (waitForExit) child.on('exit', (code) => resolve(code === 0));
     else

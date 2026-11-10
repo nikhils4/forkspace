@@ -61,6 +61,12 @@ const server = http.createServer((req, res) => {
     return;
   }
   if (url.pathname === '/api/pair' && req.method === 'POST') {
+    // A JSON content type forces a CORS preflight, so random web pages can't spam guesses.
+    if (!String(req.headers['content-type'] ?? '').startsWith('application/json')) {
+      res.writeHead(415, { 'content-type': 'application/json' });
+      res.end('{"error":"json only"}');
+      return;
+    }
     let body = '';
     req.on('data', (c) => (body += c).length > 1000 && req.destroy());
     req.on('end', () => {
@@ -77,7 +83,14 @@ const server = http.createServer((req, res) => {
   }
   if (url.pathname.startsWith('/api/workspace/')) return workspaceApi(req, res, url);
   let file = path.join(DIST, path.normalize(url.pathname).replace(/^(\.\.[/\\])+/, ''));
-  if (!file.startsWith(DIST) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(DIST, 'index.html');
+  if (!file.startsWith(DIST) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
+    if (url.pathname.startsWith('/assets/')) {
+      res.writeHead(404, { 'content-type': 'text/plain', 'cache-control': 'no-store' });
+      res.end('Not found');
+      return;
+    }
+    file = path.join(DIST, 'index.html');
+  }
   if (!fs.existsSync(file)) {
     res.writeHead(200, { 'content-type': 'text/plain' });
     res.end('Forkspace server is running. Build the client with `npm run build`, or use `npm run dev` and open http://localhost:5173');
@@ -119,12 +132,14 @@ async function workspaceApi(req: http.IncomingMessage, res: http.ServerResponse,
   try {
     const route = url.pathname.slice('/api/workspace/'.length);
     if (route === 'export' && req.method === 'GET') {
-      const buf = await exportWorkspace();
+      const { file: buf, skipped } = await exportWorkspace();
       const day = new Date().toISOString().slice(0, 10);
       res.writeHead(200, {
         'content-type': 'application/octet-stream',
         'content-disposition': `attachment; filename="forkspace-${day}.forkspace"`,
         'content-length': buf.length,
+        'x-forkspace-skipped': String(skipped),
+        'access-control-expose-headers': 'x-forkspace-skipped',
         'cache-control': 'no-store',
       });
       return res.end(buf);
@@ -153,9 +168,28 @@ async function workspaceApi(req: http.IncomingMessage, res: http.ServerResponse,
 const wss = new WebSocketServer({
   server,
   path: '/ws',
+  maxPayload: 8 * 1024 * 1024,
   verifyClient: ({ req }: { req: http.IncomingMessage }) => checkToken(new URL(req.url || '/', 'http://x').searchParams.get('t')),
 });
 const clients = new Set<WebSocket>();
+// The http server's errors (like the port being busy) are re-emitted here; without a listener Node would crash.
+wss.on('error', () => {});
+
+// Heartbeat: drop sockets that stopped answering (a phone that lost signal), so they can't
+// hold "someone is looking" and swallow notifications.
+const alive = new Map<WebSocket, number>();
+setInterval(() => {
+  const now = Date.now();
+  for (const c of clients) {
+    if (now - (alive.get(c) ?? now) > 60_000) {
+      c.terminate();
+      continue;
+    }
+    try {
+      c.ping();
+    } catch {}
+  }
+}, 25_000).unref();
 
 function broadcast(msg: ServerMsg) {
   const data = JSON.stringify(msg);
@@ -171,7 +205,8 @@ const visible = new Map<WebSocket, boolean>();
 
 // Push to phones/desktops only when nobody is looking at Forkspace right now.
 setNotifier((node, kind) => {
-  if ([...visible.values()].some(Boolean)) return;
+  const now = Date.now();
+  if ([...visible].some(([c, v]) => v && now - (alive.get(c) ?? 0) < 60_000)) return;
   const board = getBoard(node.boardId);
   const short = node.prompt.replace(/\s+/g, ' ').slice(0, 90);
   const url = `/?board=${node.boardId}&node=${node.id}`;
@@ -189,16 +224,24 @@ wss.on('connection', (ws, req) => {
   noteDevice(deviceId, remote, String(req.headers['user-agent'] ?? ''), true);
   ws.on('close', () => noteDevice(deviceId, remote, '', false));
   visible.set(ws, false);
-  ws.on('close', () => visible.delete(ws));
+  alive.set(ws, Date.now());
+  ws.on('pong', () => alive.set(ws, Date.now()));
+  ws.on('error', () => ws.terminate());
+  ws.on('close', () => {
+    visible.delete(ws);
+    alive.delete(ws);
+  });
   send(ws, { type: 'state', state, home: os.homedir(), build: BUILD, startCommand: startCommand() });
   ws.on('close', () => clients.delete(ws));
   ws.on('message', async (raw) => {
+    alive.set(ws, Date.now());
     let msg: ClientMsg;
     try {
       msg = JSON.parse(String(raw));
     } catch {
       return;
     }
+    if (!msg || typeof msg !== 'object' || typeof (msg as any).type !== 'string') return;
     const reqId = 'reqId' in msg ? msg.reqId : undefined;
     try {
       const data = await handle(msg, ws);
@@ -210,6 +253,8 @@ wss.on('connection', (ws, req) => {
     }
   });
 });
+
+const MODES = new Set(['default', 'acceptEdits', 'auto', 'plan', 'bypassPermissions']);
 
 /** Positions come from clients; never let a bad one into the saved state. */
 const goodPos = (p: any): p is { x: number; y: number } => !!p && Number.isFinite(p.x) && Number.isFinite(p.y);
@@ -247,7 +292,15 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
     case 'updateBoard': {
       const board = getBoard(msg.id);
       if (!board) throw new Error('Board not found');
-      Object.assign(board, msg.patch);
+      const p = (msg.patch ?? {}) as Record<string, unknown>;
+      if (typeof p.name === 'string' && p.name.trim()) board.name = p.name.trim().slice(0, 80);
+      if (typeof p.permissionMode === 'string' && MODES.has(p.permissionMode)) board.permissionMode = p.permissionMode as Board['permissionMode'];
+      if ('model' in p) board.model = typeof p.model === 'string' && p.model.trim() ? p.model.trim().slice(0, 80) : undefined;
+      if (p.learn && typeof p.learn === 'object') board.learn = { on: (p.learn as any).on !== false, level: (p.learn as any).level ?? 'growing' };
+      if (Array.isArray(p.links))
+        board.links = p.links
+          .filter((l: any) => l && typeof l.id === 'string' && typeof l.source === 'string' && typeof l.target === 'string')
+          .map((l: any) => ({ id: l.id, source: l.source, target: l.target }));
       save();
       broadcast({ type: 'board', board });
       return;
@@ -256,8 +309,9 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       const ids = state.nodes.filter((n) => n.boardId === msg.id).map((n) => n.id);
       ids.forEach(stop);
       state.nodes = state.nodes.filter((n) => n.boardId !== msg.id);
-      state.boards = state.boards.filter((b) => b.id !== msg.id);
       await pruneBranches();
+      state.boards = state.boards.filter((b) => b.id !== msg.id);
+      save();
       broadcast({ type: 'boardDeleted', id: msg.id });
       return;
     }
@@ -286,12 +340,27 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       answer(msg.nodeId, msg.requestId, msg.decision, msg.answers, msg.message);
       return;
     case 'upsertNote': {
-      if (!goodPos(msg.note?.position)) throw new Error('That note has no valid position.');
-      const i = state.nodes.findIndex((n) => n.id === msg.note.id);
-      if (i >= 0) state.nodes[i] = msg.note;
-      else state.nodes.push(msg.note);
+      const n = msg.note as any;
+      if (!n || typeof n.id !== 'string' || !goodPos(n.position)) throw new Error('That note has no valid position.');
+      if (!getBoard(n.boardId)) throw new Error('Board not found');
+      const i = state.nodes.findIndex((x) => x.id === n.id);
+      if (i >= 0 && state.nodes[i].kind !== 'note') throw new Error('Only notes can be edited that way.');
+      const num = (v: unknown, d: number) => (Number.isFinite(v) ? Math.max(40, Math.min(4000, v as number)) : d);
+      const note = {
+        kind: 'note' as const,
+        id: n.id.slice(0, 40),
+        boardId: n.boardId,
+        text: typeof n.text === 'string' ? n.text.slice(0, 100_000) : '',
+        color: typeof n.color === 'string' ? n.color.slice(0, 32) : '#fde68a',
+        position: { x: n.position.x, y: n.position.y },
+        width: num(n.width, 220),
+        height: num(n.height, 160),
+        createdAt: Number.isFinite(n.createdAt) ? n.createdAt : Date.now(),
+      };
+      if (i >= 0) state.nodes[i] = note;
+      else state.nodes.push(note);
       save();
-      broadcast({ type: 'node', node: msg.note });
+      broadcast({ type: 'node', node: note });
       return;
     }
     case 'move':
@@ -320,7 +389,9 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       for (const br of state.branches) {
         if (br.headNodeId && ids.has(br.headNodeId)) {
           const left = state.nodes.filter((n) => n.kind === 'turn' && n.branchId === br.id).sort((a, b) => b.createdAt - a.createdAt);
-          br.headNodeId = left[0]?.id;
+          // The worktree still holds the deleted step's files. Leave it, so the next reply
+          // starts a fresh copy from the remaining step's checkpoint instead.
+          br.headNodeId = br.worktree ? undefined : left[0]?.id;
           broadcast({ type: 'branch', branch: br });
         }
       }
@@ -401,6 +472,8 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
     case 'presence':
       for (const [c] of visible) if (c === currentWs) visible.set(c, msg.visible);
       return;
+    case 'ping':
+      return 'pong';
     case 'awayInfo':
     case 'setAway': {
       if (msg.type === 'setAway') setAway(!!msg.on, typeof msg.screen === 'boolean' ? msg.screen : undefined);
@@ -424,6 +497,7 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       return { tailscale: await tailscaleInfo(PORT), publicUrl: getPublicUrl(), port: PORT };
     case 'rotateToken': {
       const token = rotateToken();
+      push.clearSubscriptions();
       // Everyone else has to pair again.
       setTimeout(() => {
         for (const c of clients) if (c !== currentWs) c.close(4001, 'Access key changed');
@@ -469,6 +543,9 @@ server.listen(PORT, HOST, () => {
   checkForUpdate(true).catch(() => {});
   setInterval(() => checkForUpdate(true).catch(() => {}), 6 * 3600_000).unref();
 });
+
+// Last line of defence: a stray rejection must never take every running agent down with it.
+process.on('unhandledRejection', (err) => console.error('[forkspace] unhandled', err));
 
 for (const sig of ['SIGINT', 'SIGTERM'] as const)
   process.on(sig, () => {

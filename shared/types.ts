@@ -165,6 +165,7 @@ export type ClientMsg =
   | { type: 'presence'; visible: boolean }
   | { type: 'remoteInfo'; reqId: string }
   | { type: 'awayInfo'; reqId: string }
+  | { type: 'ping'; reqId: string }
   | { type: 'setAway'; reqId: string; on: boolean; screen?: boolean }
   | { type: 'enableTailscale'; reqId: string }
   | { type: 'setPublicUrl'; reqId: string; url: string }
@@ -272,6 +273,8 @@ export interface ImportPlan {
     notes: number;
     /** Branch code is in the file. */
     code: boolean;
+    /** The board ran with Full access; it is imported as Ask me. */
+    fullAccess: boolean;
   }[];
 }
 

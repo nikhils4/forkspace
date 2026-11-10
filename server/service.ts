@@ -93,8 +93,10 @@ export async function enableService(port: number, handOver: () => void) {
   // Already on (this is likely the background copy itself): settings saved, nothing to restart.
   if (st.running) return { handedOver: false };
   await run('launchctl', ['bootout', `${target()}/${LABEL}`]).catch(() => {});
-  handOver();
+  // Start the background copy first. It waits for the port, so if launchd refuses we
+  // have closed nothing and this copy keeps running.
   await run('launchctl', ['bootstrap', target(), PLIST]);
+  handOver();
   setTimeout(() => process.exit(0), 300);
   return { handedOver: true };
 }

@@ -38,6 +38,7 @@ export function setPublicUrl(url?: string) {
 }
 
 export function rotateToken() {
+  codes.clear();
   auth.token = newToken();
   persist();
   return auth.token;

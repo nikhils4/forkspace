@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { HOME } from './store.ts';
 
 const run = promisify(execFile);
 
@@ -43,6 +44,9 @@ export async function addWorktree(root: string, dir: string, branch: string, fro
 }
 
 export async function removeWorktree(root: string, dir: string, branch?: string) {
+  // Never delete anything outside Forkspace's own worktrees folder, whatever a branch record says.
+  const rel = path.relative(path.join(HOME, 'worktrees'), path.resolve(dir));
+  if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return;
   try {
     await git(root, 'worktree', 'remove', '--force', dir);
   } catch {

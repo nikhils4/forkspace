@@ -91,16 +91,21 @@ async function bundleFor(board: Board, branches: Branch[]): Promise<string | nul
   }
 }
 
-export async function exportWorkspace(): Promise<Buffer> {
+export async function exportWorkspace(): Promise<{ file: Buffer; skipped: number }> {
   const turns = state.nodes.filter((n) => n.kind === 'turn');
   const sessions = new Set(turns.flatMap((n) => (n.kind === 'turn' && n.sessionId ? [n.sessionId] : [])));
   const transcripts: Payload['transcripts'] = [];
   let size = 0;
+  let skipped = 0;
   for (const id of sessions) {
     const files = sessionFiles(id);
     if (!files) continue;
-    size += files.reduce((s, f) => s + f.data.length, 0);
-    if (size > MAX_TRANSCRIPT) break;
+    const add = files.reduce((s, f) => s + f.data.length, 0);
+    if (size + add > MAX_TRANSCRIPT) {
+      skipped++;
+      continue;
+    }
+    size += add;
     transcripts.push({ sessionId: id, files });
   }
   const bundles: Payload['bundles'] = [];
@@ -122,22 +127,54 @@ export async function exportWorkspace(): Promise<Buffer> {
     transcripts,
     bundles,
   };
-  return zlib.gzipSync(Buffer.from(JSON.stringify(payload)));
+  let json: string;
+  try {
+    json = JSON.stringify(payload);
+  } catch {
+    throw new Error('This workspace is too big for one export file. Delete boards you no longer need and try again.');
+  }
+  return { file: zlib.gzipSync(Buffer.from(json)), skipped };
 }
 
 // ---- import: read the file, show a plan, then apply it ----
 
 const pending = new Map<string, { payload: Payload; at: number }>();
 
+// An export file is untrusted input: ids end up in folder names and git refs, so only plain ids pass.
+const ID = /^[A-Za-z0-9_-]{1,40}$/;
+const SESSION = /^[A-Za-z0-9-]{1,64}$/;
+const MODES = new Set(['default', 'acceptEdits', 'auto', 'plan', 'bypassPermissions']);
+const finite = (p: any) => !!p && Number.isFinite(p.x) && Number.isFinite(p.y);
+
+function validate(p: Payload) {
+  const bad = () => {
+    throw new Error('This file is damaged or was changed after export, so Forkspace will not import it.');
+  };
+  if (!Array.isArray(p.branches) || !Array.isArray(p.nodes) || !Array.isArray(p.transcripts ?? []) || !Array.isArray(p.bundles ?? [])) bad();
+  const boards = new Set<string>();
+  for (const b of p.boards) {
+    if (!b || !ID.test(b.id) || typeof b.name !== 'string' || typeof b.cwd !== 'string') bad();
+    boards.add(b.id);
+  }
+  for (const b of p.branches) if (!b || !ID.test(b.id) || !boards.has(b.boardId)) bad();
+  for (const n of p.nodes) {
+    if (!n || !ID.test(n.id) || !boards.has(n.boardId) || (n.kind !== 'turn' && n.kind !== 'note') || !finite(n.position)) bad();
+    if (n.kind === 'turn' && (!ID.test(n.branchId) || (n.sessionId != null && !SESSION.test(n.sessionId)))) bad();
+  }
+  for (const t of p.transcripts ?? []) if (!t || !SESSION.test(t.sessionId) || !Array.isArray(t.files)) bad();
+}
+
 function parse(buf: Buffer): Payload {
   let json: any;
   try {
-    json = JSON.parse(zlib.gunzipSync(buf).toString('utf8'));
+    // Capped, so a crafted file can't balloon in memory.
+    json = JSON.parse(zlib.gunzipSync(buf, { maxOutputLength: 500 * 1024 * 1024 }).toString('utf8'));
   } catch {
     throw new Error('That is not a Forkspace export file.');
   }
   if (json?.format !== FORMAT || !Array.isArray(json.boards)) throw new Error('That is not a Forkspace export file.');
   if (json.version > 1) throw new Error('This file comes from a newer Forkspace. Update this one first.');
+  validate(json);
   return json as Payload;
 }
 
@@ -170,6 +207,7 @@ export function readImport(buf: Buffer): ImportPlan {
         steps: payload.nodes.filter((n) => n.boardId === b.id && n.kind === 'turn').length,
         notes: payload.nodes.filter((n) => n.boardId === b.id && n.kind === 'note').length,
         code: payload.bundles.some((x) => x.boardId === b.id),
+        fullAccess: b.permissionMode === 'bypassPermissions',
       };
     }),
   };
@@ -206,7 +244,22 @@ export async function applyImport(id: string, folders: Record<string, string>): 
     }
     const notes: string[] = [];
     const root = await g.repoRoot(cwd);
-    const board: Board = { ...old, cwd, repoRoot: root ?? undefined, relPath: root ? path.relative(root, cwd) : undefined };
+    // Only known fields. Full access never comes from a file: you turn that on yourself, here.
+    const mode = MODES.has(old.permissionMode) && old.permissionMode !== 'bypassPermissions' ? old.permissionMode : 'default';
+    if (old.permissionMode === 'bypassPermissions') notes.push('Full access was switched to Ask me. Turn it back on in board settings if you want it.');
+    const board: Board = {
+      id: old.id,
+      name: String(old.name).slice(0, 80),
+      cwd,
+      repoRoot: root ?? undefined,
+      relPath: root ? path.relative(root, cwd) : undefined,
+      isolation: old.isolation === 'none' ? 'none' : 'worktree',
+      permissionMode: mode,
+      model: typeof old.model === 'string' ? old.model.slice(0, 80) : undefined,
+      createdAt: Number.isFinite(old.createdAt) ? old.createdAt : Date.now(),
+      links: (Array.isArray(old.links) ? old.links : []).filter((l) => l && ID.test(l.id) && ID.test(l.source) && ID.test(l.target)),
+      learn: old.learn && typeof old.learn === 'object' ? { on: old.learn.on !== false, level: old.learn.level ?? 'growing' } : undefined,
+    };
     if (board.isolation === 'worktree' && !root) {
       board.isolation = 'none';
       notes.push('Not a git repo here, so branches share the folder.');
@@ -219,7 +272,11 @@ export async function applyImport(id: string, folders: Record<string, string>): 
       const file = path.join(os.tmpdir(), `forkspace-${nanoid(8)}.bundle`);
       fs.writeFileSync(file, Buffer.from(bundle.data, 'base64'));
       try {
-        await run('git', ['fetch', '-q', '--no-tags', file, 'refs/heads/forkspace/*:refs/heads/forkspace/*'], { cwd: root });
+        const refs = payload.branches
+          .filter((b) => b.boardId === old.id && b.gitBranch === `forkspace/${b.id}`)
+          .map((b) => `refs/heads/forkspace/${b.id}:refs/heads/forkspace/${b.id}`);
+        if (!refs.length) throw new Error('no branches');
+        await run('git', ['fetch', '-q', '--no-tags', file, ...refs], { cwd: root });
         fetched = true;
       } catch (err: any) {
         const missing = /prerequisite|lacks these/i.test(String(err?.stderr ?? err?.message));
@@ -229,7 +286,9 @@ export async function applyImport(id: string, folders: Record<string, string>): 
       }
     }
 
-    const branches = payload.branches.filter((b) => b.boardId === old.id).map((b) => ({ ...b }));
+    const branches: Branch[] = payload.branches
+      .filter((b) => b.boardId === old.id)
+      .map((b) => ({ id: b.id, boardId: b.boardId, cwd, worktree: b.worktree, gitBranch: b.gitBranch === `forkspace/${b.id}` ? b.gitBranch : undefined, headNodeId: ID.test(b.headNodeId ?? '') ? b.headNodeId : undefined, imported: !!b.imported }));
     let lostCode = false;
     for (const b of branches) {
       const hadCode = !!b.worktree;
@@ -239,10 +298,10 @@ export async function applyImport(id: string, folders: Record<string, string>): 
       if (fetched && b.gitBranch && root) {
         const dir = path.join(HOME, 'worktrees', board.id, b.id);
         try {
-          if (!fs.existsSync(dir)) {
-            fs.mkdirSync(path.dirname(dir), { recursive: true });
-            await g.git(root, 'worktree', 'add', '-q', dir, b.gitBranch);
-          }
+          // Never adopt a folder that's already there.
+          if (fs.existsSync(dir)) throw new Error('exists');
+          fs.mkdirSync(path.dirname(dir), { recursive: true });
+          await g.git(root, 'worktree', 'add', '-q', dir, b.gitBranch);
           b.worktree = dir;
           b.cwd = board.relPath ? path.join(dir, board.relPath) : dir;
           continue;
@@ -255,7 +314,8 @@ export async function applyImport(id: string, folders: Record<string, string>): 
 
     const nodes = payload.nodes
       .filter((n) => n.boardId === old.id)
-      .map((n) => (n.kind === 'turn' && (n.status === 'running' || n.status === 'waiting') ? { ...n, status: 'stopped' as const, pending: undefined, learning: false } : n));
+      .map((n) => (n.kind === 'turn' && (n.status === 'running' || n.status === 'waiting') ? { ...n, status: 'stopped' as const, pending: undefined, learning: false } : n))
+      .filter((n) => !state.nodes.some((x) => x.id === n.id));
 
     // Conversations: put each transcript where Claude Code looks for it from its branch's folder.
     let restored = 0;

@@ -21,9 +21,18 @@ function load(): State {
         n.events = n.events.filter((e) => !(e.t === 'text' && e.partial));
       }
     }
-    for (const b of s.boards) b.links ??= [];
+    if (!Array.isArray(s.boards) || !Array.isArray(s.branches) || !Array.isArray(s.nodes)) throw new Error('state file is missing data');
+    for (const b of s.boards) if (!Array.isArray(b.links)) b.links = [];
     return s;
-  } catch {
+  } catch (err: any) {
+    if (err?.code !== 'ENOENT' && fs.existsSync(FILE)) {
+      // Keep the broken file for recovery instead of overwriting it with an empty workspace.
+      const keep = `${FILE}.broken-${Date.now()}`;
+      try {
+        fs.renameSync(FILE, keep);
+      } catch {}
+      console.error(`\n  Forkspace could not read ${FILE} (${err?.message}). It was kept as ${keep}. Starting with an empty workspace.\n`);
+    }
     return { boards: [], branches: [], nodes: [] };
   }
 }

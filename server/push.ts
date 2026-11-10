@@ -28,6 +28,11 @@ webpush.setVapidDetails('mailto:forkspace@example.com', ps.publicKey, ps.private
 
 export const publicKey = () => ps.publicKey;
 export const subscriptionCount = () => ps.subs.length;
+/** Signing out other devices: they must not keep getting notifications either. */
+export function clearSubscriptions() {
+  ps.subs = [];
+  persist();
+}
 
 export function subscribe(sub: PushSubscription) {
   if (!sub?.endpoint) throw new Error('Bad subscription');
