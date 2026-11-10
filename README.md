@@ -108,13 +108,13 @@ Why an API key and not your Claude.ai login? Anthropic asks apps built on Claude
 
 ## Away mode
 
-Stepping away? Turn on **Away mode** (sidebar, or the top of Settings). Your computer stays awake while Forkspace runs, so agents keep working and your phone can reach it.
+Stepping away? Click **Away mode** in the sidebar. Your computer stays awake while Forkspace runs, and the screen turns into a calm away screen: the time, what your agents are doing, and whether your phone is connected. Click **I'm back** for a summary of what happened.
 
 - macOS uses `caffeinate`, Windows its own power settings, Linux `systemd-inhibit`. It stops by itself if Forkspace stops.
 - Optional: keep the screen on too.
 - It stays on across restarts and updates until you turn it off.
 - On a MacBook, stay plugged in and leave the lid open. A closed or unplugged laptop can still sleep, and Forkspace tells you when you're on battery.
-- No phone connected yet? Away mode walks you through it: run in the background, install Tailscale, turn on phone access, scan a code, turn on notifications. Each step ticks itself off.
+- No phone connected yet? **Bring your phone along** walks you through it one step at a time, right on the away screen. Each step moves on by itself.
 
 ## Moving to another Mac
 

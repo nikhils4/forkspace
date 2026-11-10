@@ -56,7 +56,7 @@ export function MoveSection() {
   return (
     <section className="card-section">
       <h3>
-        <Icon name="download" size={16} /> Move to another Mac
+        <Icon name="folder" size={16} /> Move to another Mac
       </h3>
       <p className="faint">
         One file with every board, step, note and concept, the conversations behind them, and each branch's code. Your access key and paired phones stay on this Mac.

@@ -73,7 +73,7 @@ export function UpdateSection() {
   return (
     <section className="card-section">
       <h3>
-        <Icon name="download" size={16} /> Forkspace
+        <Icon name="refresh" size={16} /> Updates
       </h3>
       <div className="setting-row">
         <div className="setting-text">

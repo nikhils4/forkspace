@@ -4,7 +4,7 @@ import type { Board, TurnNode } from '../shared/types.ts';
 import { BoardSettings, MODES, NewBoard } from './BoardForms.tsx';
 import { Canvas } from './Canvas.tsx';
 import { Chat } from './Chat.tsx';
-import { AwayLink } from './Away.tsx';
+import { AwayLink, AwayScreen, goAway } from './Away.tsx';
 import { bugReportUrl, ideaUrl } from './feedback.ts';
 import { ContextMenu, type MenuItem } from './ContextMenu.tsx';
 import { CodeView, fileCache } from './CodeView.tsx';
@@ -20,7 +20,7 @@ import { setTheme, useResolvedTheme } from './theme.ts';
 import { placeFor } from './layout.ts';
 import { useInstall } from './pwa.ts';
 import { Palette, type PaletteItem } from './Palette.tsx';
-import { Settings } from './Settings.tsx';
+import { Settings, settingsTab } from './Settings.tsx';
 import { request, send, toast, useStore } from './store.ts';
 import { branchColor, STATUS_LABEL } from './nodes.tsx';
 import { isLive, isTurn, latestLeaf, leaves } from './tree.ts';
@@ -264,7 +264,7 @@ function Shell() {
     paletteItems.push(
       { id: 'a-new', group: 'Actions', label: 'New thread', icon: 'plus', run: () => (setTargetId(null), setTab('board'), setTimeout(() => composerFocus.current?.focus(), 50)) },
       { id: 'a-board', group: 'Actions', label: 'New board', icon: 'folder', run: () => setSheet('new') },
-      { id: 'a-devices', group: 'Actions', label: 'Devices and phone', icon: 'phone', run: () => (mobile ? setTab('devices') : setSheet('devices')) },
+      { id: 'a-devices', group: 'Actions', label: 'Set up your phone', icon: 'phone', run: () => (settingsTab('phone'), mobile ? setTab('devices') : setSheet('devices')) },
     );
     paletteItems.push(
       { id: 'a-bug', group: 'Actions', label: 'Report a bug', icon: 'external', run: () => open(bugReportUrl(), '_blank') },
@@ -272,7 +272,8 @@ function Shell() {
     );
     if (board) paletteItems.push({ id: 'a-settings', group: 'Actions', label: 'Board settings', icon: 'settings', run: () => setSheet('board') });
     if (board) paletteItems.push({ id: 'a-import', group: 'Actions', label: 'Bring in Claude Code sessions', icon: 'download', run: () => setSheet('import') });
-    paletteItems.push({ id: 'a-update', group: 'Actions', label: 'Check for updates', icon: 'refresh', run: () => (mobile ? setTab('devices') : setSheet('devices')) });
+    paletteItems.push({ id: 'a-away', group: 'Actions', label: 'Away mode', hint: 'Keep this computer awake', icon: 'moon', run: goAway });
+    paletteItems.push({ id: 'a-update', group: 'Actions', label: 'Check for updates', icon: 'refresh', run: () => (settingsTab('updates'), mobile ? setTab('devices') : setSheet('devices')) });
     paletteItems.push({ id: 'a-learn', group: 'Actions', label: 'Concepts I’ve learned', icon: 'spark', run: () => (mobile ? setTab('learn') : setSheet('learn')) });
     for (const b of store.boards) paletteItems.push({ id: `b-${b.id}`, group: 'Boards', label: b.name, hint: b.cwd.replace(store.home, '~'), icon: 'grid', run: () => (setBoardId(b.id), setTab('board')) });
     if (board)
@@ -443,6 +444,7 @@ function Shell() {
         </nav>
         {openNode && <Drawer node={openNode} onClose={() => setOpenId(null)} />}
         {sheets}
+      <AwayScreen onGoTo={goTo} />
       </div>
     );
   }
@@ -488,9 +490,9 @@ function Shell() {
         </div>
 
         <div className="side-foot">
-          <UpdatePill onOpen={() => setSheet('devices')} />
+          <UpdatePill onOpen={() => (settingsTab('updates'), setSheet('devices'))} />
           <InstallButton />
-          <AwayLink onOpen={() => setSheet('devices')} />
+          <AwayLink />
           <button className="side-link" onClick={() => setSheet('learn')}>
             <Icon name="spark" size={15} /> Concepts
             {lessonCount > 0 && <span className="count">{lessonCount}</span>}
@@ -541,6 +543,7 @@ function Shell() {
 
       {openNode && <Drawer node={openNode} onClose={() => setOpenId(null)} />}
       {sheets}
+      <AwayScreen onGoTo={goTo} />
     </div>
   );
 }

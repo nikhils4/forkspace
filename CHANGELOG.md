@@ -3,6 +3,13 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.5.0
+
+- Away mode is now a full screen: a calm moving wallpaper, the time, what your agents are doing, and a welcome back summary
+- Bringing your phone along is one step at a time, right on the away screen
+- Opening Forkspace while away mode is on takes you straight to the away screen
+- Settings is tidier: General, Phone, Away, Updates and Help
+
 ## 0.4.0
 
 - Away mode: keeps your computer awake while you're gone (Mac, Windows, Linux), with phone setup step by step

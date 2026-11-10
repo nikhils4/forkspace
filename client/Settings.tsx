@@ -260,7 +260,7 @@ function AlwaysOn() {
   return (
     <section className="card-section">
       <h3>
-        <Icon name="refresh" size={16} /> Always on
+        <Icon name="refresh" size={16} /> Run in the background
       </h3>
       <div className="setting-row">
         <div className="setting-text">
@@ -300,96 +300,132 @@ function AlwaysOn() {
   );
 }
 
+type Tab = 'general' | 'phone' | 'away' | 'updates' | 'help';
+const TABS: { value: Tab; label: string }[] = [
+  { value: 'general', label: 'General' },
+  { value: 'phone', label: 'Phone' },
+  { value: 'away', label: 'Away' },
+  { value: 'updates', label: 'Updates' },
+  { value: 'help', label: 'Help' },
+];
+
+let current: Tab = (() => {
+  try {
+    return (localStorage.getItem('forkspace:settings-tab') as Tab) || 'general';
+  } catch {
+    return 'general';
+  }
+})();
+/** Open Settings on a given tab (call before showing it). */
+export const settingsTab = (t: Tab) => (current = t);
+
 export function Settings() {
   const local = isLocalPage();
+  const [tab, setTab] = useState<Tab>(current);
   const [info, setInfo] = useState<RemoteInfo | null>(null);
   useEffect(() => {
     request<RemoteInfo>({ type: 'remoteInfo' }).then(setInfo, () => {});
   }, []);
+  const pick = (t: Tab) => {
+    current = t;
+    setTab(t);
+    try {
+      localStorage.setItem('forkspace:settings-tab', t);
+    } catch {}
+  };
   const base = local ? (info?.tailscale.serving ? info.tailscale.url : info?.publicUrl) : location.origin;
 
   return (
     <div className="settings">
-      <AwaySection />
-      <section className="card-section">
-        <h3>
-          <Icon name="phone" size={16} /> Use Forkspace on your phone
-        </h3>
-        <p className="faint">Agents keep running on this Mac. Your phone is a remote control, so the Mac must be awake with Forkspace running.</p>
-        {local && <RemoteAccess info={info} setInfo={setInfo} />}
-      </section>
+      <div className="settings-tabs">
+        <Segmented<Tab> value={tab} onChange={pick} options={TABS} />
+      </div>
 
-      <section className="card-section">
-        <h3>
-          <Icon name="lock" size={16} /> Pair a device
-        </h3>
-        {local && !base ? (
-          <p className="faint">Finish the steps above first, then a QR code appears here.</p>
-        ) : (
-          <PairPanel base={base} />
-        )}
-      </section>
+      {tab === 'general' && (
+        <>
+          <Appearance />
+          <section className="card-section">
+            <h3>
+              <Icon name="bell" size={16} /> This device
+            </h3>
+            <Notifications />
+            <Install />
+          </section>
+        </>
+      )}
 
-      <section className="card-section">
-        <h3>
-          <Icon name="bell" size={16} /> This device
-        </h3>
-        <Notifications />
-        <Install />
-      </section>
+      {tab === 'phone' && (
+        <section className="card-section">
+          <h3>
+            <Icon name="phone" size={16} /> {local ? 'Use Forkspace on your phone' : 'Add another device'}
+          </h3>
+          <p className="faint">Agents run on this computer. Your phone is the remote, over your own private network.</p>
+          {local && <RemoteAccess info={info} setInfo={setInfo} />}
+          {base ? <PairPanel base={base} /> : <p className="faint small">Finish the steps above and a code to scan appears here.</p>}
+        </section>
+      )}
 
-      <Appearance />
+      {tab === 'away' && (
+        <>
+          <AwaySection />
+          <AlwaysOn />
+        </>
+      )}
 
-      <AlwaysOn />
+      {tab === 'updates' && (
+        <>
+          <UpdateSection />
+          <MoveSection />
+        </>
+      )}
 
-      <UpdateSection />
-
-      <MoveSection />
-
-      <section className="card-section">
-        <h3>
-          <Icon name="chat" size={16} /> Help and feedback
-        </h3>
-        <p className="faint">Opens GitHub with your version and device filled in. You review it and send it from your own account.</p>
-        <div className="feedback-links">
-          <a className="btn sm" href={bugReportUrl()} target="_blank" rel="noreferrer">
-            <Icon name="external" size={13} /> Report a bug
-          </a>
-          <a className="btn sm" href={ideaUrl()} target="_blank" rel="noreferrer">
-            <Icon name="spark" size={13} /> Suggest an idea
-          </a>
-          <a className="btn sm" href={questionUrl()} target="_blank" rel="noreferrer">
-            <Icon name="chat" size={13} /> Ask a question
-          </a>
-        </div>
-      </section>
-
-      <section className="card-section">
-        <h3>
-          <Icon name="shield" size={16} /> Security
-        </h3>
-        <div className="setting-row">
-          <div className="setting-text">
-            <b>Sign out all other devices</b>
-            <span>Makes a new access key. Every paired phone or browser has to pair again.</span>
-          </div>
-          <button
-            className="btn danger sm"
-            onClick={async () => {
-              if (!confirm('Sign out every other device?')) return;
-              try {
-                const { token } = await request<{ token: string }>({ type: 'rotateToken' });
-                setToken(token);
-                toast('Other devices signed out');
-              } catch (e: any) {
-                toast(e.message, 'error');
-              }
-            }}
-          >
-            Sign out others
-          </button>
-        </div>
-      </section>
+      {tab === 'help' && (
+        <>
+          <section className="card-section">
+            <h3>
+              <Icon name="chat" size={16} /> Help and feedback
+            </h3>
+            <p className="faint">Opens GitHub with your version and device filled in. You check it and send it from your own account.</p>
+            <div className="feedback-links">
+              <a className="btn sm" href={bugReportUrl()} target="_blank" rel="noreferrer">
+                <Icon name="external" size={13} /> Report a bug
+              </a>
+              <a className="btn sm" href={ideaUrl()} target="_blank" rel="noreferrer">
+                <Icon name="spark" size={13} /> Suggest an idea
+              </a>
+              <a className="btn sm" href={questionUrl()} target="_blank" rel="noreferrer">
+                <Icon name="chat" size={13} /> Ask a question
+              </a>
+            </div>
+          </section>
+          <section className="card-section">
+            <h3>
+              <Icon name="shield" size={16} /> Security
+            </h3>
+            <div className="setting-row">
+              <div className="setting-text">
+                <b>Sign out all other devices</b>
+                <span>Makes a new access key. Every paired phone or browser pairs again, and stops getting notifications.</span>
+              </div>
+              <button
+                className="btn danger sm"
+                onClick={async () => {
+                  if (!confirm('Sign out every other device?')) return;
+                  try {
+                    const { token } = await request<{ token: string }>({ type: 'rotateToken' });
+                    setToken(token);
+                    toast('Other devices signed out');
+                  } catch (e: any) {
+                    toast(e.message, 'error');
+                  }
+                }}
+              >
+                Sign out others
+              </button>
+            </div>
+          </section>
+        </>
+      )}
     </div>
   );
 }
