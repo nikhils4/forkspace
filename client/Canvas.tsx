@@ -337,7 +337,7 @@ export function Canvas({
     const isHead = store.branches[node.branchId]?.headNodeId === node.id;
     const gone = subtree(node.id).length;
     const out: MenuItem[] = [];
-    if (!live) out.push({ label: node.completed ? 'Mark not complete' : 'Mark complete', icon: 'check', onClick: () => send({ type: 'setCompleted', nodeId: node.id, completed: !node.completed }) });
+    if (!node.parentId) out.push({ label: node.completed ? 'Reopen thread' : 'Mark thread complete', icon: 'check', onClick: () => send({ type: 'setCompleted', nodeId: node.id, completed: !node.completed }) });
     if (live) out.push({ label: 'Stop', icon: 'stop', onClick: () => send({ type: 'stop', nodeId: node.id }) });
     else if (node.sessionId) out.push({ label: isHead ? 'Reply' : 'Branch from here', icon: isHead ? 'chat' : 'branch', hint: 'R', onClick: () => onReply(node.id) });
     out.push(

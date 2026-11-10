@@ -3,6 +3,12 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.7.2
+
+- One circle per thread, above its first card: click it to complete the thread and fade it back
+- Concepts opens on the map; the list is now a grid of cards with area filters, and both share a detail panel
+- Updating no longer shows "disconnected": every screen says it's updating and comes back on its own
+
 ## 0.7.1
 
 - Concepts is a full page now, opened from the top of the sidebar (Esc or a board takes you back)

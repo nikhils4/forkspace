@@ -60,6 +60,8 @@ export function UpdateSection() {
       }
       // When it restarts, the page reloads by itself once the new version is up.
     } catch (e: any) {
+      // The server restarts before it can answer: that's the update working, not an error.
+      if (/Disconnected/.test(e.message)) return;
       toast(e.message, 'error');
       setRunning(false);
     }

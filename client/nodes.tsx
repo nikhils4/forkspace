@@ -214,23 +214,28 @@ export interface TurnData extends Record<string, unknown> {
   faded?: boolean;
 }
 
-/** The circle at the top of a finished card: click to mark the step complete. */
-function CompleteCircle({ node }: { node: TurnNode }) {
-  if (isLive(node)) return null;
+/**
+ * One circle per thread, floating above its first card and joined to it by a short line.
+ * Click it when the thread is finished: it fills with a green tick and the whole thread fades back.
+ */
+function ThreadDone({ node }: { node: TurnNode }) {
   const on = !!node.completed;
   return (
-    <button
-      className={`complete-circle nodrag ${on ? 'on' : ''}`}
-      title={on ? 'Completed. Click to undo' : 'Mark complete'}
-      aria-label={on ? 'Mark not complete' : 'Mark complete'}
-      aria-pressed={on}
-      onClick={(e) => {
-        e.stopPropagation();
-        send({ type: 'setCompleted', nodeId: node.id, completed: !on });
-      }}
-    >
-      <Icon name="check" size={11} strokeWidth={3} />
-    </button>
+    <div className={`thread-done nodrag ${on ? 'on' : ''}`}>
+      <button
+        className="complete-circle"
+        title={on ? 'Thread complete. Click to reopen' : 'Mark this thread complete'}
+        aria-label={on ? 'Reopen thread' : 'Mark thread complete'}
+        aria-pressed={on}
+        onClick={(e) => {
+          e.stopPropagation();
+          send({ type: 'setCompleted', nodeId: node.id, completed: !on });
+        }}
+      >
+        <Icon name="check" size={13} strokeWidth={3} />
+      </button>
+      <span className="thread-done-line" />
+    </div>
   );
 }
 
@@ -265,12 +270,14 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
   const lessons = node.lessons ?? [];
   const summary = live ? '' : lastText(node);
 
+  const root = !node.parentId;
   if (far)
     return (
+      <>
+      {root && <ThreadDone node={node} />}
       <div className={`turn far status-${node.status} ${isTarget ? 'target' : ''} ${dim}`} style={{ ['--branch' as any]: color }}>
         <Handle type="target" position={Position.Top} />
         <div className="far-status">
-          <CompleteCircle node={node} />
           <StatusDot status={node.status} />
           {STATUS_LABEL[node.status]}
           {lessons.length > 0 && (
@@ -282,14 +289,16 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
         <div className="far-prompt">{node.prompt}</div>
         <Handle type="source" position={Position.Bottom} />
       </div>
+      </>
     );
 
   return (
+    <>
+    {root && <ThreadDone node={node} />}
     <div className={`turn status-${node.status} ${isTarget ? 'target' : ''} ${isFresh(node.createdAt) ? 'fresh' : ''} ${dim}`} style={{ ['--branch' as any]: color }}>
       <Handle type="target" position={Position.Top} />
       {live && <div className="turn-progress" />}
       <div className="turn-head">
-        <CompleteCircle node={node} />
         {!node.completed && <StatusDot status={node.status} />}
         <span className="status-label">{node.completed ? 'Completed' : STATUS_LABEL[node.status]}</span>
         <span className="spacer" />
@@ -388,6 +397,7 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
       </div>
       <Handle type="source" position={Position.Bottom} />
     </div>
+    </>
   );
 });
 

@@ -152,22 +152,32 @@ export function LearnLibrary({ onOpen }: { onOpen: (t: TurnNode) => void }) {
   useTick();
   const { nodes } = useStore();
   const [q, setQ] = useState('');
-  const [view, setView] = useState<'list' | 'map'>(() => {
+  const [area, setArea] = useState<string | null>(null);
+  const [sel, setSel] = useState<string | null>(null);
+  const [view, setView] = useState<'map' | 'list'>(() => {
     try {
-      return (localStorage.getItem('forkspace:concepts-view') as 'list' | 'map') || 'list';
+      return (localStorage.getItem('forkspace:concepts-view2') as 'map' | 'list') || 'map';
     } catch {
-      return 'list';
+      return 'map';
     }
   });
-  const pick = (v: 'list' | 'map') => {
+  const pick = (v: 'map' | 'list') => {
     setView(v);
     try {
-      localStorage.setItem('forkspace:concepts-view', v);
+      localStorage.setItem('forkspace:concepts-view2', v);
     } catch {}
   };
   const groups = useMemo(() => groupConcepts(nodes), [nodes]);
+  const byKey = useMemo(() => new Map(groups.map((g) => [g.key, g])), [groups]);
+  const areas = useMemo(() => {
+    const order = [...CONCEPT_AREAS, 'Not sorted yet'] as string[];
+    return [...new Set(groups.map((g) => g.area ?? 'Not sorted yet'))].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  }, [groups]);
   const needle = q.trim().toLowerCase();
-  const shown = groups.filter((g) => !needle || `${g.lesson.title} ${g.lesson.body} ${g.key} ${g.area ?? ''}`.toLowerCase().includes(needle));
+  const shown = groups.filter(
+    (g) => (!area || (g.area ?? 'Not sorted yet') === area) && (!needle || `${g.lesson.title} ${g.lesson.body} ${g.key} ${g.area ?? ''}`.toLowerCase().includes(needle)),
+  );
+  const current = sel ? byKey.get(sel) : undefined;
 
   if (!groups.length)
     return (
@@ -188,36 +198,107 @@ export function LearnLibrary({ onOpen }: { onOpen: (t: TurnNode) => void }) {
       <div className="lib-head">
         <div className="lib-count">
           <b>{groups.length}</b> concept{groups.length === 1 ? '' : 's'}
+          <span className="faint"> · {areas.length} area{areas.length === 1 ? '' : 's'}</span>
         </div>
-        <Segmented<'list' | 'map'>
+        <div className="code-search lib-search">
+          <Icon name="spark" size={14} />
+          <input value={q} placeholder="Search concepts…" onChange={(e) => setQ(e.target.value)} />
+        </div>
+        <Segmented<'map' | 'list'>
           value={view}
           onChange={pick}
           options={[
-            { value: 'list', label: 'List' },
             { value: 'map', label: 'Map' },
+            { value: 'list', label: 'List' },
           ]}
         />
       </div>
-      {view === 'list' ? (
-        <>
-          <div className="code-search lib-search">
-            <Icon name="spark" size={14} />
-            <input value={q} placeholder="Search concepts…" onChange={(e) => setQ(e.target.value)} />
-          </div>
-          <div className="lib-list">
-            {shown.map((g) => (
-              <div key={g.key} className="lib-item">
-                <ConceptCard lesson={g.lesson} compact />
-                <SeenIn g={g} onOpen={onOpen} />
-              </div>
-            ))}
-            {!shown.length && <div className="faint pad">No concepts match.</div>}
-          </div>
-        </>
-      ) : (
-        <ConceptMap groups={groups} onOpen={onOpen} />
-      )}
+      <div className="lib-areas">
+        <button className={`area-chip ${!area ? 'on' : ''}`} onClick={() => setArea(null)}>
+          All
+        </button>
+        {areas.map((a) => (
+          <button key={a} className={`area-chip ${area === a ? 'on' : ''}`} onClick={() => setArea(area === a ? null : a)}>
+            <i style={{ background: areaColor(a) }} />
+            {a}
+          </button>
+        ))}
+      </div>
+
+      <div className={`lib-body ${current ? 'has-sel' : ''}`}>
+        <div className="lib-main">
+          {view === 'map' ? (
+            <ConceptMap groups={shown} all={byKey} sel={sel} setSel={setSel} />
+          ) : (
+            <div className="concept-grid">
+              {shown.map((g) => (
+                <button key={g.key} className={`concept-tile ${sel === g.key ? 'on' : ''}`} onClick={() => setSel(sel === g.key ? null : g.key)}>
+                  <span className="tile-area">
+                    <i style={{ background: areaColor(g.area ?? 'Not sorted yet') }} />
+                    {g.area ?? 'Not sorted yet'}
+                  </span>
+                  <span className="tile-name">{conceptName(g)}</span>
+                  <span className="tile-body">{g.lesson.body}</span>
+                  <span className="tile-foot">
+                    {(() => {
+                      const steps = new Set(g.seen.map((x) => x.t.id)).size;
+                      return steps > 1 ? `Seen in ${steps} steps` : 'Learned once';
+                    })()}
+                    {g.related.size > 0 && ` · ${g.related.size} link${g.related.size === 1 ? '' : 's'}`}
+                    <span className="spacer" />
+                    {timeAgo(g.last)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+          {!shown.length && <div className="faint pad">No concepts match.</div>}
+        </div>
+        <aside className="cmap-side">
+          {current ? (
+            <ConceptDetail g={current} all={byKey} onPick={setSel} onOpen={onOpen} />
+          ) : (
+            <div className="cmap-hint">
+              <span className="mentor-orb" />
+              <p>Pick a concept to read it, see what it connects to, and jump to where you learned it.</p>
+            </div>
+          )}
+        </aside>
+      </div>
     </div>
+  );
+}
+
+const AREA_COLORS = ['#8b9cff', '#3ecf8e', '#f5a524', '#ff7a90', '#5ec8e5', '#c084fc', '#f97316', '#a3e635', '#e879f9', '#38bdf8', '#fbbf24', '#2dd4bf', '#f472b6', '#94a3b8', '#facc15'];
+/** A steady colour per area, so the map and list match. */
+export const areaColor = (a: string) => {
+  const i = (CONCEPT_AREAS as readonly string[]).indexOf(a);
+  return i < 0 ? 'var(--text-3)' : AREA_COLORS[i % AREA_COLORS.length];
+};
+
+function ConceptDetail({ g, all, onPick, onOpen }: { g: ConceptGroup; all: Map<string, ConceptGroup>; onPick: (k: string) => void; onOpen: (t: TurnNode) => void }) {
+  return (
+    <>
+      <div className="cmap-side-area">
+        <i style={{ background: areaColor(g.area ?? '') }} />
+        {g.area ?? 'Not sorted yet'}
+      </div>
+      <h2 className="detail-name">{conceptName(g)}</h2>
+      <ConceptCard key={g.key} lesson={g.lesson} />
+      {g.related.size > 0 && (
+        <div className="cmap-links">
+          <span className="faint small">Connects to</span>
+          <div className="cmap-pills">
+            {[...g.related].map((k) => (
+              <button key={k} className="cmap-pill linked" onClick={() => onPick(k)}>
+                {all.has(k) ? conceptName(all.get(k)!) : k}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <SeenIn g={g} onOpen={onOpen} />
+    </>
   );
 }
 
@@ -234,16 +315,14 @@ export const conceptName = (g: ConceptGroup) =>
     : g.lesson.title.split(':')[0];
 
 /** Concepts grouped by where they live in tech, with the links between them. */
-function ConceptMap({ groups, onOpen }: { groups: ConceptGroup[]; onOpen: (t: TurnNode) => void }) {
-  const [sel, setSel] = useState<string | null>(null);
+function ConceptMap({ groups, all, sel, setSel }: { groups: ConceptGroup[]; all: Map<string, ConceptGroup>; sel: string | null; setSel: (k: string | null) => void }) {
   const [sorting, setSorting] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
   const [lines, setLines] = useState<{ d: string; k: string }[]>([]);
-  const byKey = useMemo(() => new Map(groups.map((g) => [g.key, g])), [groups]);
-  const current = sel ? byKey.get(sel) : undefined;
+  const current = sel ? all.get(sel) : undefined;
 
   // Older concepts have no area yet: sort them once, in the background.
-  const untagged = groups.filter((g) => !g.area).length;
+  const untagged = [...all.values()].filter((g) => !g.area).length;
   useEffect(() => {
     if (!untagged || organizedThisSession) return;
     organizedThisSession = true;
@@ -294,68 +373,38 @@ function ConceptMap({ groups, onOpen }: { groups: ConceptGroup[]; onOpen: (t: Tu
   }, [current, groups]);
 
   return (
-    <div className={`cmap ${current ? 'has-sel' : ''}`}>
-      <div className="cmap-areas" ref={wrap} onClick={(e) => e.target === e.currentTarget && setSel(null)}>
-        <svg className="cmap-lines" aria-hidden>
-          {lines.map((l) => (
-            <path key={l.k} d={l.d} />
-          ))}
-        </svg>
-        {sorting && (
-          <div className="cmap-sorting">
-            <span className="mentor-orb small" /> <span className="shimmer-text">Sorting your concepts into the map…</span>
-          </div>
-        )}
-        {areas.map(([area, list]) => (
-          <div key={area} className="cmap-area">
-            <div className="cmap-area-head">
-              <span>{area}</span>
-              <em>{list.length}</em>
-            </div>
-            <div className="cmap-pills">
-              {list.map((g) => (
-                <button
-                  key={g.key}
-                  data-key={g.key}
-                  className={`cmap-pill ${sel === g.key ? 'on' : ''} ${current && current.related.has(g.key) ? 'linked' : ''} ${current && sel !== g.key && !current.related.has(g.key) ? 'dim' : ''}`}
-                  onClick={() => setSel(sel === g.key ? null : g.key)}
-                >
-                  {conceptName(g)}
-                  {g.seen.length > 1 && <i>{g.seen.length}</i>}
-                </button>
-              ))}
-            </div>
-          </div>
+    <div className="cmap-areas" ref={wrap} onClick={(e) => e.target === e.currentTarget && setSel(null)}>
+      <svg className="cmap-lines" aria-hidden>
+        {lines.map((l) => (
+          <path key={l.k} d={l.d} />
         ))}
-      </div>
-      <aside className="cmap-side">
-        {current ? (
-          <>
-            <div className="cmap-side-area">
-              {conceptName(current)} · {current.area ?? 'Not sorted yet'}
-            </div>
-            <ConceptCard lesson={current.lesson} />
-            {current.related.size > 0 && (
-              <div className="cmap-links">
-                <span className="faint small">Connects to</span>
-                <div className="cmap-pills">
-                  {[...current.related].map((k) => (
-                    <button key={k} className="cmap-pill linked" onClick={() => setSel(k)}>
-                      {byKey.has(k) ? conceptName(byKey.get(k)!) : k}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            <SeenIn g={current} onOpen={onOpen} />
-          </>
-        ) : (
-          <div className="cmap-hint">
-            <span className="mentor-orb" />
-            <p>Pick a concept to read it, see what it connects to, and jump to where you learned it.</p>
+      </svg>
+      {sorting && (
+        <div className="cmap-sorting">
+          <span className="mentor-orb small" /> <span className="shimmer-text">Sorting your concepts into the map…</span>
+        </div>
+      )}
+      {areas.map(([area, list]) => (
+        <div key={area} className="cmap-area" style={{ ['--area' as any]: areaColor(area) }}>
+          <div className="cmap-area-head">
+            <span>{area}</span>
+            <em>{list.length}</em>
           </div>
-        )}
-      </aside>
+          <div className="cmap-pills">
+            {list.map((g) => (
+              <button
+                key={g.key}
+                data-key={g.key}
+                className={`cmap-pill ${sel === g.key ? 'on' : ''} ${current && current.related.has(g.key) ? 'linked' : ''} ${current && sel !== g.key && !current.related.has(g.key) ? 'dim' : ''}`}
+                onClick={() => setSel(sel === g.key ? null : g.key)}
+              >
+                {conceptName(g)}
+                {g.seen.length > 1 && <i>{g.seen.length}</i>}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

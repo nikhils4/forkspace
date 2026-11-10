@@ -52,7 +52,7 @@ Maintainers: add a section to CHANGELOG.md, then `npm run release -- 0.3.0` (or 
 - **Step:** one prompt and everything the agent did for it.
 - **Reply** to the latest step to continue. **Branch** from any earlier step to try another idea. The agent remembers the conversation up to that step and nothing after it.
 - **Notes:** double-click the canvas (or press `n`). Drag between dots to link anything.
-- **Complete:** click the circle at the top of a finished card to mark it done. It and everything after it fade back, so what's left stands out.
+- **Complete:** each thread has a circle above its first card. Click it when the thread is finished: it fills with a green tick and the whole thread fades back, so what's left stands out.
 
 ### Three views
 

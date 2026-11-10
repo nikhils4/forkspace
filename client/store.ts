@@ -203,6 +203,8 @@ export async function connect() {
   sock.onmessage = (e) => onMessage(JSON.parse(e.data));
   sock.onclose = (e) => {
     if (ws !== sock) return;
+    // 1012 = the server is restarting on purpose (an update, or moving to the background).
+    if (e.code === 1012 && !(snap.update && !snap.update.done)) set({ update: { stage: e.reason || 'Restarting…' } });
     set({ connected: false });
     for (const w of waiting.values()) w.reject(new Error('Disconnected'));
     waiting.clear();
