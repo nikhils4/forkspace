@@ -123,10 +123,12 @@ export function Composer({ target, board, onSubmit, onClear, drawerOpen }: { tar
 
   const go = async () => {
     if (!canSend) return;
-    // Still dictating? Stop the microphone; what it heard so far is already in the box.
-    stopDictation();
     setBusy(true);
-    if (await onSubmit(text.trim(), ready)) {
+    // Still dictating? Stop the microphone and send what it heard, tidied.
+    const dictated = await stopDictation();
+    const prompt = (dictated ?? text).trim();
+    if (dictated !== null) setText(dictated);
+    if (await onSubmit(prompt, ready)) {
       setText('');
       atts.forEach((a) => a.preview && URL.revokeObjectURL(a.preview));
       setAtts([]);
@@ -222,7 +224,7 @@ export function Composer({ target, board, onSubmit, onClear, drawerOpen }: { tar
               if (e.key === 'Escape') (e.target as HTMLTextAreaElement).blur();
             }}
           />
-          <MicButton text={text} setText={(v) => setText(v)} onStop={() => ref.current?.focus()} />
+          <MicButton text={text} setText={(v) => setText(v)} onStop={() => ref.current?.focus()} boardId={board.id} />
           <button
             className="send-btn"
             // Keep focus in the textarea: on phones a blur here hides the keyboard and shifts the layout mid-tap.

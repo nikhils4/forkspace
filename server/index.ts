@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { nanoid } from 'nanoid';
 import { WebSocketServer, type WebSocket } from 'ws';
-import { conceptKey, type Board, type ClientMsg, type ServerMsg } from '../shared/types.ts';
+import { conceptKey, type Board, type ClientMsg, type ServerMsg, type TurnNode } from '../shared/types.ts';
 import { openFolder } from './editor.ts';
 import { listFiles, readFile } from './files.ts';
 import { importSessions, listImportable } from './importer.ts';
@@ -22,7 +22,7 @@ import { capture, deleteShot, imageType, readShot, saveShot } from './shots.ts';
 import { attachTerminal, closeBoardTerminals, closeTerminal, listTerminals, openTerminal, resizeTerminal, setTerminalEmitter, setTerminalRemoteAllowed, terminalRemoteAllowed, terminalSupported, writeTerminal } from './terminal.ts';
 import { checkAttachments, deleteAttachment, saveAttachment } from './attachments.ts';
 import { answer, isRunning, pruneBranches, setActivityHook, setEmitter, setNotifier, startTurn, stop, touch } from './runner.ts';
-import { explain, onActivity, organizeConcepts, readImageText, setTutorTouch, threadTitle } from './tutor.ts';
+import { explain, onActivity, organizeConcepts, readImageText, setTutorTouch, threadTitle, tidyDictation } from './tutor.ts';
 import { flush, getBoard, getBranch, getNode, getTurn, save, state, subtree } from './store.ts';
 
 const PORT = Number(process.env.PORT || 4747);
@@ -551,6 +551,29 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
     }
     case 'organizeConcepts':
       return organizeConcepts(os.homedir());
+    case 'tidyDictation': {
+      const text = String(msg.text ?? '').slice(0, 6000);
+      const board = getBoard(msg.boardId);
+      if (!text.trim() || !board || text.trim().split(/\s+/).length < 3) return { text };
+      const files = await g.git(board.cwd, '-c', 'core.quotepath=off', 'ls-files').catch(() => '');
+      const names = new Set<string>();
+      for (const f of files.split('\n').slice(0, 3000)) {
+        if (!f) continue;
+        const parts = f.split('/');
+        names.add(parts[parts.length - 1].replace(/\.[^.]+$/, ''));
+        if (parts.length > 1) names.add(parts[parts.length - 2]);
+      }
+      const recent = state.nodes
+        .filter((n): n is TurnNode => n.kind === 'turn' && n.boardId === board.id)
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .slice(0, 6)
+        .map((n) => n.prompt);
+      try {
+        return { text: await tidyDictation(text, { before: String(msg.before ?? ''), board: board.name, names: [...names].slice(0, 300), recent }, board.cwd) };
+      } catch {
+        return { text };
+      }
+    }
     case 'explain': {
       const turn = getTurn(msg.nodeId);
       if (!turn) throw new Error('Step not found');

@@ -149,14 +149,22 @@ export function TerminalPanel({ board, branchId, onClose }: { board: Board; bran
 
   useEffect(() => onTerminal((m) => m.type === 'termList' && m.boardId === board.id && void load()), [board.id]);
 
-  // Clicking a card while the terminal is open: jump to that branch's terminal, or open one there.
+  // Clicking a card while the terminal is open: jump to that branch's terminal, or open one there
+  // (reusing the one on screen if nothing was ever run in it).
   const lastBranch = useRef(branchId);
   useEffect(() => {
     if (!branchId || branchId === lastBranch.current) return;
     lastBranch.current = branchId;
     const mine = list.filter((t) => t.branchId === branchId && t.exited === undefined);
-    if (mine.length) setActive(mine[mine.length - 1].id);
-    else if (list.length || opened.current) open();
+    if (mine.length) return setActive(mine[mine.length - 1].id);
+    if (!list.length && !opened.current) return;
+    // The terminal on screen was never used: move it to this card instead of adding another.
+    const cur = list.find((t) => t.id === active);
+    if (cur && !cur.used && cur.exited === undefined) {
+      send({ type: 'termClose', id: cur.id });
+      setList((l) => l.filter((t) => t.id !== cur.id));
+    }
+    open();
   }, [branchId]);
 
   const close = (id: string) => {

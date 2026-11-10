@@ -178,6 +178,8 @@ export type ClientMsg =
   | { type: 'createBoard'; reqId: string; name: string; cwd: string; isolation: Isolation; permissionMode: PermissionMode }
   | { type: 'updateBoard'; id: string; patch: Partial<Pick<Board, 'name' | 'permissionMode' | 'model' | 'links' | 'learn' | 'previewUrl'>> }
   | { type: 'explain'; reqId: string; nodeId: string; path?: string }
+  /** Fix what speech recognition misheard, using the board's file names and recent prompts. */
+  | { type: 'tidyDictation'; reqId: string; boardId: string; text: string; before?: string }
   | { type: 'listSessions'; reqId: string; boardId: string }
   | { type: 'importSessions'; reqId: string; boardId: string; sessionIds: string[]; at: Position }
   | { type: 'updateInfo'; reqId: string; force?: boolean }
@@ -402,4 +404,6 @@ export interface TerminalInfo {
   createdAt: number;
   /** Exit code once the shell has ended. */
   exited?: number;
+  /** A command has been run here (Enter pressed). Unused terminals get reused for the next card. */
+  used?: boolean;
 }

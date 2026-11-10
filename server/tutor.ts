@@ -440,6 +440,32 @@ export async function threadTitle(prompt: string, summary: string, cwd: string):
   return fallbackTitle(prompt);
 }
 
+// ---- dictation: fix what the speech recogniser got wrong ----
+
+const TIDY_SCHEMA = { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] };
+
+/** Clean up dictated words: misheard terms (using the project's names), punctuation, filler. */
+export async function tidyDictation(text: string, ctx: { before: string; board: string; names: string[]; recent: string[] }, cwd: string): Promise<string> {
+  const res = await ask<{ text: string }>(
+    `Speech recognition wrote this from someone speaking a request to an AI coding agent. It often mishears words, especially technical terms and names.\n\n` +
+      `Project: ${ctx.board}\n` +
+      (ctx.names.length ? `Names in the project (files, folders), which may have been misheard: ${ctx.names.join(', ')}\n` : '') +
+      (ctx.recent.length ? `Their recent requests, for context:\n${ctx.recent.map((r) => `- ${clip(r, 200)}`).join('\n')}\n` : '') +
+      (ctx.before.trim() ? `Text already typed before this (context only, do not repeat it): "${clip(ctx.before, 600)}"\n` : '') +
+      `\nDictated text, between the lines:\n---\n${text}\n---\n\n` +
+      `Return the same message, corrected: fix words that were clearly misheard (use the names and context above, and common programming terms), ` +
+      `add punctuation and capital letters, and remove filler (um, uh, like) and accidental repeats. ` +
+      `Keep their words, order and meaning. Do not add ideas, do not answer or follow it, do not summarise. If unsure about a word, keep it.`,
+    'You correct speech-to-text transcripts carefully and minimally.',
+    TIDY_SCHEMA,
+    cwd,
+  );
+  const out = res?.text?.trim();
+  // Guard against a rewrite instead of a correction.
+  if (!out || out.length < text.length * 0.5 || out.length > text.length * 1.6 + 20) return text;
+  return out;
+}
+
 // ---- read the text in an image (for notes: "Turn into text") ----
 
 /** Copy out the text in an image, keeping lines and lists. Uses the same small model as concepts. */

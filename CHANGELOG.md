@@ -3,6 +3,11 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.14.1
+
+- Terminal: clicking another card reuses the open terminal if nothing was run in it, instead of adding a new tab
+- Dictation is more accurate: it keeps listening through pauses, phrases no longer run together or repeat, and when you stop, misheard words are fixed using your project's file names and recent prompts, with punctuation added and filler removed
+
 ## 0.14.0
 
 - Attach images and files to a prompt: the paperclip in the message box, paste, or drag and drop

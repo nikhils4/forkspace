@@ -72,7 +72,7 @@ export function setTerminalRemoteAllowed(v: boolean) {
   fs.writeFileSync(FILE, JSON.stringify({ remoteAllowed: v }), { mode: 0o600 });
 }
 
-const info = (t: Term): TerminalInfo => ({ id: t.id, boardId: t.boardId, branchId: t.branchId, cwd: t.cwd, title: t.title, createdAt: t.createdAt, exited: t.exited });
+const info = (t: Term): TerminalInfo => ({ id: t.id, boardId: t.boardId, branchId: t.branchId, cwd: t.cwd, title: t.title, createdAt: t.createdAt, exited: t.exited, used: t.used });
 
 export function openTerminal(boardId: string, cwd: string, branchId: string | undefined, cols: number, rows: number): TerminalInfo {
   const lib = loadPty();
@@ -112,7 +112,12 @@ export function attachTerminal(id: string) {
 
 export function writeTerminal(id: string, data: string) {
   const t = terms.get(id);
-  if (t && t.exited === undefined && typeof data === 'string') t.pty.write(data.slice(0, 64 * 1024));
+  if (!t || t.exited !== undefined || typeof data !== 'string') return;
+  t.pty.write(data.slice(0, 64 * 1024));
+  if (!t.used && /[\r\n]/.test(data)) {
+    t.used = true;
+    emit({ type: 'termList', boardId: t.boardId });
+  }
 }
 
 export function resizeTerminal(id: string, cols: number, rows: number) {
