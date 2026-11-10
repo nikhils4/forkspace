@@ -3,6 +3,11 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.2.2
+
+- Help and feedback in Settings: report a bug, suggest an idea or ask a question on GitHub, with your version and device filled in
+- A crash screen can report itself on GitHub
+
 ## 0.2.1
 
 - Deleted the cards from a Claude Code session? It can be brought in again
