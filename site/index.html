@@ -28,6 +28,12 @@
     <link rel="icon" type="image/svg+xml" href="/assets/icon.svg" />
     <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
     <meta name="theme-color" content="#f3efe6" />
+    <script>
+      try {
+        const t = localStorage.getItem('fs-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.dataset.theme = t;
+      } catch {}
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -48,6 +54,61 @@
         --mono: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, monospace;
         --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
         color-scheme: light;
+      }
+      :root[data-theme='dark'] {
+        --paper: #121110;
+        --paper-2: #1b1a17;
+        --card: #1f1d1a;
+        --ink: #f1ede4;
+        --ink-2: #bdb7aa;
+        --ink-3: #8a8478;
+        --rule: rgba(241, 237, 228, 0.12);
+        --rule-2: rgba(241, 237, 228, 0.22);
+        --accent: #ff6a3d;
+        color-scheme: dark;
+      }
+      :root[data-theme='dark'] nav.solid {
+        background: rgba(18, 17, 16, 0.86);
+      }
+      :root[data-theme='dark'] .manifesto .w {
+        color: rgba(241, 237, 228, 0.14);
+      }
+      :root[data-theme='dark'] .shot {
+        box-shadow:
+          0 1px 0 rgba(255, 255, 255, 0.06) inset,
+          0 40px 80px -40px rgba(0, 0, 0, 0.8);
+      }
+      body,
+      nav {
+        transition:
+          background-color 0.5s var(--ease),
+          color 0.5s var(--ease);
+      }
+      .theme-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: 1px solid var(--rule-2);
+        background: none;
+        color: var(--ink);
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        transition: transform 0.5s var(--ease);
+      }
+      .theme-btn:hover {
+        transform: rotate(-25deg);
+      }
+      .theme-btn svg {
+        width: 17px;
+        height: 17px;
+      }
+      .theme-btn .moon,
+      :root[data-theme='dark'] .theme-btn .sun {
+        display: none;
+      }
+      :root[data-theme='dark'] .theme-btn .moon {
+        display: block;
       }
       * {
         box-sizing: border-box;
@@ -856,6 +917,64 @@
         }
       }
 
+      /* ---------- little things ---------- */
+      .things {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        margin-top: 40px;
+        border-top: 1px solid var(--rule-2);
+      }
+      .thing {
+        padding: 28px 28px 32px 0;
+        border-bottom: 1px solid var(--rule);
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .thing + .thing {
+        padding-left: 28px;
+      }
+      .thing:nth-child(3n + 1) {
+        padding-left: 0;
+      }
+      .thing:not(:nth-child(3n)) {
+        border-right: 1px solid var(--rule);
+      }
+      .thing h3 {
+        margin: 0;
+        font-family: var(--serif);
+        font-weight: 400;
+        font-size: clamp(26px, 2.4vw, 34px);
+        line-height: 1.05;
+      }
+      .thing p {
+        margin: 0;
+        font-size: 16.5px;
+        line-height: 1.5;
+        color: var(--ink-2);
+        max-width: 320px;
+      }
+      .thing .btn {
+        margin-top: 6px;
+      }
+      .keys {
+        display: flex;
+        gap: 6px;
+        margin-top: 6px;
+      }
+      .keys kbd {
+        font: 500 14px var(--mono);
+        min-width: 34px;
+        height: 34px;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--rule-2);
+        border-bottom-width: 3px;
+        border-radius: 8px;
+        color: var(--ink);
+      }
+
       /* ---------- questions ---------- */
       .faq {
         margin-top: 40px;
@@ -938,6 +1057,17 @@
       .foot b {
         color: var(--ink);
         font-weight: 500;
+      }
+
+      @media (max-width: 860px) {
+        .things {
+          grid-template-columns: 1fr;
+        }
+        .thing,
+        .thing + .thing {
+          padding: 24px 0;
+          border-right: 0 !important;
+        }
       }
 
       /* ---------- smaller screens ---------- */
@@ -1099,6 +1229,7 @@
         <a class="nav-link hide-sm" href="#how">How it works</a>
         <a class="nav-link hide-sm" href="#concepts">Concepts</a>
         <a class="nav-link hide-sm" href="#cloud">Cloud</a>
+        <button class="theme-btn" data-flip aria-label="Switch light or dark" title="Light or dark. Obviously."><svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>
         <a class="btn line sm" href="https://github.com/nikhils4/forkspace">GitHub</a>
       </div>
     </nav>
@@ -1111,7 +1242,7 @@
             <em><span class="word" style="--i: 4">age</span> <span class="word" style="--i: 5">of</span> <span class="word" style="--i: 6">agents.</span></em>
           </h1>
           <div class="hero-side fade" style="--d: 0.7s">
-            <p>An open source editor for Claude Code. Direct agents. Watch every change. Learn the concepts behind the code.</p>
+            <p>An open source editor for Claude Code. Agents build. You direct. And you learn while they're at it.</p>
             <div class="hero-actions">
               <a class="btn" href="#install">Get it free</a>
               <a class="arrow-link" href="https://github.com/nikhils4/forkspace">Read the source →</a>
@@ -1149,6 +1280,7 @@
           <div class="shift-row"><span><span class="then">Tabs and terminals everywhere</span></span><span class="now">One canvas of every agent</span></div>
           <div class="shift-row"><span><span class="then">Undo and hope</span></span><span class="now">Branch from any step, code included</span></div>
           <div class="shift-row"><span><span class="then">Read the diff at the end</span></span><span class="now">Watch every change land</span></div>
+          <div class="shift-row"><span><span class="then">Nod at code you don't get</span></span><span class="now">Actually get it</span></div>
           <div class="shift-row"><span><span class="then">Docs open in another tab</span></span><span class="now">Concepts explained as it codes</span></div>
           <div class="shift-row"><span><span class="then">Stuck at your desk</span></span><span class="now">Approve from your phone</span></div>
         </div>
@@ -1161,19 +1293,19 @@
           <div class="step on">
             <div class="label">Direct</div>
             <h2>Many agents. <em>One map.</em></h2>
-            <p>Branch from any step. The code branches too.</p>
+            <p>Branch from any step. The code branches too. Bad idea? It stays on its branch.</p>
             <div class="step-inline shot"><img src="/assets/canvas.webp" width="2880" height="1800" alt="Forkspace canvas: Claude Code agent steps branching into a tree" loading="lazy" /></div>
           </div>
           <div class="step">
             <div class="label">Review</div>
             <h2>Watch the code <em>change.</em></h2>
-            <p>Every edit, live, the moment it lands.</p>
+            <p>Every edit, live, the moment it lands. No giant diff at the end.</p>
             <div class="step-inline shot"><img src="/assets/code-learn.webp" width="2880" height="1800" alt="Forkspace code view: file tree and a live diff of the agent's changes" loading="lazy" /></div>
           </div>
           <div class="step">
             <div class="label">Learn</div>
-            <h2>Get better <em>while you ship.</em></h2>
-            <p>The concept behind every change, in plain words.</p>
+            <h2>Learn while <em>agents build.</em></h2>
+            <p>The concept behind every change, in plain words. Like a patient senior dev, minus the sighing.</p>
             <div class="step-inline shot"><img src="/assets/chat-learn.webp" width="2880" height="1800" alt="Forkspace chat view: a conversation with a concept explained beside the code" loading="lazy" /></div>
           </div>
         </div>
@@ -1262,6 +1394,47 @@
       </div>
     </section>
 
+    <section id="little">
+      <div class="wrap">
+        <div class="sec-head">
+          <div class="label">Little things</div>
+          <h2 class="reveal">Small stuff. <em>Done properly.</em></h2>
+        </div>
+        <div class="things reveal">
+          <div class="thing flip">
+            <h3>Light and dark.</h3>
+            <p data-said>Of course. It's made for devs.</p>
+            <button class="btn line sm" data-flip>Flip it</button>
+          </div>
+          <div class="thing">
+            <h3>⌘K everything.</h3>
+            <p>Boards, branches, files, actions. Your mouse can take the day off.</p>
+            <span class="keys"><kbd>⌘</kbd><kbd>K</kbd></span>
+          </div>
+          <div class="thing">
+            <h3>Bad ideas welcome.</h3>
+            <p>Every experiment gets its own branch. Main never finds out.</p>
+            
+          </div>
+          <div class="thing">
+            <h3>Bring your history.</h3>
+            <p>Your Claude Code sessions come in with one click. Pick up mid thought.</p>
+            
+          </div>
+          <div class="thing">
+            <h3>Updates that explain themselves.</h3>
+            <p>One click. Release notes a human can read.</p>
+            
+          </div>
+          <div class="thing">
+            <h3>Free. Really.</h3>
+            <p>MIT licensed. Runs on your machine. No catch, we looked.</p>
+            
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section id="cloud">
       <div class="wrap">
         <div class="sec-head">
@@ -1335,6 +1508,10 @@
             <p>Node 20 or newer, git, and an Anthropic API key. Forkspace itself is free under the MIT license. It runs on your machine and your code stays there.</p>
           </details>
           <details class="qa">
+            <summary>Will agents replace me?</summary>
+            <p>Not while you're the one with taste. Forkspace keeps you directing, reviewing and learning. The agents do the typing.</p>
+          </details>
+          <details class="qa">
             <summary>Can I sign in with my Claude subscription?</summary>
             <p>No. Anthropic asks third-party apps not to use Claude.ai logins, so Forkspace uses an API key.</p>
           </details>
@@ -1364,7 +1541,7 @@
         <div class="hero-actions">
           <a class="btn" href="https://github.com/nikhils4/forkspace">Get Forkspace on GitHub</a>
         </div>
-        <p class="made-by">Designed and built by <a href="https://github.com/nikhils4">nikhils4</a></p>
+        <p class="made-by">Designed and built by <a href="https://github.com/nikhils4">nikhils4</a>. Mostly by directing agents, naturally.</p>
       </div>
     </div>
 
@@ -1380,6 +1557,23 @@
 
     <script>
       const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      // Light and dark. Remembered, and the browser bar follows along.
+      const quips = ['See? Told you.', 'Back again. We get it.', 'Okay, okay. You like the switch.'];
+      let flips = 0;
+      const paintTheme = () => document.querySelector('meta[name="theme-color"]').setAttribute('content', document.documentElement.dataset.theme === 'dark' ? '#121110' : '#f3efe6');
+      paintTheme();
+      document.querySelectorAll('[data-flip]').forEach((b) =>
+        b.addEventListener('click', () => {
+          const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+          document.documentElement.dataset.theme = next;
+          try {
+            localStorage.setItem('fs-theme', next);
+          } catch {}
+          paintTheme();
+          const said = document.querySelector('[data-said]');
+          if (said) said.textContent = quips[Math.min(flips++, quips.length - 1)];
+        }),
+      );
       const $ = (s, r = document) => r.querySelector(s);
       const $$ = (s, r = document) => [...r.querySelectorAll(s)];
       const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
