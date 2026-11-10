@@ -1,0 +1,225 @@
+import { spawn } from 'node:child_process';
+import fs from 'node:fs';
+import http from 'node:http';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { nanoid } from 'nanoid';
+import { WebSocketServer, type WebSocket } from 'ws';
+import type { Board, ClientMsg, ServerMsg } from '../shared/types.ts';
+import * as g from './git.ts';
+import { answer, isRunning, pruneBranches, setEmitter, startTurn, stop } from './runner.ts';
+import { flush, getBoard, getBranch, getNode, getTurn, save, state, subtree } from './store.ts';
+
+const PORT = Number(process.env.PORT || 4747);
+const HOST = process.env.HOST || '127.0.0.1';
+// dist/ sits at the package root; this file runs from server/ (dev) or build/server/ (published).
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const DIST = [path.resolve(HERE, '../dist'), path.resolve(HERE, '../../dist')].find((d) => fs.existsSync(d)) ?? path.resolve(HERE, '../dist');
+
+// ---- static client ----
+const TYPES: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript',
+  '.css': 'text/css',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+};
+
+const server = http.createServer((req, res) => {
+  const url = new URL(req.url || '/', 'http://x');
+  let file = path.join(DIST, path.normalize(url.pathname).replace(/^(\.\.[/\\])+/, ''));
+  if (!file.startsWith(DIST) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(DIST, 'index.html');
+  if (!fs.existsSync(file)) {
+    res.writeHead(200, { 'content-type': 'text/plain' });
+    res.end('Forkspace server is running. Build the client with `npm run build`, or use `npm run dev` and open http://localhost:5173');
+    return;
+  }
+  res.writeHead(200, { 'content-type': TYPES[path.extname(file)] || 'application/octet-stream' });
+  fs.createReadStream(file).pipe(res);
+});
+
+// ---- websocket ----
+// Agents can run commands on this machine, so only pages served from localhost may connect.
+const allowedOrigin = (origin?: string) => {
+  if (!origin) return true; // non-browser clients
+  try {
+    const h = new URL(origin).hostname;
+    return h === 'localhost' || h === '127.0.0.1' || h === '[::1]';
+  } catch {
+    return false;
+  }
+};
+
+const wss = new WebSocketServer({ server, path: '/ws', verifyClient: ({ origin }: { origin?: string }) => allowedOrigin(origin) });
+const clients = new Set<WebSocket>();
+
+function broadcast(msg: ServerMsg) {
+  const data = JSON.stringify(msg);
+  for (const c of clients) if (c.readyState === c.OPEN) c.send(data);
+}
+setEmitter(broadcast);
+
+const send = (ws: WebSocket, msg: ServerMsg) => ws.send(JSON.stringify(msg));
+
+wss.on('connection', (ws) => {
+  clients.add(ws);
+  send(ws, { type: 'state', state, home: os.homedir() });
+  ws.on('close', () => clients.delete(ws));
+  ws.on('message', async (raw) => {
+    let msg: ClientMsg;
+    try {
+      msg = JSON.parse(String(raw));
+    } catch {
+      return;
+    }
+    const reqId = 'reqId' in msg ? msg.reqId : undefined;
+    try {
+      const data = await handle(msg);
+      if (reqId) send(ws, { type: 'reply', reqId, ok: true, data });
+    } catch (err: any) {
+      const error = String(err?.message ?? err);
+      if (reqId) send(ws, { type: 'reply', reqId, ok: false, error });
+      else send(ws, { type: 'toast', level: 'error', text: error });
+    }
+  });
+});
+
+const expand = (p: string) => path.resolve(p.replace(/^~(?=$|\/)/, os.homedir()));
+
+async function handle(msg: ClientMsg): Promise<unknown> {
+  switch (msg.type) {
+    case 'createBoard': {
+      const cwd = expand(msg.cwd.trim());
+      if (!fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) throw new Error(`Folder not found: ${cwd}`);
+      const root = await g.repoRoot(cwd);
+      let isolation = msg.isolation;
+      if (isolation === 'worktree') {
+        if (!root) throw new Error('Worktree mode needs a git repo. Pick "Same folder" or run `git init` there first.');
+        if (!(await g.hasCommits(root))) throw new Error('This repo has no commits yet. Make one commit first, then create the board.');
+      }
+      const board: Board = {
+        id: nanoid(8),
+        name: msg.name.trim() || path.basename(cwd),
+        cwd,
+        repoRoot: root ?? undefined,
+        relPath: root ? path.relative(root, cwd) : undefined,
+        isolation,
+        permissionMode: msg.permissionMode,
+        createdAt: Date.now(),
+        links: [],
+      };
+      state.boards.push(board);
+      save();
+      broadcast({ type: 'board', board });
+      return board;
+    }
+    case 'updateBoard': {
+      const board = getBoard(msg.id);
+      if (!board) throw new Error('Board not found');
+      Object.assign(board, msg.patch);
+      save();
+      broadcast({ type: 'board', board });
+      return;
+    }
+    case 'deleteBoard': {
+      const ids = state.nodes.filter((n) => n.boardId === msg.id).map((n) => n.id);
+      ids.forEach(stop);
+      state.nodes = state.nodes.filter((n) => n.boardId !== msg.id);
+      state.boards = state.boards.filter((b) => b.id !== msg.id);
+      await pruneBranches();
+      broadcast({ type: 'boardDeleted', id: msg.id });
+      return;
+    }
+    case 'send': {
+      const prompt = msg.prompt.trim();
+      if (!prompt) throw new Error('Empty prompt');
+      const node = await startTurn(msg.boardId, msg.parentId, prompt, msg.position);
+      return { id: node.id };
+    }
+    case 'stop':
+      stop(msg.nodeId);
+      return;
+    case 'permission':
+      answer(msg.nodeId, msg.requestId, msg.decision, msg.answers, msg.message);
+      return;
+    case 'upsertNote': {
+      const i = state.nodes.findIndex((n) => n.id === msg.note.id);
+      if (i >= 0) state.nodes[i] = msg.note;
+      else state.nodes.push(msg.note);
+      save();
+      broadcast({ type: 'node', node: msg.note });
+      return;
+    }
+    case 'move':
+      for (const m of msg.moves) {
+        const n = getNode(m.id);
+        if (!n) continue;
+        n.position = m.position;
+        if (n.kind === 'note' && m.width) {
+          n.width = m.width;
+          n.height = m.height;
+        }
+        broadcast({ type: 'node', node: n });
+      }
+      save();
+      return;
+    case 'deleteNodes': {
+      const ids = new Set(msg.ids.flatMap(subtree));
+      for (const id of ids) if (isRunning(id)) stop(id);
+      state.nodes = state.nodes.filter((n) => !ids.has(n.id));
+      for (const b of state.boards) {
+        const before = b.links.length;
+        b.links = b.links.filter((l) => !ids.has(l.source) && !ids.has(l.target));
+        if (b.links.length !== before) broadcast({ type: 'board', board: b });
+      }
+      // A branch whose head was deleted goes back to its newest remaining turn.
+      for (const br of state.branches) {
+        if (br.headNodeId && ids.has(br.headNodeId)) {
+          const left = state.nodes.filter((n) => n.kind === 'turn' && n.branchId === br.id).sort((a, b) => b.createdAt - a.createdAt);
+          br.headNodeId = left[0]?.id;
+          broadcast({ type: 'branch', branch: br });
+        }
+      }
+      await pruneBranches();
+      broadcast({ type: 'nodesDeleted', ids: [...ids] });
+      return;
+    }
+    case 'openEditor': {
+      const turn = getTurn(msg.nodeId);
+      const dir = turn ? getBranch(turn.branchId)?.cwd : undefined;
+      if (!dir) throw new Error('No folder for that turn');
+      const editor = process.env.FORKSPACE_EDITOR || 'code';
+      const child = spawn(editor, [dir], { detached: true, stdio: 'ignore', shell: process.platform === 'win32' });
+      child.on('error', () => broadcast({ type: 'toast', level: 'error', text: `Could not run "${editor}". Set FORKSPACE_EDITOR.` }));
+      child.unref();
+      return;
+    }
+    case 'diff': {
+      const turn = getTurn(msg.nodeId);
+      const board = turn && getBoard(turn.boardId);
+      if (!turn?.baseCommit || !turn.commit || !board?.repoRoot) return '';
+      return g.diff(board.repoRoot, turn.baseCommit, turn.commit);
+    }
+    case 'listDir': {
+      const dir = expand(msg.path || '~');
+      const entries = fs
+        .readdirSync(dir, { withFileTypes: true })
+        .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
+        .map((e) => e.name)
+        .sort((a, b) => a.localeCompare(b));
+      return { dir, parent: path.dirname(dir), entries };
+    }
+  }
+}
+
+server.listen(PORT, HOST, () => {
+  console.log(`\n  Forkspace → http://localhost:${PORT}\n`);
+});
+
+for (const sig of ['SIGINT', 'SIGTERM'] as const)
+  process.on(sig, () => {
+    flush();
+    process.exit(0);
+  });

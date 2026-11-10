@@ -1,0 +1,287 @@
+import { query, type CanUseTool, type PermissionResult, type PermissionUpdate } from '@anthropic-ai/claude-agent-sdk';
+import { nanoid } from 'nanoid';
+import path from 'node:path';
+import type { Board, Branch, PendingPermission, Position, TurnEvent, TurnNode } from '../shared/types.ts';
+import * as g from './git.ts';
+import { ensureSessionAt } from './sessions.ts';
+import { HOME, getBoard, getBranch, getTurn, save, state } from './store.ts';
+
+type Emit = (msg: import('../shared/types.ts').ServerMsg) => void;
+let emit: Emit = () => {};
+export const setEmitter = (fn: Emit) => (emit = fn);
+
+interface Pending extends PendingPermission {
+  suggestions?: PermissionUpdate[];
+  resolve: (r: PermissionResult) => void;
+}
+
+interface Running {
+  abort: AbortController;
+  queue: Pending[];
+  showNext: () => void;
+}
+
+const running = new Map<string, Running>();
+
+// ---- throttled node broadcast ----
+const dirty = new Set<string>();
+let flushTimer: NodeJS.Timeout | null = null;
+export function touch(node: TurnNode) {
+  dirty.add(node.id);
+  save();
+  if (!flushTimer)
+    flushTimer = setTimeout(() => {
+      flushTimer = null;
+      for (const id of dirty) {
+        const n = getTurn(id);
+        if (n) emit({ type: 'node', node: n });
+      }
+      dirty.clear();
+    }, 60);
+}
+
+// ---- branches ----
+
+async function newBranch(board: Board, from: string | null): Promise<Branch> {
+  const id = nanoid(8);
+  const branch: Branch = { id, boardId: board.id, cwd: board.cwd };
+  if (board.isolation === 'worktree' && board.repoRoot) {
+    const worktree = path.join(HOME, 'worktrees', board.id, id);
+    const gitBranch = `forkspace/${id}`;
+    await g.addWorktree(board.repoRoot, worktree, gitBranch, from ?? 'HEAD');
+    branch.worktree = worktree;
+    branch.gitBranch = gitBranch;
+    branch.cwd = board.relPath ? path.join(worktree, board.relPath) : worktree;
+  }
+  state.branches.push(branch);
+  emit({ type: 'branch', branch });
+  return branch;
+}
+
+async function pickBranch(board: Board, parent: TurnNode | null): Promise<Branch> {
+  if (!parent) return newBranch(board, null);
+  const pb = getBranch(parent.branchId);
+  // Replying to the latest turn of a branch continues it; anything else forks.
+  if (pb && pb.headNodeId === parent.id) return pb;
+  if (board.isolation === 'worktree' && board.repoRoot && !parent.commit)
+    throw new Error('That turn has no checkpoint, so it cannot be forked.');
+  return newBranch(board, parent.commit ?? null);
+}
+
+// ---- turns ----
+
+export async function startTurn(boardId: string, parentId: string | null, prompt: string, position: Position): Promise<TurnNode> {
+  const board = getBoard(boardId);
+  if (!board) throw new Error('Board not found');
+  const parent = parentId ? getTurn(parentId) : null;
+  if (parentId && !parent) throw new Error('Parent turn not found');
+  if (parent && (parent.status === 'running' || parent.status === 'waiting'))
+    throw new Error('Wait for that turn to finish (or stop it) before replying.');
+  if (parent && !parent.sessionId) throw new Error('That turn never started a session, so it cannot be continued.');
+
+  const branch = await pickBranch(board, parent ?? null);
+  const node: TurnNode = {
+    kind: 'turn',
+    id: nanoid(10),
+    boardId,
+    parentId,
+    branchId: branch.id,
+    prompt,
+    events: [],
+    status: 'running',
+    position,
+    createdAt: Date.now(),
+  };
+  state.nodes.push(node);
+  branch.headNodeId = node.id;
+  emit({ type: 'branch', branch });
+  touch(node);
+
+  run(board, branch, node, parent ?? null).catch((err) => {
+    node.status = 'error';
+    node.error = String(err?.message ?? err);
+    touch(node);
+  });
+  return node;
+}
+
+async function run(board: Board, branch: Branch, node: TurnNode, parent: TurnNode | null) {
+  const r: Running = { abort: new AbortController(), queue: [], showNext: () => {} };
+  running.set(node.id, r);
+
+  if (branch.worktree) node.baseCommit = await g.git(branch.worktree, 'rev-parse', 'HEAD');
+
+  let promptText = node.prompt;
+  if (parent?.sessionId) {
+    ensureSessionAt(parent.sessionId, branch.cwd);
+    const parentCwd = getBranch(parent.branchId)?.cwd;
+    if (parentCwd && parentCwd !== branch.cwd)
+      promptText =
+        `[Forkspace: this conversation was forked into a separate copy of the project. ` +
+        `Your working directory is now ${branch.cwd}. Earlier messages may mention ${parentCwd}; ` +
+        `use the new path for all reads and edits.]\n\n${node.prompt}`;
+  }
+
+  r.showNext = () => {
+    const next = r.queue[0];
+    node.pending = next ? { requestId: next.requestId, toolName: next.toolName, input: next.input, canAlways: next.canAlways } : undefined;
+    node.status = next ? 'waiting' : 'running';
+    touch(node);
+  };
+
+  const canUseTool: CanUseTool = (toolName, input, { signal, suggestions }) =>
+    new Promise<PermissionResult>((resolve) => {
+      const p: Pending = { requestId: nanoid(8), toolName, input, canAlways: !!suggestions?.length, suggestions, resolve };
+      r.queue.push(p);
+      signal.addEventListener('abort', () => answer(node.id, p.requestId, 'deny'));
+      r.showNext();
+    });
+
+  const q = query({
+    prompt: promptText,
+    options: {
+      cwd: branch.cwd,
+      resume: parent?.sessionId,
+      forkSession: !!parent?.sessionId,
+      abortController: r.abort,
+      permissionMode: board.permissionMode,
+      allowDangerouslySkipPermissions: board.permissionMode === 'bypassPermissions',
+      canUseTool,
+      includePartialMessages: true,
+      systemPrompt: { type: 'preset', preset: 'claude_code' },
+      model: board.model || undefined,
+      ...(branch.worktree ? { projectConfigRoot: board.cwd } : {}),
+    },
+  });
+
+  try {
+    for await (const msg of q) handle(node, msg as any);
+    if (node.status !== 'error') node.status = r.abort.signal.aborted ? 'stopped' : 'done';
+  } catch (err: any) {
+    node.status = r.abort.signal.aborted ? 'stopped' : 'error';
+    if (node.status === 'error') node.error = String(err?.message ?? err);
+  } finally {
+    running.delete(node.id);
+    node.pending = undefined;
+    node.events = node.events.filter((e) => !(e.t === 'text' && e.partial));
+    node.finishedAt = Date.now();
+    if (branch.worktree) {
+      try {
+        node.commit = await g.checkpoint(branch.worktree, `forkspace: ${node.prompt.replace(/\s+/g, ' ').slice(0, 72)}`);
+        if (node.baseCommit) node.diffStat = await g.diffStat(branch.worktree, node.baseCommit, node.commit);
+      } catch (err: any) {
+        node.error = (node.error ? node.error + '\n' : '') + `Checkpoint failed: ${err?.message ?? err}`;
+      }
+    }
+    touch(node);
+  }
+}
+
+function clip(s: string, n = 6000) {
+  return s.length > n ? s.slice(0, n) + `\n… (${s.length - n} more chars)` : s;
+}
+
+function toolResultText(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content))
+    return content.map((c: any) => (c?.type === 'text' ? c.text : c?.type === 'image' ? '[image]' : JSON.stringify(c))).join('\n');
+  return JSON.stringify(content);
+}
+
+function handle(node: TurnNode, msg: any) {
+  if (msg.session_id && !node.sessionId) node.sessionId = msg.session_id;
+  // Subagent internals stay inside their tool call.
+  if (msg.parent_tool_use_id) return;
+
+  switch (msg.type) {
+    case 'system':
+      if (msg.subtype === 'init') {
+        node.sessionId = msg.session_id;
+        touch(node);
+      }
+      return;
+    case 'stream_event': {
+      const ev = msg.event;
+      if (ev?.type === 'content_block_delta' && ev.delta?.type === 'text_delta') {
+        const last = node.events[node.events.length - 1];
+        if (last?.t === 'text' && last.partial) last.text += ev.delta.text;
+        else node.events.push({ t: 'text', text: ev.delta.text, partial: true });
+        touch(node);
+      }
+      return;
+    }
+    case 'assistant': {
+      node.events = node.events.filter((e) => !(e.t === 'text' && e.partial));
+      for (const b of msg.message?.content ?? []) {
+        let e: TurnEvent | null = null;
+        if (b.type === 'text' && b.text) e = { t: 'text', text: b.text };
+        else if (b.type === 'thinking' && b.thinking) e = { t: 'thinking', text: b.thinking };
+        else if (b.type === 'tool_use') e = { t: 'tool', id: b.id, name: b.name, input: b.input };
+        if (e) node.events.push(e);
+      }
+      touch(node);
+      return;
+    }
+    case 'user': {
+      const content = msg.message?.content;
+      if (!Array.isArray(content)) return;
+      for (const b of content) {
+        if (b.type !== 'tool_result') continue;
+        const ev = node.events.find((e) => e.t === 'tool' && e.id === b.tool_use_id);
+        if (ev && ev.t === 'tool') {
+          ev.result = clip(toolResultText(b.content));
+          ev.isError = !!b.is_error;
+        }
+      }
+      touch(node);
+      return;
+    }
+    case 'result':
+      node.sessionId = msg.session_id ?? node.sessionId;
+      node.costUsd = msg.total_cost_usd;
+      node.durationMs = msg.duration_ms;
+      if (msg.subtype !== 'success' || msg.is_error) {
+        node.status = 'error';
+        node.error = (msg.errors?.join('\n') || msg.result || msg.subtype || 'Agent error') as string;
+      }
+      touch(node);
+      return;
+  }
+}
+
+export function answer(nodeId: string, requestId: string, decision: 'allow' | 'always' | 'deny', answers?: Record<string, string>, message?: string) {
+  const r = running.get(nodeId);
+  if (!r) return;
+  const i = r.queue.findIndex((p) => p.requestId === requestId);
+  if (i < 0) return;
+  const [p] = r.queue.splice(i, 1);
+  if (decision === 'deny') p.resolve({ behavior: 'deny', message: message || 'The user denied this action.' });
+  else
+    p.resolve({
+      behavior: 'allow',
+      updatedInput: answers ? { ...p.input, answers } : p.input,
+      ...(decision === 'always' && p.suggestions ? { updatedPermissions: p.suggestions } : {}),
+    });
+  r.showNext();
+}
+
+export function stop(nodeId: string) {
+  const r = running.get(nodeId);
+  if (!r) return;
+  for (const p of [...r.queue]) answer(nodeId, p.requestId, 'deny');
+  r.abort.abort();
+}
+
+export const isRunning = (nodeId: string) => running.has(nodeId);
+
+/** Remove worktrees for branches that no longer have any turns. */
+export async function pruneBranches() {
+  const used = new Set(state.nodes.flatMap((n) => (n.kind === 'turn' ? [n.branchId] : [])));
+  for (const b of [...state.branches]) {
+    if (used.has(b.id)) continue;
+    state.branches.splice(state.branches.indexOf(b), 1);
+    const board = getBoard(b.boardId);
+    if (b.worktree && board?.repoRoot) await g.removeWorktree(board.repoRoot, b.worktree, b.gitBranch).catch(() => {});
+  }
+  save();
+}

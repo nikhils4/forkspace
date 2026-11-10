@@ -1,0 +1,50 @@
+{
+  "name": "forkspace",
+  "version": "0.1.0",
+  "description": "A canvas control center for Claude Code agents: branch any conversation, run many agents, keep notes.",
+  "scripts": {
+    "dev": "concurrently -k -n server,client -c blue,magenta \"node --watch server/index.ts\" \"vite\"",
+    "build": "vite build && tsc -p tsconfig.server.json",
+    "start": "npm run build && node build/server/index.js",
+    "typecheck": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "agents",
+    "canvas",
+    "ai"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.322",
+    "nanoid": "^6.0.2",
+    "ws": "^8.22.2"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/ws": "^8.18.2",
+    "@vitejs/plugin-react": "^6.3.0",
+    "@xyflow/react": "^12.12.1",
+    "concurrently": "^10.0.7",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.7"
+  },
+  "bin": {
+    "forkspace": "bin/forkspace.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "bin",
+    "build",
+    "dist"
+  ]
+}
