@@ -6301,3 +6301,47 @@ kbd {
     animation: none;
   }
 }
+
+/* ---------- thread title, under the circle ---------- */
+.thread-done-line.short {
+  height: 12px;
+}
+.thread-title {
+  pointer-events: auto;
+  max-width: 340px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-2);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: var(--shadow-sm);
+  cursor: text;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+.thread-title:hover {
+  border-color: color-mix(in srgb, var(--branch, var(--accent)) 50%, var(--border-2));
+}
+.thread-title.empty {
+  color: var(--text-3);
+  font-weight: 500;
+  font-style: italic;
+}
+input.thread-title.editing {
+  width: 300px;
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  text-align: center;
+}
+.thread-done.on .thread-title {
+  color: var(--text-2);
+}

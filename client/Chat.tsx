@@ -170,7 +170,7 @@ export function ThreadList({ board, onPick, onImport }: { board: Board; onPick: 
           <button key={t.id} className="thread-row" style={{ ['--branch' as any]: branchColor(t.branchId) }} onClick={() => onPick(t.id)}>
             <span className="branch-swatch tall" />
             <span className="thread-main">
-              <span className="thread-prompt">{t.prompt}</span>
+              <span className="thread-prompt">{pathTo(nodes, t.id)[0]?.title ?? t.prompt}</span>
               <span className="thread-sub ellipsis">{isLive(t) ? currentActivity(t) : lastText(t) || STATUS_LABEL[t.status]}</span>
             </span>
             <span className="thread-side">

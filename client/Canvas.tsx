@@ -114,7 +114,9 @@ export function Canvas({
       const nodes = rf.getNodes();
       const el = document.querySelector('.pane.on .canvas') as HTMLElement | null;
       if (!nodes.length || !el || !el.clientWidth) return false;
-      const b = rf.getNodesBounds(nodes);
+      const nb = rf.getNodesBounds(nodes);
+      // Leave room for each thread's circle and title above its first card.
+      const b = { ...nb, y: nb.y - 110, height: nb.height + 110 };
       const composer = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--composer-h')) || 120;
       const W = el.clientWidth;
       const H = Math.max(200, el.clientHeight - composer - 16);

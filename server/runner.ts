@@ -3,7 +3,7 @@ import { nanoid } from 'nanoid';
 import path from 'node:path';
 import type { Board, Branch, PendingPermission, Position, TurnEvent, TurnNode } from '../shared/types.ts';
 import * as g from './git.ts';
-import { commitMessage } from './tutor.ts';
+import { commitMessage, threadTitle } from './tutor.ts';
 import { ensureSessionAt } from './sessions.ts';
 import { HOME, getBoard, getBranch, getTurn, save, state } from './store.ts';
 
@@ -206,6 +206,14 @@ async function run(board: Board, branch: Branch, node: TurnNode, parent: TurnNod
       }
     }
     touch(node);
+    // First step of a new thread: give the thread a short title, like Claude Code does.
+    if (!node.parentId && !node.title && node.status === 'done')
+      threadTitle(node.prompt, lastAgentText(node), branch.cwd).then((t) => {
+        if (!node.title) {
+          node.title = t;
+          touch(node);
+        }
+      });
     if (node.status === 'done' || node.status === 'error') notifyFn(node, 'finished');
     if (node.status === 'done') activityFn(node, true);
   }

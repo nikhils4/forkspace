@@ -20,7 +20,7 @@ import { enableTailscaleServe, tailscaleInfo } from './remote.ts';
 import { awayStatus, noteDevice, setAway } from './away.ts';
 import { attachTerminal, closeBoardTerminals, closeTerminal, listTerminals, openTerminal, resizeTerminal, setTerminalEmitter, setTerminalRemoteAllowed, terminalRemoteAllowed, terminalSupported, writeTerminal } from './terminal.ts';
 import { answer, isRunning, pruneBranches, setActivityHook, setEmitter, setNotifier, startTurn, stop, touch } from './runner.ts';
-import { explain, onActivity, organizeConcepts, setTutorTouch } from './tutor.ts';
+import { explain, onActivity, organizeConcepts, setTutorTouch, threadTitle } from './tutor.ts';
 import { flush, getBoard, getBranch, getNode, getTurn, save, state, subtree } from './store.ts';
 
 const PORT = Number(process.env.PORT || 4747);
@@ -515,6 +515,14 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       if (msg.type === 'termResize') return resizeTerminal(msg.id, msg.cols, msg.rows);
       return closeTerminal(msg.id);
     }
+    case 'setTitle': {
+      const t = getTurn(msg.nodeId);
+      if (!t) throw new Error('Step not found');
+      t.title = String(msg.title ?? '').replace(/\s+/g, ' ').trim().slice(0, 80) || undefined;
+      save();
+      broadcast({ type: 'node', node: t });
+      return;
+    }
     case 'setCompleted': {
       const t = getTurn(msg.nodeId);
       if (!t) throw new Error('Step not found');
@@ -603,6 +611,16 @@ server.listen(PORT, HOST, () => {
       .catch(() => {});
   poll();
   setInterval(poll, Number(process.env.FORKSPACE_UPDATE_POLL_MS) || 15 * 60_000).unref();
+  // Threads from before titles existed get one, quietly, one at a time.
+  setTimeout(async () => {
+    for (const n of state.nodes) {
+      if (n.kind !== 'turn' || n.parentId || n.title || n.status !== 'done') continue;
+      const b = getBranch(n.branchId);
+      const text = [...n.events].reverse().find((e) => e.t === 'text' && !e.partial);
+      n.title = await threadTitle(n.prompt, text && text.t === 'text' ? text.text : '', b?.cwd ?? os.homedir());
+      touch(n);
+    }
+  }, 5000);
 });
 
 // Last line of defence: a stray rejection must never take every running agent down with it.

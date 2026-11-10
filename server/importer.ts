@@ -44,7 +44,7 @@ export async function listImportable(board: Board): Promise<ImportableSession[]>
 /** Strip editor context the extension attaches to prompts (selections, opened files, reminders). */
 function clean(text: string) {
   return text
-    .replace(/<(ide_[a-z_]+|system-reminder|command-[a-z]+|local-command-[a-z]+)>[\s\S]*?<\/\1>/g, '')
+    .replace(/<(ide_[a-z_]+|system-reminder|command-[a-z]+|local-command-[a-z]+|task-notification|bash-[a-z]+|user-prompt-submit-hook)>[\s\S]*?<\/\1>/g, '')
     .replace(/\s+\n/g, '\n')
     .trim();
 }
@@ -120,6 +120,8 @@ export async function importSessions(board: Board, ids: string[], at: Position) 
   const created: { branch: Branch; nodes: TurnNode[] }[] = [];
   let x = at.x;
   const done = onBoard(board);
+  // Claude Code's own titles for these sessions, so the threads keep them.
+  const titles = new Map((await listImportable(board).catch(() => [])).map((s) => [s.sessionId, s.title]));
   for (const sessionId of ids) {
     if (done.has(sessionId)) continue;
     const turns = await readTurns(board, sessionId);
@@ -149,6 +151,8 @@ export async function importSessions(board: Board, ids: string[], at: Position) 
       nodes.push(node);
       y += 330;
     });
+    const title = titles.get(sessionId);
+    if (title && title !== 'Untitled session') nodes[0].title = title.slice(0, 80);
     branch.headNodeId = nodes[nodes.length - 1].id;
     state.branches.push(branch);
     state.nodes.push(...nodes);

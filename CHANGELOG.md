@@ -3,6 +3,11 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.10.0
+
+- Every thread has a title, in a box between its circle and its first card. Imported threads keep their Claude Code title; new ones get a short title when the first step finishes. Click a title to rename it
+- Importing Claude Code sessions no longer turns background task notices into steps
+
 ## 0.9.5
 
 - The message box has a soft watercolour glow that drifts slowly, and brightens while you type

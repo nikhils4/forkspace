@@ -96,6 +96,8 @@ export interface Position {
 
 export interface TurnNode {
   kind: 'turn';
+  /** On a thread's first step: the thread's title (from Claude Code, written for you, or yours). */
+  title?: string;
   /** Subject of this step's checkpoint commit. */
   commitMessage?: string;
   /** You marked this step finished: it and everything after it fade on the canvas. */
@@ -178,6 +180,7 @@ export type ClientMsg =
   | { type: 'remoteInfo'; reqId: string }
   | { type: 'awayInfo'; reqId: string }
   | { type: 'ping'; reqId: string }
+  | { type: 'setTitle'; nodeId: string; title: string }
   | { type: 'termOpen'; reqId: string; boardId: string; branchId?: string; cols: number; rows: number }
   | { type: 'termList'; reqId: string; boardId: string }
   | { type: 'termAttach'; reqId: string; id: string }

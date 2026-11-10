@@ -260,7 +260,52 @@ function ThreadDone({ node }: { node: TurnNode }) {
         <Icon name="check" size={13} strokeWidth={3} />
       </button>
       <span className="thread-done-line" />
+      <ThreadTitle node={node} />
+      <span className="thread-done-line short" />
     </div>
+  );
+}
+
+/** The thread's title, under its circle. Click to rename. */
+function ThreadTitle({ node }: { node: TurnNode }) {
+  const [edit, setEdit] = useState(false);
+  const [text, setText] = useState(node.title ?? '');
+  useEffect(() => setText(node.title ?? ''), [node.title]);
+  const save = () => {
+    setEdit(false);
+    if (text.trim() !== (node.title ?? '')) send({ type: 'setTitle', nodeId: node.id, title: text });
+  };
+  if (edit)
+    return (
+      <input
+        className="thread-title editing"
+        autoFocus
+        value={text}
+        maxLength={80}
+        placeholder="Name this thread"
+        onChange={(e) => setText(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === 'Enter') save();
+          if (e.key === 'Escape') {
+            setText(node.title ?? '');
+            setEdit(false);
+          }
+        }}
+      />
+    );
+  return (
+    <button
+      className={`thread-title ${node.title ? '' : 'empty'}`}
+      title="Click to rename"
+      onClick={(e) => {
+        e.stopPropagation();
+        setEdit(true);
+      }}
+    >
+      {node.title ?? (isLive(node) ? 'Naming…' : 'Add a title')}
+    </button>
   );
 }
 

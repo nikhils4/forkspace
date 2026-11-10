@@ -412,3 +412,30 @@ export async function commitMessage(opts: { prompt: string; history: string[]; s
     return { subject: fallbackMessage(opts.prompt, opts.summary, tickets) };
   }
 }
+
+// ---- thread titles, like Claude Code's session titles ----
+
+const TITLE_SCHEMA = {
+  type: 'object',
+  properties: { title: { type: 'string', description: 'A short title for this piece of work, 2 to 6 words, like "Fix cart total for discounts". No quotes, no trailing period.' } },
+  required: ['title'],
+};
+
+export function fallbackTitle(prompt: string) {
+  const words = prompt.replace(/[`*_#>\[\]()]/g, '').replace(/\s+/g, ' ').trim().split(' ').slice(0, 7).join(' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+export async function threadTitle(prompt: string, summary: string, cwd: string): Promise<string> {
+  try {
+    const res = await ask<{ title: string }>(
+      `Give this coding task a short title.\n\nWhat the developer asked: "${clip(prompt, 600)}"\n` + (summary ? `What was done: ${clip(summary, 500)}\n` : ''),
+      'You name pieces of work with short, clear titles, like a good ticket title.',
+      TITLE_SCHEMA,
+      cwd,
+    );
+    const t = res?.title?.replace(/^["']|["'.]$/g, '').replace(/\s+/g, ' ').trim();
+    if (t) return t.slice(0, 80);
+  } catch {}
+  return fallbackTitle(prompt);
+}
