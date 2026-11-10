@@ -10,6 +10,7 @@ import { StartCommand } from './Gate.tsx';
 import { setTheme, useTheme, type Theme } from './theme.ts';
 import { bugReportUrl, ideaUrl, questionUrl } from './feedback.ts';
 import { Segmented } from './ui.tsx';
+import { MoveSection } from './Transfer.tsx';
 
 function Step({ n, done, title, children }: { n: number; done?: boolean; title: string; children?: React.ReactNode }) {
   return (
@@ -340,6 +341,8 @@ export function Settings() {
       <AlwaysOn />
 
       <UpdateSection />
+
+      <MoveSection />
 
       <section className="card-section">
         <h3>

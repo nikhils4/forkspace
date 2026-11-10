@@ -252,3 +252,29 @@ export interface UpdateInfo {
   checkedAt?: number;
   error?: string;
 }
+
+/** What an export file holds, shown before importing it. */
+export interface ImportPlan {
+  id: string;
+  exportedAt: number;
+  boards: {
+    id: string;
+    name: string;
+    oldCwd: string;
+    /** Best guess for the folder on this machine. */
+    suggested: string;
+    found: boolean;
+    /** A board with this id is already here; it will be skipped. */
+    already: boolean;
+    steps: number;
+    notes: number;
+    /** Branch code is in the file. */
+    code: boolean;
+  }[];
+}
+
+export interface ImportResult {
+  name: string;
+  ok: boolean;
+  note: string;
+}

@@ -106,6 +106,18 @@ No magic. Here is everything, in plain words.
 
 Why an API key and not your Claude.ai login? Anthropic asks apps built on Claude Code to use API keys. If no key is set, the SDK may fall back to an existing Claude Code login on your machine, but the supported way is a key.
 
+## Moving to another Mac
+
+In **Settings → Move to another Mac**, click **Export everything**. You get one `.forkspace` file with every board, step, note and concept, the Claude Code conversations behind them, and each branch's code (as a git bundle). Your access key and paired devices are not included.
+
+On the other Mac:
+
+1. Install Forkspace and clone or copy your projects.
+2. Open **Settings → Move to another Mac → Import a file** and choose the file.
+3. Check where each project lives (Forkspace guesses from the old path) and click **Import**.
+
+Conversations continue where they left off and code branches come back as their own copies. Boards already on that Mac are skipped, so importing twice is safe. If a branch's code needs commits your copy of the repo doesn't have yet, pull first and import again.
+
 ## On your phone
 
 Agents always run on your Mac. Your phone is a remote control.

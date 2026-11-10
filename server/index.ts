@@ -10,6 +10,7 @@ import type { Board, ClientMsg, ServerMsg } from '../shared/types.ts';
 import { openFolder } from './editor.ts';
 import { listFiles, readFile } from './files.ts';
 import { importSessions, listImportable } from './importer.ts';
+import { applyImport, checkFolder, exportWorkspace, readImport } from './transfer.ts';
 import { applyUpdate, checkForUpdate, currentBuild } from './updater.ts';
 import { disableService, enableService, serviceStatus, startCommand } from './service.ts';
 import * as g from './git.ts';
@@ -73,6 +74,7 @@ const server = http.createServer((req, res) => {
     });
     return;
   }
+  if (url.pathname.startsWith('/api/workspace/')) return workspaceApi(req, res, url);
   let file = path.join(DIST, path.normalize(url.pathname).replace(/^(\.\.[/\\])+/, ''));
   if (!file.startsWith(DIST) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(DIST, 'index.html');
   if (!fs.existsSync(file)) {
@@ -89,6 +91,61 @@ const server = http.createServer((req, res) => {
   });
   fs.createReadStream(file).pipe(res);
 });
+
+// ---- moving a workspace between machines (files are too big for the socket) ----
+function readBody(req: http.IncomingMessage, limit: number): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const parts: Buffer[] = [];
+    let size = 0;
+    req.on('data', (c: Buffer) => {
+      size += c.length;
+      if (size > limit) {
+        reject(new Error('That file is too big.'));
+        req.destroy();
+      } else parts.push(c);
+    });
+    req.on('end', () => resolve(Buffer.concat(parts)));
+    req.on('error', reject);
+  });
+}
+
+async function workspaceApi(req: http.IncomingMessage, res: http.ServerResponse, url: URL) {
+  const json = (code: number, body: unknown) => {
+    res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+    res.end(JSON.stringify(body));
+  };
+  if (!checkToken((req.headers.authorization ?? '').replace(/^Bearer /, ''))) return json(401, { error: 'Sign in first.' });
+  try {
+    const route = url.pathname.slice('/api/workspace/'.length);
+    if (route === 'export' && req.method === 'GET') {
+      const buf = await exportWorkspace();
+      const day = new Date().toISOString().slice(0, 10);
+      res.writeHead(200, {
+        'content-type': 'application/octet-stream',
+        'content-disposition': `attachment; filename="forkspace-${day}.forkspace"`,
+        'content-length': buf.length,
+        'cache-control': 'no-store',
+      });
+      return res.end(buf);
+    }
+    if (route === 'import' && req.method === 'POST') return json(200, readImport(await readBody(req, 1024 * 1024 * 1024)));
+    if (route === 'folder' && req.method === 'GET') {
+      const p = (url.searchParams.get('path') ?? '').replace(/^~(?=$|\/)/, os.homedir());
+      return json(200, { exists: checkFolder(p) });
+    }
+    if (route === 'apply' && req.method === 'POST') {
+      const { id, folders } = JSON.parse((await readBody(req, 1024 * 1024)).toString('utf8'));
+      const r = await applyImport(String(id), folders ?? {});
+      for (const board of r.boards) broadcast({ type: 'board', board });
+      for (const branch of r.branches) broadcast({ type: 'branch', branch });
+      for (const node of r.nodes) broadcast({ type: 'node', node });
+      return json(200, r.results);
+    }
+    json(404, { error: 'Not found' });
+  } catch (err: any) {
+    json(400, { error: String(err?.message ?? err) });
+  }
+}
 
 // ---- websocket ----
 // Agents can run commands on this machine, so every connection must carry the access key.

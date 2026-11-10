@@ -4747,3 +4747,104 @@ kbd {
 .gate-card a.btn {
   text-decoration: none;
 }
+
+/* ---------- move to another Mac ---------- */
+.move-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.import-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+  padding: 14px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--r);
+  background: var(--surface-2);
+}
+.import-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+.import-board {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+.import-board.already {
+  opacity: 0.6;
+}
+.import-pick {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+.import-pick input {
+  margin-top: 3px;
+  accent-color: var(--accent);
+}
+.import-pick > div,
+.import-result > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.import-folder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 24px;
+}
+.import-folder input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text);
+}
+.import-board > .faint.small {
+  padding-left: 24px;
+}
+.import-found {
+  font-size: 12px;
+  white-space: nowrap;
+}
+.import-found.yes {
+  color: var(--ok);
+}
+.import-found.no {
+  color: var(--warn);
+}
+.import-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 4px;
+}
+.import-result {
+  display: flex;
+  gap: 10px;
+  font-size: 13px;
+}
+.import-result.ok svg {
+  color: var(--ok);
+  margin-top: 2px;
+}
+.import-result.skip svg {
+  color: var(--text-3);
+  margin-top: 2px;
+}
+.import-result span {
+  color: var(--text-2);
+}
