@@ -11,8 +11,9 @@ import { setTheme, useTheme, type Theme } from './theme.ts';
 import { bugReportUrl, ideaUrl, questionUrl } from './feedback.ts';
 import { Segmented } from './ui.tsx';
 import { MoveSection } from './Transfer.tsx';
+import { AwaySection } from './Away.tsx';
 
-function Step({ n, done, title, children }: { n: number; done?: boolean; title: string; children?: React.ReactNode }) {
+export function Step({ n, done, title, children }: { n: number; done?: boolean; title: string; children?: React.ReactNode }) {
   return (
     <div className={`step ${done ? 'done' : ''}`}>
       <div className="step-n">{done ? <Icon name="check" size={13} strokeWidth={2.5} /> : n}</div>
@@ -102,7 +103,7 @@ function RemoteAccess({ info, setInfo }: { info: RemoteInfo | null; setInfo: (i:
   );
 }
 
-function PairPanel({ base }: { base?: string }) {
+export function PairPanel({ base }: { base?: string }) {
   const [code, setCode] = useState<{ code: string; expiresAt: number } | null>(null);
   const [qr, setQr] = useState('');
   const [now, setNow] = useState(Date.now());
@@ -142,7 +143,7 @@ function PairPanel({ base }: { base?: string }) {
   );
 }
 
-function Notifications() {
+export function Notifications() {
   const support = pushSupport();
   const [on, setOn] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -309,6 +310,7 @@ export function Settings() {
 
   return (
     <div className="settings">
+      <AwaySection />
       <section className="card-section">
         <h3>
           <Icon name="phone" size={16} /> Use Forkspace on your phone

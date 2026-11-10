@@ -164,6 +164,8 @@ export type ClientMsg =
   | { type: 'listDir'; reqId: string; path: string }
   | { type: 'presence'; visible: boolean }
   | { type: 'remoteInfo'; reqId: string }
+  | { type: 'awayInfo'; reqId: string }
+  | { type: 'setAway'; reqId: string; on: boolean; screen?: boolean }
   | { type: 'enableTailscale'; reqId: string }
   | { type: 'setPublicUrl'; reqId: string; url: string }
   | { type: 'rotateToken'; reqId: string }
@@ -277,4 +279,31 @@ export interface ImportResult {
   name: string;
   ok: boolean;
   note: string;
+}
+
+export interface AwayStatus {
+  on: boolean;
+  /** Keep the screen on too, not just the computer. */
+  screen: boolean;
+  since?: number;
+  supported: boolean;
+  method?: string;
+  /** The keep-awake helper is running right now. */
+  active: boolean;
+  error?: string;
+  onBattery?: boolean;
+  platform: string;
+  /** Devices connected from outside this machine right now (phones over Tailscale). */
+  remoteConnected: number;
+  remoteSeen?: { at: number; device: string };
+}
+
+/** Everything the away mode setup checks, in one answer. */
+export interface AwayInfo {
+  away: AwayStatus;
+  tailscale: RemoteInfo['tailscale'];
+  publicUrl?: string;
+  service: { supported: boolean; installed: boolean; reason?: string };
+  /** Devices that will get a notification when an agent needs you. */
+  pushDevices: number;
 }

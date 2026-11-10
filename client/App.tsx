@@ -4,6 +4,7 @@ import type { Board, TurnNode } from '../shared/types.ts';
 import { BoardSettings, MODES, NewBoard } from './BoardForms.tsx';
 import { Canvas } from './Canvas.tsx';
 import { Chat } from './Chat.tsx';
+import { AwayLink } from './Away.tsx';
 import { bugReportUrl, ideaUrl } from './feedback.ts';
 import { ContextMenu, type MenuItem } from './ContextMenu.tsx';
 import { CodeView, fileCache } from './CodeView.tsx';
@@ -489,6 +490,7 @@ function Shell() {
         <div className="side-foot">
           <UpdatePill onOpen={() => setSheet('devices')} />
           <InstallButton />
+          <AwayLink onOpen={() => setSheet('devices')} />
           <button className="side-link" onClick={() => setSheet('learn')}>
             <Icon name="spark" size={15} /> Concepts
             {lessonCount > 0 && <span className="count">{lessonCount}</span>}

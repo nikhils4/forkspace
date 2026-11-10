@@ -185,6 +185,14 @@ export async function applyUpdate(setAside: boolean, progress: Progress, beforeR
 }
 
 function restart(beforeRestart: () => void) {
+  // Running as the background service: launchd starts us again by itself (KeepAlive).
+  // Starting our own copy too would leave two servers fighting over the port.
+  if (process.env.XPC_SERVICE_NAME?.includes('dev.forkspace')) {
+    console.log('\n  Forkspace updated. The background service restarts it.\n');
+    beforeRestart();
+    setTimeout(() => process.exit(0), 400);
+    return;
+  }
   const log = fs.openSync(path.join(HOME, 'server.log'), 'a');
   const child = spawn(process.execPath, process.argv.slice(1), {
     cwd: process.cwd(),

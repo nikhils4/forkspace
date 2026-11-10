@@ -4848,3 +4848,53 @@ kbd {
 .import-result span {
   color: var(--text-2);
 }
+
+/* ---------- away mode ---------- */
+.card-section.away.is-on {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+.away-phone {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  font-size: 13px;
+  color: var(--text-2);
+}
+.away-phone svg {
+  flex: none;
+  color: var(--text-3);
+}
+.away-phone b {
+  color: var(--text);
+  font-weight: 600;
+}
+.away-setup summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 0 8px;
+  color: var(--text-2);
+}
+.away-setup[open] summary {
+  color: var(--text);
+}
+.warn-box {
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: 13px;
+}
+.side-link.away-on {
+  color: var(--text);
+}
+.away-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 20%, transparent);
+}

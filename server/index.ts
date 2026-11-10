@@ -17,6 +17,7 @@ import * as g from './git.ts';
 import { checkToken, getPublicUrl, getToken, isLocalRequest, newPairCode, redeemPairCode, rotateToken, setPublicUrl } from './auth.ts';
 import * as push from './push.ts';
 import { enableTailscaleServe, tailscaleInfo } from './remote.ts';
+import { awayStatus, noteDevice, setAway } from './away.ts';
 import { answer, isRunning, pruneBranches, setActivityHook, setEmitter, setNotifier, startTurn, stop, touch } from './runner.ts';
 import { explain, onActivity, setTutorTouch } from './tutor.ts';
 import { flush, getBoard, getBranch, getNode, getTurn, save, state, subtree } from './store.ts';
@@ -180,8 +181,13 @@ setNotifier((node, kind) => {
     push.notify({ title: `${node.status === 'error' ? 'Failed' : 'Done'} · ${board?.name ?? 'Forkspace'}`, body: short, tag: node.id, url });
 });
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
   clients.add(ws);
+  // Remember when a phone (or any other device) connects, for away mode's setup.
+  const deviceId = nanoid(6);
+  const remote = !isLocalRequest(req);
+  noteDevice(deviceId, remote, String(req.headers['user-agent'] ?? ''), true);
+  ws.on('close', () => noteDevice(deviceId, remote, '', false));
   visible.set(ws, false);
   ws.on('close', () => visible.delete(ws));
   send(ws, { type: 'state', state, home: os.homedir(), build: BUILD, startCommand: startCommand() });
@@ -395,6 +401,18 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
     case 'presence':
       for (const [c] of visible) if (c === currentWs) visible.set(c, msg.visible);
       return;
+    case 'awayInfo':
+    case 'setAway': {
+      if (msg.type === 'setAway') setAway(!!msg.on, typeof msg.screen === 'boolean' ? msg.screen : undefined);
+      const [away, tailscale, service] = await Promise.all([awayStatus(), tailscaleInfo(PORT), serviceStatus()]);
+      return {
+        away,
+        tailscale,
+        publicUrl: getPublicUrl(),
+        service: { supported: service.supported, installed: service.installed, reason: service.reason },
+        pushDevices: push.subscriptionCount(),
+      };
+    }
     case 'remoteInfo':
       return { tailscale: await tailscaleInfo(PORT), publicUrl: getPublicUrl(), port: PORT };
     case 'enableTailscale':

@@ -27,6 +27,7 @@ persist();
 webpush.setVapidDetails('mailto:forkspace@example.com', ps.publicKey, ps.privateKey);
 
 export const publicKey = () => ps.publicKey;
+export const subscriptionCount = () => ps.subs.length;
 
 export function subscribe(sub: PushSubscription) {
   if (!sub?.endpoint) throw new Error('Bad subscription');
