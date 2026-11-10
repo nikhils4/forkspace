@@ -70,7 +70,7 @@
       :root[data-theme='dark'] nav.solid {
         background: rgba(18, 17, 16, 0.86);
       }
-      :root[data-theme='dark'] .manifesto .w {
+      :root[data-theme='dark'] .manifesto .w:not(.lit) {
         color: rgba(241, 237, 228, 0.14);
       }
       :root[data-theme='dark'] .shot {
@@ -1869,7 +1869,11 @@
         if (y > 200 && y > lastY + 4) nav.classList.add('hide');
         else if (y < lastY - 4 || y < 200) nav.classList.remove('hide');
         lastY = y;
-        if (reduce) return;
+        if (reduce) {
+          // No scroll effects with reduced motion, but the words are always readable.
+          words.forEach((w) => w.classList.add('lit'));
+          return;
+        }
         grow.style.setProperty('--p', clamp(y / (vh * 0.6)).toFixed(3));
         const mr = manWrap.getBoundingClientRect();
         const n = Math.round(clamp((-mr.top + vh * 0.25) / (mr.height - vh * 0.6)) * words.length);
