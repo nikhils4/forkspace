@@ -23,7 +23,7 @@ const writeDraft = (k: string, v: string) => {
 
 export const composerFocus = { current: null as HTMLTextAreaElement | null };
 
-export function Composer({ target, board, onSubmit, onClear }: { target?: TurnNode; board: Board; onSubmit: (p: string) => Promise<boolean>; onClear: () => void }) {
+export function Composer({ target, board, onSubmit, onClear, drawerOpen }: { target?: TurnNode; board: Board; onSubmit: (p: string) => Promise<boolean>; onClear: () => void; drawerOpen?: boolean }) {
   const { branches } = useStore();
   const mobile = useIsMobile();
   const [text, setText] = useState(() => readDraft(draftKey(board.id)));
@@ -45,6 +45,35 @@ export function Composer({ target, board, onSubmit, onClear }: { target?: TurnNo
     return () => ro.disconnect();
   }, []);
   useEffect(() => writeDraft(draftKey(board.id), text), [text, board.id]);
+
+  // The details panel floats over the right side: the box moves into the space left of it
+  // (narrower, centred there) so the mic and send buttons never hide behind the panel.
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    if (!drawerOpen) {
+      el.style.removeProperty('--drawer-cover');
+      return;
+    }
+    const measure = () => {
+      const d = document.querySelector('.drawer') as HTMLElement | null;
+      if (!d) return;
+      const r = el.getBoundingClientRect();
+      const dr = d.getBoundingClientRect();
+      const cover = dr.left > r.left + 200 ? Math.max(0, r.right - dr.left + 14) : 0;
+      el.style.setProperty('--drawer-cover', `${cover}px`);
+    };
+    const raf = requestAnimationFrame(measure);
+    const d = document.querySelector('.drawer');
+    const ro = new ResizeObserver(measure);
+    if (d) ro.observe(d);
+    addEventListener('resize', measure);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      removeEventListener('resize', measure);
+    };
+  }, [drawerOpen]);
 
   // Auto-grow.
   useEffect(() => {

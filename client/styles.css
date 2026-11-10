@@ -7187,3 +7187,9 @@ input.thread-title.editing {
   margin: 0.5em 0 0.9em;
 }
 .md .md-list { display: block; }
+
+/* Details panel open: the message box sits in the space left of it */
+.composer {
+  padding-right: calc(16px + var(--drawer-cover, 0px));
+  transition: padding-right 0.3s var(--ease);
+}

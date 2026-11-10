@@ -271,7 +271,7 @@ function Shell() {
           {wasOpened('code') && <CodeView board={board} target={target} setTargetId={setTargetId} openRequest={codeOpen} />}
         </div>
       </div>
-      <Composer key={board.id} target={target} board={board} onSubmit={submit} onClear={() => setTargetId(null)} />
+      <Composer key={board.id} target={target} board={board} onSubmit={submit} onClear={() => setTargetId(null)} drawerOpen={!!openNode} />
     </div>
   ) : (
     <Welcome onNew={() => setSheet('new')} />
