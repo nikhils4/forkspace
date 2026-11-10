@@ -6,9 +6,11 @@ import { HOME } from './store.ts';
 
 const run = promisify(execFile);
 
-const GIT_ENV = {
-  ...process.env,
-  // Checkpoints must never fail on a missing identity or a hook.
+// Commits are yours: git uses your own user.name and user.email, exactly like a commit you make
+// by hand (hosts like Vercel reject commits from unknown authors). Only when git has no identity
+// at all does a checkpoint fall back to a Forkspace one, so it never fails.
+const GIT_ENV = { ...process.env };
+const FALLBACK_IDENTITY = {
   GIT_AUTHOR_NAME: 'Forkspace',
   GIT_AUTHOR_EMAIL: 'forkspace@localhost',
   GIT_COMMITTER_NAME: 'Forkspace',
@@ -56,11 +58,35 @@ export async function removeWorktree(root: string, dir: string, branch?: string)
   if (branch) await git(root, 'branch', '-D', branch).catch(() => {});
 }
 
-/** Commit everything in the worktree so this point can be forked later. Returns the commit hash. */
-export async function checkpoint(dir: string, message: string): Promise<string> {
+async function hasIdentity(dir: string) {
+  const get = (k: string) => git(dir, 'config', '--get', k).catch(() => '');
+  return !!((await get('user.name')) && (await get('user.email')));
+}
+
+/** Stage everything in the worktree and describe it, before committing. */
+export async function stageAll(dir: string) {
   await git(dir, 'add', '-A');
-  await git(dir, 'commit', '-q', '--no-verify', '--allow-empty', '-m', message);
+  const stat = await git(dir, 'diff', '--cached', '--stat').catch(() => '');
+  const patch = await git(dir, 'diff', '--cached', '--no-color', '-U2').catch(() => '');
+  return { stat, patch };
+}
+
+/** Commit what's staged, as you. Returns the commit hash. */
+export async function checkpoint(dir: string, subject: string, body?: string): Promise<string> {
+  await git(dir, 'add', '-A');
+  const args = ['commit', '-q', '--no-verify', '--allow-empty', '-m', subject, ...(body ? ['-m', body] : [])];
+  if (await hasIdentity(dir)) await git(dir, ...args);
+  else await run('git', args, { cwd: dir, env: { ...GIT_ENV, ...FALLBACK_IDENTITY } });
   return git(dir, 'rev-parse', 'HEAD');
+}
+
+/** Subjects of recent commits, so new ones can match the repo's style. */
+export async function recentSubjects(dir: string, n = 12) {
+  const out = await git(dir, 'log', `-${n * 2}`, '--format=%s').catch(() => '');
+  return out
+    .split('\n')
+    .filter((s) => s && !/^forkspace: /.test(s))
+    .slice(0, n);
 }
 
 export async function diffStat(dir: string, from: string, to: string) {
@@ -90,7 +116,7 @@ export async function showFile(cwd: string, ref: string, repoPath: string, maxBu
 export async function snapshot(root: string): Promise<string> {
   const os = await import('node:os');
   const tmpIndex = path.join(os.tmpdir(), `forkspace-index-${process.pid}-${Date.now()}`);
-  const env = { ...GIT_ENV, GIT_INDEX_FILE: tmpIndex };
+  const env = { ...GIT_ENV, GIT_INDEX_FILE: tmpIndex, ...((await hasIdentity(root)) ? {} : FALLBACK_IDENTITY) };
   const g = async (...args: string[]) => (await run('git', args, { cwd: root, env, maxBuffer: 64 * 1024 * 1024 })).stdout.trim();
   try {
     await g('read-tree', 'HEAD');

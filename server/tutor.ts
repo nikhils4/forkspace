@@ -344,3 +344,71 @@ export function organizeConcepts(cwd: string): Promise<number> {
   })();
   return organizing;
 }
+
+// ---- commit messages for checkpoints ----
+
+const COMMIT_SCHEMA = {
+  type: 'object',
+  properties: {
+    subject: { type: 'string', description: 'One line, at most 72 characters, conventional commit style like "feat: add memoized power()" or "fix(cart): handle empty basket". Imperative mood.' },
+    body: { type: 'array', items: { type: 'string' }, maxItems: 3, description: 'Up to 3 short bullet points on what changed. Empty for small changes.' },
+  },
+  required: ['subject'],
+};
+
+/** Ticket ids like ENG-8788, ABC-12 or #123 mentioned anywhere relevant. */
+export function findTickets(...texts: (string | undefined)[]) {
+  const out = new Set<string>();
+  for (const t of texts) {
+    if (!t) continue;
+    for (const m of t.matchAll(/\b([A-Z][A-Z0-9]{1,9}-\d{1,6})\b/g)) out.add(m[1]);
+    // Branch names are often lowercase: nikhil/eng-8788-thing
+    for (const m of t.matchAll(/(?:^|[\/_-])([a-z]{2,10}-\d{2,6})(?=$|[\/_-])/g)) out.add(m[1].toUpperCase());
+    for (const m of t.matchAll(/(?:^|\s)#(\d{1,6})\b/g)) out.add(`#${m[1]}`);
+  }
+  return [...out].slice(0, 3);
+}
+
+const TYPES: [RegExp, string][] = [
+  [/\b(fix|bug|broken|error|crash|wrong|issue)\b/i, 'fix'],
+  [/\b(test|tests|spec)\b/i, 'test'],
+  [/\b(doc|docs|readme|comment)\b/i, 'docs'],
+  [/\b(refactor|clean ?up|rename|simplif)/i, 'refactor'],
+  [/\b(style|css|design|ui)\b/i, 'style'],
+  [/\b(perf|faster|speed|optimi[sz]e|cache)\b/i, 'perf'],
+];
+
+/** Plain fallback when the model is unavailable: still short and conventional. */
+function fallbackMessage(prompt: string, summary: string, tickets: string[]) {
+  const type = TYPES.find(([re]) => re.test(prompt))?.[1] ?? (/\b(add|create|new|build|implement|support)\b/i.test(prompt) ? 'feat' : 'chore');
+  const what = (summary || prompt).replace(/[`*_#>]/g, '').replace(/\s+/g, ' ').split(/(?<=[.!?])\s/)[0].replace(/[.!?]$/, '');
+  const tail = tickets.length ? ` (${tickets.join(', ')})` : '';
+  const room = 72 - type.length - 2 - tail.length;
+  return `${type}: ${what.charAt(0).toLowerCase()}${what.slice(1, room)}${what.length > room ? '…' : ''}${tail}`;
+}
+
+/** A short conventional commit message for what a step changed, in the repo's own style. */
+export async function commitMessage(opts: { prompt: string; history: string[]; summary: string; stat: string; patch: string; recent: string[]; branchName: string; cwd: string }): Promise<{ subject: string; body?: string }> {
+  const tickets = findTickets(opts.prompt, ...opts.history, opts.summary, opts.branchName);
+  if (!opts.stat.trim()) return { subject: fallbackMessage(opts.prompt, opts.summary, tickets).replace(/^\w+:/, 'chore:') };
+  try {
+    const res = await ask<{ subject: string; body?: string[] }>(
+      `Write the git commit message for these changes.\n\n` +
+        `What the developer asked: "${clip(opts.prompt, 500)}"\n` +
+        (opts.summary ? `What the agent said it did: ${clip(opts.summary, 700)}\n` : '') +
+        `\nFiles:\n${clip(opts.stat, 1500)}\n\nDiff:\n${clip(opts.patch, 6000)}\n\n` +
+        (opts.recent.length ? `Recent commits in this repo (match their style, prefix and casing):\n${opts.recent.map((s) => `- ${s}`).join('\n')}\n\n` : '') +
+        (tickets.length ? `Ticket(s) this work belongs to: ${tickets.join(', ')}. Include them the way recent commits do, or as "(${tickets[0]})" at the end of the subject.\n\n` : '') +
+        'Describe what changed, not what was asked. Conventional commit types: feat, fix, refactor, perf, test, docs, style, chore. No AI or tool attribution, no co-author lines.',
+      'You write short, precise git commit messages like a careful senior engineer.',
+      COMMIT_SCHEMA,
+      opts.cwd,
+    );
+    const subject = res?.subject?.replace(/\s+/g, ' ').trim();
+    if (!subject) throw new Error('empty');
+    const body = (res?.body ?? []).map((b) => `- ${b.replace(/^[-*]\s*/, '').trim()}`).join('\n');
+    return { subject: subject.slice(0, 100), body: body || undefined };
+  } catch {
+    return { subject: fallbackMessage(opts.prompt, opts.summary, tickets) };
+  }
+}

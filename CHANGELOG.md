@@ -3,6 +3,11 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.9.3
+
+- Checkpoint commits are authored as you (your git name and email), so hosts like Vercel accept them
+- Commit messages describe the work in conventional style ("fix(cart): …", "feat: …"), match your repo's recent commits, and include a ticket like ENG-1234 when one is in your prompt, the conversation or your branch name
+
 ## 0.9.2
 
 - The terminal follows the card you click: it switches to that branch's terminal, or opens one in its folder

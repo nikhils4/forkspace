@@ -96,6 +96,8 @@ export interface Position {
 
 export interface TurnNode {
   kind: 'turn';
+  /** Subject of this step's checkpoint commit. */
+  commitMessage?: string;
   /** You marked this step finished: it and everything after it fade on the canvas. */
   completed?: boolean;
   id: string;

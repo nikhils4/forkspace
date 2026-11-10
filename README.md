@@ -89,7 +89,7 @@ Turn it off per board with the **Learn** pill in the top bar.
 With **Separate copy per branch** (the default for git repos):
 
 1. Each branch works in its own git worktree under `~/.forkspace/worktrees/`, on a branch named `forkspace/<id>`.
-2. After every step, Forkspace commits that worktree. The commit is the step's checkpoint.
+2. After every step, Forkspace commits that worktree, as you (your own git name and email), with a short conventional message written from the actual changes (`fix(cart): …`, `feat: …`) in your repo's style, including a ticket like `ENG-1234` if your prompt, the conversation or your branch mentions one. The commit is the step's checkpoint.
 3. Branching from a step starts a new worktree at its checkpoint, so the branch sees the code exactly as it was then.
 
 Branches never overwrite each other. To keep a result, merge its `forkspace/<id>` branch like any other. A step's **Details** panel shows the branch, folder and diff, plus a command to continue from that exact point in your terminal.

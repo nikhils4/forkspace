@@ -152,8 +152,10 @@ export function Drawer({ node, onClose, onReply }: { node: TurnNode; onClose: ()
                   <dd className="mono">{branch?.cwd}</dd>
                   {node.commit && (
                     <>
-                      <dt>Checkpoint</dt>
-                      <dd className="mono">{node.commit.slice(0, 10)}</dd>
+                      <dt>Commit</dt>
+                      <dd>
+                        <span className="mono">{node.commit.slice(0, 8)}</span> {node.commitMessage}
+                      </dd>
                     </>
                   )}
                 </dl>

@@ -3,6 +3,7 @@ import { nanoid } from 'nanoid';
 import path from 'node:path';
 import type { Board, Branch, PendingPermission, Position, TurnEvent, TurnNode } from '../shared/types.ts';
 import * as g from './git.ts';
+import { commitMessage } from './tutor.ts';
 import { ensureSessionAt } from './sessions.ts';
 import { HOME, getBoard, getBranch, getTurn, save, state } from './store.ts';
 
@@ -182,7 +183,23 @@ async function run(board: Board, branch: Branch, node: TurnNode, parent: TurnNod
     node.finishedAt = Date.now();
     if (branch.worktree) {
       try {
-        node.commit = await g.checkpoint(branch.worktree, `forkspace: ${node.prompt.replace(/\s+/g, ' ').slice(0, 72)}`);
+        // A real commit message, written from what changed, and authored as you.
+        const staged = await g.stageAll(branch.worktree);
+        const history: string[] = [];
+        for (let p = node.parentId ? getTurn(node.parentId) : undefined; p && history.length < 6; p = p.parentId ? getTurn(p.parentId) : undefined) history.push(p.prompt);
+        const userBranch = board.repoRoot ? await g.git(board.repoRoot, 'rev-parse', '--abbrev-ref', 'HEAD').catch(() => '') : '';
+        const msg = await commitMessage({
+          prompt: node.prompt,
+          history,
+          summary: lastAgentText(node),
+          stat: staged.stat,
+          patch: staged.patch,
+          recent: await g.recentSubjects(branch.worktree),
+          branchName: userBranch,
+          cwd: branch.worktree,
+        });
+        node.commit = await g.checkpoint(branch.worktree, msg.subject, msg.body);
+        node.commitMessage = msg.subject;
         if (node.baseCommit) node.diffStat = await g.diffStat(branch.worktree, node.baseCommit, node.commit);
       } catch (err: any) {
         node.error = (node.error ? node.error + '\n' : '') + `Checkpoint failed: ${err?.message ?? err}`;
@@ -310,4 +327,13 @@ async function prune() {
     if (b.worktree && board?.repoRoot) await g.removeWorktree(board.repoRoot, b.worktree, b.gitBranch).catch(() => {});
   }
   save();
+}
+
+/** The agent's last words in a step: its own summary of what it did. */
+function lastAgentText(node: TurnNode) {
+  for (let i = node.events.length - 1; i >= 0; i--) {
+    const e = node.events[i];
+    if (e.t === 'text' && !e.partial && e.text.trim()) return e.text;
+  }
+  return '';
 }
