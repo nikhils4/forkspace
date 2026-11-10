@@ -2,7 +2,7 @@
 
 ![Forkspace canvas](site/assets/canvas.webp)
 
-**Website:** https://forkspace-app.netlify.app
+**Website:** https://forkspace-app.netlify.app · Built by [nikhils4](https://github.com/nikhils4)
 
 A canvas control center for Claude Code agents.
 

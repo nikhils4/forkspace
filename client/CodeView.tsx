@@ -27,7 +27,8 @@ const EXT_COLORS: Record<string, string> = {
   ts: '#5b9cf5', tsx: '#5b9cf5', js: '#e8c547', jsx: '#e8c547', mjs: '#e8c547', json: '#e8a047', css: '#b18cff', scss: '#f472b6',
   html: '#ff7a5c', md: '#8b9cff', py: '#4fb3d9', rs: '#f08a5d', go: '#2dd4e6', yml: '#ff7a85', yaml: '#ff7a85', sql: '#e8c547', sh: '#3ecf8e',
 };
-const extColor = (p: string) => EXT_COLORS[p.split('.').pop()?.toLowerCase() ?? ''] ?? 'var(--text-3)';
+const extColor = (_p: string) => 'color-mix(in srgb, var(--text-3) 70%, transparent)';
+void EXT_COLORS;
 
 // ---------------- tree ----------------
 
@@ -436,7 +437,7 @@ export function CodeView({
         </div>
       )}
       <div className="code-body">
-        {!mobile && <MentorDock turns={steps} onOpenFile={openFile} />}
+        {!mobile && current && file && <MentorDock turns={steps} onOpenFile={openFile} />}
         {!current || !file ? (
           <div className="code-placeholder">
             <div className="hero-mark">

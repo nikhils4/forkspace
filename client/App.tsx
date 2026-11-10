@@ -68,6 +68,8 @@ function Shell() {
   const [tab, setTab] = useState<Tab>('board');
   const [palette, setPalette] = useState(false);
   const [codeOpen, setCodeOpen] = useState<{ path: string; n: number } | null>(null);
+  // Views are mounted on first visit and then kept alive, so switching never loses your place.
+  const [visited, setVisited] = useState<Record<string, View[]>>({});
   const { waiting, running } = useAgents();
 
   const board = store.boards.find((b) => b.id === boardId) ?? store.boards[0] ?? null;
@@ -181,21 +183,27 @@ function Shell() {
   };
 
   const setView = (v: View) => board && setViews((x) => ({ ...x, [board.id]: v }));
+  useEffect(() => {
+    if (board && !(visited[board.id] ?? []).includes(view)) setVisited((x) => ({ ...x, [board.id]: [...(x[board.id] ?? []), view] }));
+  }, [board?.id, view]);
+  const wasOpened = (v: View) => v === view || (board ? (visited[board.id] ?? []).includes(v) : false);
   const openNode = openId && isTurn(store.nodes[openId]) ? (store.nodes[openId] as TurnNode) : null;
 
   const lessonCount = Object.values(store.nodes).reduce((n, x) => n + (isTurn(x) ? (x.lessons?.length ?? 0) : 0), 0);
   const learnOn = board?.learn?.on !== false;
 
   const boardView = board ? (
-    <div className="stage">
+    <div className="stage" key={board.id}>
       <div className="view">
-        {view === 'canvas' ? (
-          <Canvas board={board} targetId={targetId} setTargetId={setTargetId} openDetails={setOpenId} focus={focus} />
-        ) : view === 'code' ? (
-          <CodeView board={board} target={target} setTargetId={setTargetId} openRequest={codeOpen} />
-        ) : (
-          <Chat board={board} targetId={targetId} setTargetId={setTargetId} openDetails={setOpenId} />
-        )}
+        <div className={`pane ${view === 'chat' ? 'on' : ''}`} aria-hidden={view !== 'chat'} inert={view !== 'chat'}>
+          {wasOpened('chat') && <Chat board={board} targetId={targetId} setTargetId={setTargetId} openDetails={setOpenId} />}
+        </div>
+        <div className={`pane ${view === 'canvas' ? 'on' : ''}`} aria-hidden={view !== 'canvas'} inert={view !== 'canvas'}>
+          {wasOpened('canvas') && <Canvas board={board} targetId={targetId} setTargetId={setTargetId} openDetails={setOpenId} focus={focus} active={view === 'canvas'} />}
+        </div>
+        <div className={`pane ${view === 'code' ? 'on' : ''}`} aria-hidden={view !== 'code'} inert={view !== 'code'}>
+          {wasOpened('code') && <CodeView board={board} target={target} setTargetId={setTargetId} openRequest={codeOpen} />}
+        </div>
       </div>
       <Composer key={board.id} target={target} board={board} onSubmit={submit} onClear={() => setTargetId(null)} />
     </div>
@@ -372,6 +380,9 @@ function Shell() {
               <div className="page-inner">
                 <h1 className="page-title">Devices</h1>
                 <Settings />
+                <a className="credit center" href="https://github.com/nikhils4" target="_blank" rel="noreferrer">
+                  Forkspace · Built by <b>nikhils4</b>
+                </a>
               </div>
             </div>
           )}
@@ -447,6 +458,9 @@ function Shell() {
           <button className="side-link" onClick={() => setSheet('devices')}>
             <Icon name="phone" size={15} /> Devices & phone
           </button>
+          <a className="credit" href="https://github.com/nikhils4" target="_blank" rel="noreferrer">
+            Built by <b>nikhils4</b>
+          </a>
         </div>
       </aside>
 

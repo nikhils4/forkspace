@@ -13,6 +13,7 @@
     <link rel="icon" type="image/svg+xml" href="/assets/icon.svg" />
     <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
     <meta name="theme-color" content="#08090c" />
+    <meta name="author" content="nikhils4" />
     <style>
       :root {
         --bg: #08090c;
@@ -1245,6 +1246,20 @@
       .final h2 {
         font-size: clamp(40px, 7vw, 84px);
       }
+      .made-by {
+        margin: 40px 0 0;
+        color: var(--text-3);
+        font-size: 14px;
+      }
+      .made-by a {
+        color: var(--text);
+        font-weight: 600;
+        border-bottom: 1px solid var(--border-2);
+        transition: border-color 0.2s;
+      }
+      .made-by a:hover {
+        border-color: var(--text);
+      }
       footer {
         border-top: 1px solid var(--border);
         padding: 28px 0 calc(28px + env(safe-area-inset-bottom));
@@ -1256,6 +1271,10 @@
         gap: 18px;
         align-items: center;
         flex-wrap: wrap;
+      }
+      footer .by {
+        color: var(--text-2);
+        font-weight: 600;
       }
       footer a:hover {
         color: var(--text);
@@ -1610,12 +1629,13 @@ return exp &lt; 0 ? 1 / result : result;</pre>
         <div class="ctas" style="margin-top: 0">
           <a class="btn primary" href="https://github.com/nikhils4/forkspace">Get Forkspace on GitHub</a>
         </div>
+        <p class="made-by">Designed and built by <a href="https://github.com/nikhils4">nikhils4</a></p>
       </div>
     </div>
 
     <footer>
       <div class="wrap foot">
-        <span>Forkspace · MIT License</span>
+        <span>Forkspace · MIT License · Built by <a class="by" href="https://github.com/nikhils4">nikhils4</a></span>
         <span class="spacer"></span>
         <a href="https://github.com/nikhils4/forkspace">GitHub</a>
         <a href="https://github.com/nikhils4/forkspace/issues">Issues</a>

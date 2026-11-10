@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Lesson, TurnNode } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
-import { Md } from './nodes.tsx';
+import { Md, isFresh } from './nodes.tsx';
 import { useStore } from './store.ts';
 import { timeAgo, useTick } from './ui.tsx';
 
@@ -14,30 +14,36 @@ export function ConceptCard({ lesson, onOpenFile, compact }: { lesson: Lesson; o
   useEffect(() => setOpen(!compact), [compact]);
 
   return (
-    <div className={`concept ${open ? 'open' : ''}`}>
+    <div className={`concept ${open ? 'open' : ''} ${isFresh(lesson.at) ? 'fresh' : ''}`}>
       <button className="concept-head" onClick={() => setOpen(!open)} aria-expanded={open}>
         <span className="mentor-orb small" />
         <span className="concept-title">{lesson.title}</span>
         <Icon name="chevronDown" size={14} className="concept-chev" />
       </button>
-      {open && (
-        <div className="concept-body">
-          <Md text={lesson.body} />
-          {lesson.snippet && (
-            <>
-              <button className="link-btn concept-code-toggle" onClick={() => setCode(!code)}>
-                {code ? 'Hide the code' : 'See the code'}
+      <div className="fold">
+        <div className="fold-inner">
+          <div className="concept-body">
+            <Md text={lesson.body} />
+            {lesson.snippet && (
+              <>
+                <button className="link-btn concept-code-toggle" onClick={() => setCode(!code)}>
+                  {code ? 'Hide the code' : 'See the code'}
+                </button>
+                <div className={`fold ${code ? 'open' : ''}`}>
+                  <div className="fold-inner">
+                    <pre className="code concept-snippet">{lesson.snippet}</pre>
+                  </div>
+                </div>
+              </>
+            )}
+            {lesson.file && onOpenFile && (
+              <button className="concept-file" onClick={() => onOpenFile(lesson.file!)}>
+                <Icon name="file" size={12} /> {lesson.file}
               </button>
-              {code && <pre className="code concept-snippet">{lesson.snippet}</pre>}
-            </>
-          )}
-          {lesson.file && onOpenFile && (
-            <button className="concept-file" onClick={() => onOpenFile(lesson.file!)}>
-              <Icon name="file" size={12} /> {lesson.file}
-            </button>
-          )}
+            )}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

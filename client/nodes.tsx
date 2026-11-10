@@ -7,7 +7,11 @@ import { currentActivity, isLive, lastText } from './tree.ts';
 
 export const NOTE_COLORS = ['#fde68a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#e9d5ff', '#e5e7eb'];
 
-export const BRANCH_COLORS = ['#8b9cff', '#f5a524', '#3ecf8e', '#f472b6', '#b18cff', '#2dd4e6', '#ff7a85', '#a3d947'];
+// Muted on purpose: colour tells branches apart without shouting.
+export const BRANCH_COLORS = ['#8f9bd9', '#c7a46e', '#72ad92', '#b78ba6', '#9d93cc', '#6ea7b3', '#c08787', '#97aa75'];
+
+/** Only things that just appeared get an entrance animation (never replays on view switches). */
+export const isFresh = (t?: number) => !!t && Date.now() - t < 4000;
 export function branchColor(id: string) {
   let h = 0;
   for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
@@ -257,7 +261,7 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
     );
 
   return (
-    <div className={`turn status-${node.status} ${isTarget ? 'target' : ''}`} style={{ ['--branch' as any]: color }}>
+    <div className={`turn status-${node.status} ${isTarget ? 'target' : ''} ${isFresh(node.createdAt) ? 'fresh' : ''}`} style={{ ['--branch' as any]: color }}>
       <Handle type="target" position={Position.Top} />
       {live && <div className="turn-progress" />}
       <div className="turn-head">
@@ -372,7 +376,7 @@ export const NoteCard = memo(function NoteCard({ data, selected }: NodeProps & {
   const save = (patch: Partial<NoteNode>) => send({ type: 'upsertNote', note: { ...node, ...patch } });
 
   return (
-    <div className={`note ${selected ? 'selected' : ''}`} style={{ background: node.color }}>
+    <div className={`note ${selected ? 'selected' : ''} ${isFresh(node.createdAt) ? 'fresh' : ''}`} style={{ background: node.color }}>
       <NodeResizer
         isVisible={selected}
         minWidth={160}

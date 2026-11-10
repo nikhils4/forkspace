@@ -29,7 +29,9 @@ export function Canvas({
   setTargetId,
   openDetails,
   focus,
+  active = true,
 }: {
+  active?: boolean;
   board: Board;
   targetId: string | null;
   setTargetId: (id: string | null) => void;
@@ -88,7 +90,7 @@ export function Canvas({
         target: n.id,
         animated: isLive(n),
         type: 'default',
-        style: { stroke: c, strokeWidth: 2, strokeDasharray: forked ? '6 5' : undefined },
+        style: { stroke: c, strokeWidth: 1.5, strokeOpacity: 0.7, strokeDasharray: forked ? '5 5' : undefined },
         label: forked ? 'fork' : undefined,
         labelStyle: { fill: c, fontSize: 11, fontWeight: 600 },
         labelBgStyle: { fill: 'var(--bg)' },
@@ -163,6 +165,7 @@ export function Canvas({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (!active) return;
       if ((e.target as HTMLElement).closest('input, textarea, select, [contenteditable]')) return;
       if (e.key === 'Backspace' || e.key === 'Delete') deleteSelected();
       if (e.key === 'n' && !e.metaKey && !e.ctrlKey) {

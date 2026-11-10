@@ -3,7 +3,7 @@ import { LessonCard, MentorWorking } from './Learn.tsx';
 import type { Board, TurnEvent, TurnNode } from '../shared/types.ts';
 import { composerFocus } from './Composer.tsx';
 import { Icon } from './icons.tsx';
-import { DiffStat, Md, Permission, STATUS_LABEL, StatusDot, ToolLine, branchColor, money } from './nodes.tsx';
+import { DiffStat, Md, Permission, STATUS_LABEL, StatusDot, ToolLine, branchColor, isFresh, money } from './nodes.tsx';
 import { request, send, toast, useStore } from './store.ts';
 import { childrenOf, currentActivity, isLive, lastText, latestLeaf, leaves, pathTo, turnsOf } from './tree.ts';
 import { timeAgo, useTick } from './ui.tsx';
@@ -66,7 +66,7 @@ function Turn({ t, isLast, forkHere, openDetails }: { t: TurnNode; isLast: boole
     setExplaining(false);
   };
   return (
-    <div className="msg-pair" style={{ ['--branch' as any]: branchColor(t.branchId) }}>
+    <div className={`msg-pair ${isFresh(t.createdAt) ? 'fresh' : ''}`} style={{ ['--branch' as any]: branchColor(t.branchId) }}>
       <div className="bubble-user">{t.prompt}</div>
       <div className={`msg-agent status-${t.status}`}>
         <div className="msg-rail" />

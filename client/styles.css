@@ -3988,3 +3988,193 @@ kbd {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* =========================================================
+   Polish: stable view switching, calmer motion, quieter colour
+   ========================================================= */
+
+/* All three views stay mounted; only the active one shows. */
+.view {
+  position: relative;
+}
+.pane {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.16s ease,
+    visibility 0s linear 0.16s;
+}
+.pane.on {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 0.22s ease;
+}
+.chat {
+  scroll-behavior: auto;
+}
+
+/* Entrance motion only for things that just appeared. */
+.turn,
+.msg-pair,
+.concept,
+.note {
+  animation: none;
+}
+.turn.fresh,
+.note.fresh {
+  animation: card-in 0.45s var(--ease);
+}
+.msg-pair.fresh,
+.concept.fresh {
+  animation: lesson-in 0.45s var(--ease);
+}
+@keyframes lesson-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.mentor-dock {
+  animation: lesson-in 0.3s var(--ease);
+}
+
+/* Smooth open/close without measuring heights. */
+.fold {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.28s var(--ease);
+}
+.concept.open > .fold,
+.fold.open {
+  grid-template-rows: 1fr;
+}
+.fold-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+.concept-body {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.concept.open .concept-body {
+  opacity: 1;
+  transition-delay: 0.06s;
+}
+.concept-snippet {
+  margin-top: 2px;
+}
+
+/* Quieter colour */
+.concept {
+  background: var(--surface);
+  border-color: var(--border);
+}
+.concept.open {
+  border-color: var(--border-2);
+}
+.concept-chip {
+  border-color: var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 500;
+}
+.concept-chip:hover {
+  background: var(--surface-3);
+  border-color: var(--border-2);
+}
+.concept-chip.more {
+  color: var(--text-2);
+}
+.turn::before {
+  height: 2px;
+  opacity: 0.65;
+}
+.branch-tag {
+  color: var(--text-3);
+  background: var(--surface-2);
+}
+.branch-tag svg {
+  color: var(--branch);
+}
+.target-chip {
+  color: var(--text-2);
+  background: var(--surface-2);
+}
+.target-chip svg {
+  color: var(--branch, var(--text-2));
+}
+.target-chip.new svg {
+  color: var(--text-3);
+}
+.msg-rail {
+  width: 2px;
+  opacity: 0.55;
+}
+.learn-pill.on {
+  background: transparent;
+  border-color: var(--border-2);
+}
+.btn.primary {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.22) inset,
+    0 6px 18px -8px rgba(106, 92, 255, 0.55);
+}
+.send-btn {
+  box-shadow: 0 4px 12px -6px rgba(106, 92, 255, 0.55);
+}
+.turn.target {
+  box-shadow:
+    0 0 0 1.5px color-mix(in srgb, var(--branch) 80%, transparent),
+    var(--shadow-lg);
+}
+.composer-box:focus-within {
+  border-color: var(--border-2);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--text) 5%, transparent),
+    var(--shadow-lg);
+}
+.branch-chip.on {
+  background: var(--surface-2);
+}
+.thread-row .branch-swatch.tall {
+  opacity: 0.7;
+}
+
+/* Credit */
+.credit {
+  display: block;
+  padding: 8px 10px 2px;
+  font-size: 12px;
+  color: var(--text-3);
+  text-decoration: none;
+}
+.credit b {
+  font-weight: 600;
+  color: var(--text-2);
+}
+.credit:hover b {
+  color: var(--text);
+}
+.credit.center {
+  text-align: center;
+  padding: 24px 0 8px;
+}
+/* React Flow forces its nodes visible; make sure a hidden pane never paints or catches clicks. */
+.pane:not(.on) .react-flow__node,
+.pane:not(.on) .react-flow__edge,
+.pane:not(.on) .react-flow__panel {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
