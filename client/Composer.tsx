@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { MicButton } from './Mic.tsx';
+import { MicButton, stopDictation } from './Mic.tsx';
 import type { Board, TurnNode } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
 import { branchColor } from './nodes.tsx';
@@ -56,6 +56,8 @@ export function Composer({ target, board, onSubmit, onClear }: { target?: TurnNo
 
   const go = async () => {
     if (!text.trim() || busy || targetBusy) return;
+    // Still dictating? Stop the microphone; what it heard so far is already in the box.
+    stopDictation();
     setBusy(true);
     if (await onSubmit(text.trim())) {
       setText('');

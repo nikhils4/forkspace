@@ -8,6 +8,13 @@ import { toast } from './store.ts';
 const Recognition: any = typeof window !== 'undefined' ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition : null;
 export const micSupported = () => !!Recognition;
 
+/** The dictation in progress, if any: sending stops it without writing anything back. */
+let active: { cancel: () => void } | null = null;
+export function stopDictation() {
+  active?.cancel();
+  active = null;
+}
+
 export function MicButton({ text, setText, onStop }: { text: string; setText: (v: string) => void; onStop?: () => void }) {
   const [on, setOn] = useState(false);
   const rec = useRef<any>(null);
@@ -21,6 +28,8 @@ export function MicButton({ text, setText, onStop }: { text: string; setText: (v
   const stop = () => {
     rec.current?.stop();
   };
+  // Send was pressed: stop listening and leave the (now sent, cleared) box alone.
+  const cancelled = useRef(false);
   const start = () => {
     const r = new Recognition();
     r.lang = navigator.language || 'en-US';
@@ -29,6 +38,7 @@ export function MicButton({ text, setText, onStop }: { text: string; setText: (v
     base.current = text && !/\s$/.test(text) ? `${text} ` : text;
     finalText.current = '';
     r.onresult = (e: any) => {
+      if (cancelled.current) return; // sent already: late words never come back into the box
       let interim = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const t = e.results[i][0].transcript;
@@ -44,9 +54,20 @@ export function MicButton({ text, setText, onStop }: { text: string; setText: (v
     r.onend = () => {
       setOn(false);
       rec.current = null;
+      if (active?.cancel === cancel) active = null;
+      if (cancelled.current) return;
       setText((base.current + finalText.current).replace(/\s+$/, ''));
       onStop?.();
     };
+    cancelled.current = false;
+    const cancel = () => {
+      cancelled.current = true;
+      setOn(false);
+      try {
+        r.abort();
+      } catch {}
+    };
+    active = { cancel };
     rec.current = r;
     try {
       r.start();

@@ -3,6 +3,10 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.13.2
+
+- Sending while dictating stops the microphone and sends what it heard; nothing comes back into the box afterwards
+
 ## 0.13.1
 
 - Click anywhere on a card to open its details; the card glides to the middle of the space left of the panel
