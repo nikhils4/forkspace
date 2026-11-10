@@ -442,7 +442,7 @@ function Shell() {
             <span>Settings</span>
           </button>
         </nav>
-        {openNode && <Drawer node={openNode} onClose={() => setOpenId(null)} />}
+        {openNode && <Drawer node={openNode} onClose={() => setOpenId(null)} onReply={(id) => (setTargetId(id), setTimeout(() => composerFocus.current?.focus(), 0))} />}
         {sheets}
       <AwayScreen onGoTo={goTo} />
       </div>
@@ -572,7 +572,7 @@ function Shell() {
         </div>
       </main>
 
-      {openNode && <Drawer node={openNode} onClose={() => setOpenId(null)} />}
+      {openNode && <Drawer node={openNode} onClose={() => setOpenId(null)} onReply={(id) => (setTargetId(id), setTimeout(() => composerFocus.current?.focus(), 0))} />}
       {sheets}
       <AwayScreen onGoTo={goTo} />
     </div>

@@ -43,7 +43,11 @@ export function ContextMenu({ x, y, items, onClose }: { x: number; y: number; it
   useEffect(() => {
     const down = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && onClose();
     const key = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        // Esc closes just this menu, not whatever is behind it.
+        e.stopImmediatePropagation();
+        onClose();
+      }
       else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
         const at = actionable.indexOf(sel);

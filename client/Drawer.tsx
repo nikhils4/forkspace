@@ -1,34 +1,50 @@
 import { useEffect, useRef, useState } from 'react';
 import type { TurnNode } from '../shared/types.ts';
+import { ContextMenu, type MenuItem } from './ContextMenu.tsx';
 import { Icon } from './icons.tsx';
 import { LessonCard } from './Learn.tsx';
-import { DiffStat, Md, STATUS_LABEL, StatusDot, ToolLine, branchColor, money } from './nodes.tsx';
-import { isLocalPage, request, send, toast, useStore } from './store.ts';
+import { Md, STATUS_LABEL, StatusDot, ToolLine, branchColor } from './nodes.tsx';
+import { isLocalPage, request, toast, useStore } from './store.ts';
+import { isLive } from './tree.ts';
 import { Segmented, timeAgo } from './ui.tsx';
 
-export function Drawer({ node, onClose }: { node: TurnNode; onClose: () => void }) {
+// A step's details, calm by default: what you asked, what came of it, and one obvious next move.
+// Everything technical (branch, folder, checkpoint, terminal command) sits behind ⋯ or a fold.
+
+type Tab = 'summary' | 'steps' | 'changes';
+
+const took = (ms?: number) => (!ms ? '' : ms < 60000 ? `${Math.round(ms / 1000)} s` : `${Math.round(ms / 60000)} min`);
+
+export function Drawer({ node, onClose, onReply }: { node: TurnNode; onClose: () => void; onReply?: (id: string) => void }) {
   const { branches } = useStore();
   const branch = branches[node.branchId];
-  const [tab, setTab] = useState<'log' | 'diff' | 'learn'>(node.lessons?.length ? 'learn' : 'log');
+  const [tab, setTab] = useState<Tab>('summary');
   const [diff, setDiff] = useState<string | null>(null);
-  // A new concept arrived (Explain, or the mentor): show it, newest first.
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const [long, setLong] = useState(false);
+  const concepts = useRef<HTMLDivElement>(null);
+
+  // A new concept arrived (Explain, or the mentor): show it.
   const count = node.lessons?.length ?? 0;
   const seenCount = useRef(count);
   useEffect(() => {
-    if (count > seenCount.current) setTab('learn');
+    if (count > seenCount.current) {
+      setTab('summary');
+      setTimeout(() => concepts.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+    }
     seenCount.current = count;
   }, [count]);
 
   useEffect(() => {
     setDiff(null);
-    if (tab === 'diff') request<string>({ type: 'diff', nodeId: node.id }).then(setDiff, (e) => setDiff(`Could not load changes: ${e.message}`));
+    if (tab === 'changes') request<string>({ type: 'diff', nodeId: node.id }).then(setDiff, (e) => setDiff(`Could not load changes: ${e.message}`));
   }, [tab, node.id, node.commit]);
 
   useEffect(() => {
-    const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    const k = (e: KeyboardEvent) => e.key === 'Escape' && !menu && onClose();
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
-  }, [onClose]);
+  }, [onClose, menu]);
 
   const cmd = node.sessionId && branch ? `cd ${JSON.stringify(branch.cwd)} && claude --resume ${node.sessionId} --fork-session` : '';
   const copy = (text: string, what: string) =>
@@ -36,81 +52,114 @@ export function Drawer({ node, onClose }: { node: TurnNode; onClose: () => void 
       () => toast(`${what} copied`),
       () => toast('Could not copy', 'error'),
     );
+  const live = isLive(node);
+  const isHead = branch?.headNodeId === node.id;
+  const tools = node.events.filter((e) => e.t === 'tool').length;
+  const final = [...node.events].reverse().find((e) => e.t === 'text' && !e.partial && e.text.trim());
+  const menuItems: MenuItem[] = [
+    ...(isLocalPage() ? [{ label: 'Open in editor', icon: 'code' as const, onClick: () => request<string>({ type: 'openEditor', nodeId: node.id }).then((app) => toast(`Opened in ${app}`), (e) => toast(e.message, 'error')) }] : []),
+    ...(cmd ? [{ label: 'Copy resume command', icon: 'copy' as const, hint: 'Terminal', onClick: () => copy(cmd, 'Terminal command') }] : []),
+    ...(branch?.gitBranch ? [{ label: 'Copy branch name', icon: 'branch' as const, onClick: () => copy(branch.gitBranch!, 'Branch name') }] : []),
+    { label: 'Copy prompt', icon: 'copy', onClick: () => copy(node.prompt, 'Prompt') },
+  ];
 
   return (
     <aside className="drawer" style={{ ['--branch' as any]: branchColor(node.branchId) }}>
       <div className="drawer-head">
         <StatusDot status={node.status} />
-        <b>{STATUS_LABEL[node.status]}</b>
-        <span className="faint">{timeAgo(node.finishedAt ?? node.createdAt)}</span>
+        <b>{node.completed ? 'Completed' : STATUS_LABEL[node.status]}</b>
+        <span className="faint">
+          {timeAgo(node.finishedAt ?? node.createdAt)}
+          {node.durationMs ? ` · took ${took(node.durationMs)}` : ''}
+        </span>
         <span className="spacer" />
-        <button className="icon-btn" onClick={onClose} aria-label="Close">
+        <button
+          className="icon-btn"
+          aria-label="More"
+          title="More"
+          onClick={(e) => {
+            const r = e.currentTarget.getBoundingClientRect();
+            setMenu({ x: r.right - 220, y: r.bottom + 6 });
+          }}
+        >
+          <Icon name="more" />
+        </button>
+        <button className="icon-btn" onClick={onClose} aria-label="Close" title="Close (Esc)">
           <Icon name="x" />
         </button>
       </div>
+      {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)} />}
 
       <div className="drawer-scroll">
-        <div className="bubble-user wide">{node.prompt}</div>
+        <div className={`drawer-prompt ${long ? 'open' : ''}`} onClick={() => setLong(!long)} title={long ? '' : 'Show all'}>
+          {node.prompt}
+        </div>
 
-        <dl className="facts">
-          <dt>Branch</dt>
-          <dd className="mono">{branch?.gitBranch ?? node.branchId}</dd>
-          <dt>Folder</dt>
-          <dd className="mono">{branch?.cwd}</dd>
-          {node.commit && (
-            <>
-              <dt>Checkpoint</dt>
-              <dd className="mono">{node.commit.slice(0, 10)}</dd>
-            </>
+        <div className="drawer-outcome">
+          {node.diffStat?.files ? (
+            <span className="outcome-stat">
+              <Icon name="file" size={13} /> {node.diffStat.files} file{node.diffStat.files === 1 ? '' : 's'} changed
+              <span className="faint">·</span>
+              <span className="add-text">+{node.diffStat.insertions}</span>
+              <span className="del-text">−{node.diffStat.deletions}</span>
+            </span>
+          ) : (
+            <span className="faint">{live ? 'Working…' : 'No file changes'}</span>
           )}
-          <dt>Changes</dt>
-          <dd>{node.diffStat?.files ? <DiffStat s={node.diffStat} /> : <span className="faint">None</span>}</dd>
-          {node.durationMs ? (
-            <>
-              <dt>Took</dt>
-              <dd>{node.durationMs < 60000 ? `${Math.round(node.durationMs / 1000)} seconds` : `${Math.round(node.durationMs / 60000)} min`}</dd>
-            </>
-          ) : null}
-        </dl>
-
-        <div className="drawer-actions">
-          {isLocalPage() && (
-            <button className="btn" onClick={() => request<string>({ type: 'openEditor', nodeId: node.id }).then((app) => toast(`Opened in ${app}`), (e) => toast(e.message, 'error'))}>
-              <Icon name="code" size={14} /> Open in editor
-            </button>
-          )}
-          {cmd && (
-            <button className="btn" onClick={() => copy(cmd, 'Terminal command')} title="Paste in a terminal to continue from this exact point">
-              <Icon name="copy" size={14} /> Copy resume command
-            </button>
-          )}
-          {branch?.gitBranch && (
-            <button className="btn" onClick={() => copy(branch.gitBranch!, 'Branch name')}>
-              <Icon name="branch" size={14} /> Copy branch
+          <span className="spacer" />
+          {!live && node.sessionId && onReply && (
+            <button className="btn sm primary" onClick={() => onReply(node.id)}>
+              <Icon name={isHead ? 'chat' : 'branch'} size={13} /> {isHead ? 'Reply' : 'Branch from here'}
             </button>
           )}
         </div>
 
         <div className="drawer-tabs">
-          <Segmented
+          <Segmented<Tab>
             value={tab}
             onChange={setTab}
             options={[
-              { value: 'log', label: 'Transcript' },
-              { value: 'diff', label: 'Changes' },
-              { value: 'learn', label: `Concepts${node.lessons?.length ? ` · ${node.lessons.length}` : ''}` },
+              { value: 'summary', label: 'Summary' },
+              { value: 'steps', label: `Steps${tools ? ` · ${tools}` : ''}` },
+              { value: 'changes', label: 'Changes' },
             ]}
           />
         </div>
 
         <div className="drawer-body">
-          {tab === 'learn' ? (
-            node.lessons?.length ? (
-              [...node.lessons].reverse().map((l, i) => <LessonCard key={l.id} lesson={l} compact={i > 0} />)
-            ) : (
-              <div className="faint">No concepts for this step yet. Right-click the card and choose Explain this step.</div>
-            )
-          ) : tab === 'log' ? (
+          {tab === 'summary' && (
+            <>
+              {final && final.t === 'text' ? <Md text={final.text} /> : <div className="faint">{live ? 'The agent is still working.' : 'The agent finished without a message.'}</div>}
+              {node.error && <div className="error-box">{node.error}</div>}
+              <div ref={concepts} className="drawer-section">
+                <div className="drawer-label">
+                  <span className="mentor-orb small" /> Concepts in this step
+                </div>
+                {count ? (
+                  [...(node.lessons ?? [])].reverse().map((l, i) => <LessonCard key={l.id} lesson={l} compact={i > 0} />)
+                ) : (
+                  <div className="faint small">None yet. Right-click the card and choose Explain this step.</div>
+                )}
+              </div>
+              <details className="drawer-tech">
+                <summary>Technical details</summary>
+                <dl className="facts">
+                  <dt>Branch</dt>
+                  <dd className="mono">{branch?.gitBranch ?? node.branchId}</dd>
+                  <dt>Folder</dt>
+                  <dd className="mono">{branch?.cwd}</dd>
+                  {node.commit && (
+                    <>
+                      <dt>Checkpoint</dt>
+                      <dd className="mono">{node.commit.slice(0, 10)}</dd>
+                    </>
+                  )}
+                </dl>
+              </details>
+            </>
+          )}
+
+          {tab === 'steps' && (
             <>
               {node.events.length === 0 && <div className="faint">Nothing yet.</div>}
               {node.events.map((e, i) =>
@@ -137,38 +186,40 @@ export function Drawer({ node, onClose }: { node: TurnNode; onClose: () => void 
                   </details>
                 ),
               )}
-              {node.error && <div className="error-box">{node.error}</div>}
             </>
-          ) : !node.commit ? (
-            <div className="faint">Changes appear once the turn finishes{branch?.worktree ? '' : ' (and only for boards that use a worktree per branch)'}.</div>
-          ) : diff == null ? (
-            <div className="faint">Loading…</div>
-          ) : diff === '' ? (
-            <div className="faint">No file changes in this turn.</div>
-          ) : (
-            <pre className="diff">
-              {diff.split('\n').map((l, i) => (
-                <div
-                  key={i}
-                  className={
-                    l.startsWith('diff ')
-                      ? 'file'
-                      : /^(\+\+\+|---|index |new file mode|deleted file mode|similarity |rename )/.test(l)
-                        ? 'meta-line'
-                        : l.startsWith('+')
-                          ? 'add'
-                          : l.startsWith('-')
-                            ? 'del'
-                            : l.startsWith('@@')
-                              ? 'hunk'
-                              : ''
-                  }
-                >
-                  {l.startsWith('diff --git') ? l.replace(/^diff --git a\/(.*) b\/.*$/, '$1') : l || ' '}
-                </div>
-              ))}
-            </pre>
           )}
+
+          {tab === 'changes' &&
+            (!node.commit ? (
+              <div className="faint">Changes appear once the step finishes{branch?.worktree ? '' : ' (and only for boards that use a separate copy per branch)'}.</div>
+            ) : diff == null ? (
+              <div className="faint">Loading…</div>
+            ) : diff === '' ? (
+              <div className="faint">No file changes in this step.</div>
+            ) : (
+              <pre className="diff">
+                {diff.split('\n').map((l, i) => (
+                  <div
+                    key={i}
+                    className={
+                      l.startsWith('diff ')
+                        ? 'file'
+                        : /^(\+\+\+|---|index |new file mode|deleted file mode|similarity |rename )/.test(l)
+                          ? 'meta-line'
+                          : l.startsWith('+')
+                            ? 'add'
+                            : l.startsWith('-')
+                              ? 'del'
+                              : l.startsWith('@@')
+                                ? 'hunk'
+                                : ''
+                    }
+                  >
+                    {l.startsWith('diff --git') ? l.replace(/^diff --git a\/(.*) b\/.*$/, '$1') : l || ' '}
+                  </div>
+                ))}
+              </pre>
+            ))}
         </div>
       </div>
     </aside>

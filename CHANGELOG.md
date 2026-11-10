@@ -3,6 +3,12 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.8.1
+
+- A calmer step details panel: your prompt, what changed, one Reply button, and Summary, Steps and Changes. Branch, folder and terminal commands moved behind ⋯
+- On phones the panel now fills the screen properly
+- Esc closes a menu without closing what's behind it
+
 ## 0.8.0
 
 - A friendlier concept map: each area of tech is an island with a one-line meaning, ideas are bubbles (bigger when you met them more), and lines show what works together
