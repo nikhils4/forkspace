@@ -551,4 +551,6 @@ export interface TerminalInfo {
   exited?: number;
   /** A command has been run here (Enter pressed). Unused terminals get reused for the next card. */
   used?: boolean;
+  /** What's running in it right now (e.g. "yarn", "node"), when it's not just the shell waiting. */
+  running?: string;
 }

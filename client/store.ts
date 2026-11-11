@@ -310,3 +310,6 @@ export function request<T = unknown>(msg: DistributiveOmit<WithReq, 'reqId'>): P
     ws.send(JSON.stringify({ ...msg, reqId }));
   });
 }
+
+/** Open a terminal in a card's own folder (its menu's "Terminal here"). The app shows the panel and opens it. */
+export const openTerminalFor = (branchId: string) => dispatchEvent(new CustomEvent('forkspace:term-for', { detail: branchId }));

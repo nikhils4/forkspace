@@ -6080,6 +6080,36 @@ kbd {
   background: var(--surface-2);
   color: var(--text);
 }
+.term-tab > svg {
+  flex: none;
+  color: var(--text-3);
+}
+.term-tab.card > svg {
+  color: var(--accent);
+}
+.term-tab > span {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* what's running in it right now (yarn, node…) */
+.term-tab em.term-running {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  border-radius: 999px;
+  line-height: 16px;
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
+}
+.term-tab em.term-running::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
 .term-tab.exited span {
   text-decoration: line-through;
   opacity: 0.6;
@@ -9964,4 +9994,111 @@ input.thread-title.editing {
 .map-suggest-break {
   flex-basis: 100%;
   height: 0;
+}
+
+/* ---------- details panel: scroll hard past the top (or bottom) to move to the step above (or after) ---------- */
+.step-pull {
+  position: sticky;
+  z-index: 3;
+  height: 0;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+.step-pull.up {
+  top: 0;
+}
+.step-pull.down {
+  bottom: 0;
+  align-items: flex-end;
+}
+.step-pull-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 24px);
+  height: 30px;
+  padding: 0 12px 0 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--branch, var(--accent)) 45%, var(--border-2));
+  /* fills left to right as you push */
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--branch, var(--accent)) 26%, transparent) calc(var(--amt) * 100%), transparent 0) ,
+    color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 10px 26px -14px rgba(0, 0, 0, 0.5);
+  font-size: 12px;
+  color: var(--text-2);
+  white-space: nowrap;
+  opacity: 0;
+  transition:
+    opacity 0.18s,
+    transform 0.22s var(--ease);
+}
+.step-pull.up .step-pull-pill {
+  transform: translateY(-14px) scale(0.96);
+  margin-top: 8px;
+}
+.step-pull.down .step-pull-pill {
+  transform: translateY(14px) scale(0.96);
+  margin-bottom: 8px;
+}
+.step-pull.on .step-pull-pill {
+  opacity: 1;
+  transform: none;
+}
+.step-pull.full .step-pull-pill {
+  color: var(--text);
+  transform: scale(1.04);
+}
+.step-pull-pill b {
+  font-weight: 650;
+  color: var(--text);
+}
+.step-pull-pill span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.drawer-scroll.slide-out-up {
+  animation: step-out-up 0.17s var(--ease) forwards;
+}
+.drawer-scroll.slide-out-down {
+  animation: step-out-down 0.17s var(--ease) forwards;
+}
+.drawer-scroll.slide-in-up {
+  animation: step-in-up 0.36s var(--ease);
+}
+.drawer-scroll.slide-in-down {
+  animation: step-in-down 0.36s var(--ease);
+}
+/* going up: this step drops away downward and the one above comes down from the top */
+@keyframes step-out-up {
+  to {
+    opacity: 0;
+    transform: translateY(48px);
+  }
+}
+@keyframes step-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(-48px);
+  }
+}
+@keyframes step-out-down {
+  to {
+    opacity: 0;
+    transform: translateY(-48px);
+  }
+}
+@keyframes step-in-down {
+  from {
+    opacity: 0;
+    transform: translateY(48px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .drawer-scroll[class*='slide-'] {
+    animation-duration: 0.01s;
+  }
 }

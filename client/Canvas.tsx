@@ -22,7 +22,7 @@ import { pickShot, snapPreview, uploadShot } from './Shots.tsx';
 import { Icon } from './icons.tsx';
 import { CARD_W, heights } from './layout.ts';
 import { NOTE_COLORS, NoteCard, TurnCard, branchColor } from './nodes.tsx';
-import { request, send, toast, useStore } from './store.ts';
+import { openTerminalFor, request, send, toast, useStore } from './store.ts';
 import { isLive, isTurn } from './tree.ts';
 import { useIsMobile } from './ui.tsx';
 import { useResolvedTheme } from './theme.ts';
@@ -460,6 +460,7 @@ export function Canvas({
     out.push(
       { label: 'Add comment', icon: 'comment', onClick: () => startComment(node.id) },
       { label: 'Open details', icon: 'external', onClick: () => openDetails(node.id) },
+      { label: 'Terminal here', icon: 'terminal', hint: 'This card’s folder', onClick: () => openTerminalFor(node.branchId) },
       { label: 'Center', icon: 'canvas', onClick: () => centerOn(node.id) },
       'sep',
       {

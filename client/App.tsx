@@ -82,6 +82,16 @@ function Shell() {
   const [learnPage, setLearnPage] = useState<'concepts' | 'notes'>('concepts');
   const filedCount = Object.values(store.nodes).filter((n) => n.kind === 'note' && n.filed).length;
   const [termOpen, setTermOpen] = useState(false);
+  // A card's "Terminal here": show the panel and open a terminal in that card's folder.
+  const [termFor, setTermFor] = useState<{ branchId: string; n: number } | null>(null);
+  useEffect(() => {
+    const on = (e: Event) => {
+      setTermFor({ branchId: (e as CustomEvent<string>).detail, n: Date.now() });
+      setTermOpen(true);
+    };
+    addEventListener('forkspace:term-for', on);
+    return () => removeEventListener('forkspace:term-for', on);
+  }, []);
   // Desktop: the sidebar can be hidden to give the canvas the whole window.
   const [sideOpen, setSideOpen] = useState(() => {
     try {
@@ -519,7 +529,7 @@ function Shell() {
           {tab === 'board' && boardView}
           {tab === 'board' && termOpen && board && (
             <Suspense fallback={null}>
-              <TerminalPanel board={board} branchId={target?.branchId} onClose={() => setTermOpen(false)} />
+              <TerminalPanel board={board} branchId={target?.branchId} openFor={termFor} onClose={() => setTermOpen(false)} />
             </Suspense>
           )}
           {tab === 'agents' && <Inbox onOpen={goTo} />}
@@ -583,7 +593,7 @@ function Shell() {
             <span>Settings</span>
           </button>
         </nav>
-        {openNode && <Drawer node={openNode} onClose={() => setOpenId(null)} onReply={(id) => (setTargetId(id), setTimeout(() => composerFocus.current?.focus(), 0))} composer={drawerComposer} />}
+        {openNode && <Drawer node={openNode} onClose={() => setOpenId(null)} onReply={(id) => (setTargetId(id), setTimeout(() => composerFocus.current?.focus(), 0))} onGo={(id) => (setOpenId(id), setFocus({ id, n: Date.now() }))} composer={drawerComposer} />}
         {sheets}
       <AwayScreen onGoTo={goTo} />
       <ShotViewer />
@@ -803,12 +813,12 @@ function Shell() {
         </div>
         {termOpen && board && page === 'board' && (
           <Suspense fallback={null}>
-            <TerminalPanel board={board} branchId={target?.branchId} onClose={() => setTermOpen(false)} />
+            <TerminalPanel board={board} branchId={target?.branchId} openFor={termFor} onClose={() => setTermOpen(false)} />
           </Suspense>
         )}
       </main>
 
-      {openNode && <Drawer node={openNode} onClose={() => setOpenId(null)} onReply={(id) => (setTargetId(id), setTimeout(() => composerFocus.current?.focus(), 0))} composer={drawerComposer} />}
+      {openNode && <Drawer node={openNode} onClose={() => setOpenId(null)} onReply={(id) => (setTargetId(id), setTimeout(() => composerFocus.current?.focus(), 0))} onGo={(id) => (setOpenId(id), setFocus({ id, n: Date.now() }))} composer={drawerComposer} />}
       {sheets}
       <AwayScreen onGoTo={goTo} />
       <ShotViewer />

@@ -16,6 +16,8 @@ type Pty = {
   write: (d: string) => void;
   resize: (c: number, r: number) => void;
   kill: () => void;
+  /** The program in the foreground right now (macOS and Linux). */
+  readonly process?: string;
 };
 
 interface Term extends TerminalInfo {
@@ -72,7 +74,26 @@ export function setTerminalRemoteAllowed(v: boolean) {
   fs.writeFileSync(FILE, JSON.stringify({ remoteAllowed: v }), { mode: 0o600 });
 }
 
-const info = (t: Term): TerminalInfo => ({ id: t.id, boardId: t.boardId, branchId: t.branchId, cwd: t.cwd, title: t.title, createdAt: t.createdAt, exited: t.exited, used: t.used });
+const info = (t: Term): TerminalInfo => ({ id: t.id, boardId: t.boardId, branchId: t.branchId, cwd: t.cwd, title: t.title, createdAt: t.createdAt, exited: t.exited, used: t.used, running: t.running });
+
+// Keep each tab's "what's running" up to date (yarn dev, node, vim…). Only tells screens when it changes.
+const SHELLS = new Set(['zsh', 'bash', 'sh', 'fish', 'login', '-zsh', '-bash', 'powershell.exe', 'cmd.exe', 'pwsh']);
+setInterval(() => {
+  const changed = new Set<string>();
+  for (const t of terms.values()) {
+    if (t.exited !== undefined) continue;
+    let p = '';
+    try {
+      p = path.basename(t.pty.process ?? '');
+    } catch {}
+    const running = p && !SHELLS.has(p) ? p : undefined;
+    if (running !== t.running) {
+      t.running = running;
+      changed.add(t.boardId);
+    }
+  }
+  for (const boardId of changed) emit({ type: 'termList', boardId });
+}, 1500).unref();
 
 export function openTerminal(boardId: string, cwd: string, branchId: string | undefined, cols: number, rows: number): TerminalInfo {
   const lib = loadPty();

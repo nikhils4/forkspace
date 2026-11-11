@@ -5,6 +5,9 @@ To cut one: add a section below, then run `npm run release -- <version>`.
 
 ## 0.27.0
 
+- Terminal tabs say where they are: your project's folder name, or the thread a card's own copy belongs to, plus what's running in it right now (yarn, node…) instead of "zsh 4 8Hq-coBd"
+- New terminals (+) always open in your project's main folder. To work in a card's own copy, use "Terminal here" on the card's menu or in its details. Clicking a card no longer opens terminals by itself; it just shows that card's terminal if it has one
+- In the details panel, keep scrolling past the top to move to the step above in the thread (past the bottom: the step after). A pill fills as you push so it never happens by accident; the panel slides and the canvas follows
 - Safety rules for every agent, on every board, in every approval mode: agents never push (they give you the commands instead), never commit on their own, and stop to ask before using AWS or other clouds, databases that aren't on this machine, or credential files. The card says which rule paused it, and these can't be "always allowed"
 - Fixed: "What changed" counted everyone else's work when an agent switched to newer code mid-step (for example `git checkout -b … origin/main`), showing hundreds of files instead of the handful it changed. Steps already saved this way are corrected on the next start
 - Ready for review: when a card finishes while you're looking elsewhere, it says "Ready for review" (or "Failed, take a look"), on the card and on a tag at the edge of the view pointing to it. It clears once you click the card, open it, or start the next step from it

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Board, TerminalInfo } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
 import { onTerminal, request, send, useStore } from './store.ts';
+import { isTurn, pathTo } from './tree.ts';
 import { useResolvedTheme } from './theme.ts';
 
 // A real terminal at the bottom of the board, in the folder of the branch you're on.
@@ -97,8 +98,8 @@ function TermView({ info, active }: { info: TerminalInfo; active: boolean }) {
   return <div className={`term-view ${active ? 'on' : ''}`} ref={host} />;
 }
 
-export function TerminalPanel({ board, branchId, onClose }: { board: Board; branchId?: string; onClose: () => void }) {
-  const { connected, branches } = useStore();
+export function TerminalPanel({ board, branchId, openFor, onClose }: { board: Board; branchId?: string; openFor?: { branchId: string; n: number } | null; onClose: () => void }) {
+  const { connected, branches, nodes } = useStore();
   const [list, setList] = useState<TerminalInfo[]>([]);
   const [active, setActive] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -125,9 +126,10 @@ export function TerminalPanel({ board, branchId, onClose }: { board: Board; bran
       },
     );
 
-  const open = async () => {
+  // A new terminal opens in the project's main folder; a card's "Terminal here" opens in its own.
+  const open = async (inBranch?: string) => {
     try {
-      const t = await request<TerminalInfo>({ type: 'termOpen', boardId: board.id, branchId, cols: 100, rows: 24 });
+      const t = await request<TerminalInfo>({ type: 'termOpen', boardId: board.id, branchId: inBranch, cols: 100, rows: 24 });
       setList((l) => [...l.filter((x) => x.id !== t.id), t]);
       setActive(t.id);
     } catch (e: any) {
@@ -135,36 +137,39 @@ export function TerminalPanel({ board, branchId, onClose }: { board: Board; bran
     }
   };
 
-  // First open on a board: start a terminal if there isn't one yet.
+  // First open on a board: start a terminal if there isn't one yet (unless a card asked for its own).
+  const handled = useRef(0);
   useEffect(() => {
     if (!connected) return;
     opened.current = false;
     load().then((l) => {
-      if (!l.length && !opened.current && !error) {
+      if (!l.length && !opened.current && !error && !(openFor && openFor.n !== handled.current)) {
         opened.current = true;
         open();
       }
     });
   }, [board.id, connected]);
 
+  // A card asked for a terminal in its folder: switch to one already there, or open one.
+  useEffect(() => {
+    if (!openFor || openFor.n === handled.current || !connected) return;
+    handled.current = openFor.n;
+    opened.current = true;
+    const mine = list.filter((t) => t.branchId === openFor.branchId && t.exited === undefined);
+    if (mine.length) setActive(mine[mine.length - 1].id);
+    else open(openFor.branchId);
+  }, [openFor?.n, connected]);
+
   useEffect(() => onTerminal((m) => m.type === 'termList' && m.boardId === board.id && void load()), [board.id]);
 
-  // Clicking a card while the terminal is open: jump to that branch's terminal, or open one there
-  // (reusing the one on screen if nothing was ever run in it).
+  // Clicking a card while the terminal is open: if that card's folder already has a terminal,
+  // show it. New ones only open when you ask (+ for the main folder, "Terminal here" on a card).
   const lastBranch = useRef(branchId);
   useEffect(() => {
     if (!branchId || branchId === lastBranch.current) return;
     lastBranch.current = branchId;
     const mine = list.filter((t) => t.branchId === branchId && t.exited === undefined);
-    if (mine.length) return setActive(mine[mine.length - 1].id);
-    if (!list.length && !opened.current) return;
-    // The terminal on screen was never used: move it to this card instead of adding another.
-    const cur = list.find((t) => t.id === active);
-    if (cur && !cur.used && cur.exited === undefined) {
-      send({ type: 'termClose', id: cur.id });
-      setList((l) => l.filter((t) => t.id !== cur.id));
-    }
-    open();
+    if (mine.length) setActive(mine[mine.length - 1].id);
   }, [branchId]);
 
   const close = (id: string) => {
@@ -191,9 +196,23 @@ export function TerminalPanel({ board, branchId, onClose }: { board: Board; bran
     addEventListener('pointerup', up);
   };
 
-  const where = (t: TerminalInfo) => {
+  // A tab is named after its place: the project folder, or the thread a card's own copy belongs to.
+  const folder = board.cwd.replace(/\/+$/, '').split('/').pop() || 'Project';
+  const place = (t: TerminalInfo) => {
     const b = t.branchId ? branches[t.branchId] : undefined;
-    return b?.gitBranch ? b.gitBranch.replace('forkspace/', '') : 'main folder';
+    if (!b?.worktree) return folder;
+    const first = Object.values(nodes)
+      .filter(isTurn)
+      .filter((n) => n.branchId === b.id)
+      .sort((x, y) => x.createdAt - y.createdAt)[0];
+    const root = first ? pathTo(nodes, first.id)[0] : undefined;
+    const name = (root?.title || root?.prompt || b.gitBranch?.replace('forkspace/', '') || 'Card').replace(/\s+/g, ' ').trim();
+    return name.length > 26 ? `${name.slice(0, 25)}…` : name;
+  };
+  // Same place twice: number them so the tabs can be told apart.
+  const label = (t: TerminalInfo) => {
+    const same = list.filter((x) => place(x) === place(t));
+    return same.length > 1 ? `${place(t)} ${same.indexOf(t) + 1}` : place(t);
   };
 
   return (
@@ -203,9 +222,15 @@ export function TerminalPanel({ board, branchId, onClose }: { board: Board; bran
         <Icon name="terminal" size={14} />
         <div className="term-tabs">
           {list.map((t) => (
-            <div key={t.id} className={`term-tab ${t.id === active ? 'on' : ''} ${t.exited !== undefined ? 'exited' : ''}`} onClick={() => setActive(t.id)}>
-              <span>{t.title}</span>
-              <em>{where(t)}</em>
+            <div
+              key={t.id}
+              className={`term-tab ${t.id === active ? 'on' : ''} ${t.exited !== undefined ? 'exited' : ''} ${t.branchId && branches[t.branchId]?.worktree ? 'card' : ''}`}
+              onClick={() => setActive(t.id)}
+              title={`${t.cwd}${t.running ? `\nRunning: ${t.running}` : ''}`}
+            >
+              <Icon name={t.branchId && branches[t.branchId]?.worktree ? 'branch' : 'folder'} size={12} />
+              <span>{label(t)}</span>
+              {t.exited !== undefined ? <em>ended</em> : t.running && <em className="term-running">{t.running}</em>}
               <button
                 aria-label="Close terminal"
                 title="Close terminal"
@@ -218,7 +243,7 @@ export function TerminalPanel({ board, branchId, onClose }: { board: Board; bran
               </button>
             </div>
           ))}
-          <button className="term-new" onClick={open} title="New terminal in this branch's folder" aria-label="New terminal">
+          <button className="term-new" onClick={() => open()} title={`New terminal in ${folder}`} aria-label="New terminal">
             <Icon name="plus" size={13} />
           </button>
         </div>
@@ -232,7 +257,7 @@ export function TerminalPanel({ board, branchId, onClose }: { board: Board; bran
           <div className="term-empty">{error}</div>
         ) : !list.length ? (
           <div className="term-empty">
-            <button className="btn sm" onClick={open}>
+            <button className="btn sm" onClick={() => open()}>
               <Icon name="terminal" size={13} /> New terminal
             </button>
           </div>

@@ -5,8 +5,9 @@ import { ContextMenu, type MenuItem } from './ContextMenu.tsx';
 import { Icon } from './icons.tsx';
 import { LessonCard } from './Learn.tsx';
 import { LiveLine, Md, STATUS_LABEL, StatusDot, ToolLine, branchColor } from './nodes.tsx';
-import { isLocalPage, request, toast, useStore } from './store.ts';
-import { isLive } from './tree.ts';
+import { isLocalPage, openTerminalFor, request, toast, useStore } from './store.ts';
+import { isLive, isTurn } from './tree.ts';
+import { StepPullHint, useStepPull } from './stepPull.tsx';
 import { timeAgo } from './ui.tsx';
 
 // A step's details, calm by default: what you asked, what came of it, and one obvious next move.
@@ -35,7 +36,7 @@ function parseDiff(text: string) {
 
 const took = (ms?: number) => (!ms ? '' : ms < 60000 ? `${Math.round(ms / 1000)} s` : `${Math.round(ms / 60000)} min`);
 
-export function Drawer({ node, onClose, onReply, composer }: { node: TurnNode; onClose: () => void; onReply?: (id: string) => void; composer?: ReactNode }) {
+export function Drawer({ node, onClose, onReply, onGo, composer }: { node: TurnNode; onClose: () => void; onReply?: (id: string) => void; onGo?: (id: string) => void; composer?: ReactNode }) {
   const { branches, nodes } = useStore();
   const branch = branches[node.branchId];
   const [diff, setDiff] = useState<string | null>(null);
@@ -87,6 +88,7 @@ export function Drawer({ node, onClose, onReply, composer }: { node: TurnNode; o
   const final = [...node.events].reverse().find((e) => e.t === 'text' && !e.partial && e.text.trim());
   const menuItems: MenuItem[] = [
     ...(isLocalPage() ? [{ label: 'Open in editor', icon: 'code' as const, onClick: () => request<string>({ type: 'openEditor', nodeId: node.id }).then((app) => toast(`Opened in ${app}`), (e) => toast(e.message, 'error')) }] : []),
+    { label: 'Terminal here', icon: 'terminal' as const, hint: 'This card’s folder', onClick: () => openTerminalFor(node.branchId) },
     ...(cmd ? [{ label: 'Copy resume command', icon: 'copy' as const, hint: 'Terminal', onClick: () => copy(cmd, 'Terminal command') }] : []),
     ...(branch?.gitBranch ? [{ label: 'Copy branch name', icon: 'branch' as const, onClick: () => copy(branch.gitBranch!, 'Branch name') }] : []),
     { label: 'Copy prompt', icon: 'copy', onClick: () => copy(node.prompt, 'Prompt') },
@@ -118,6 +120,29 @@ export function Drawer({ node, onClose, onReply, composer }: { node: TurnNode; o
   // Where this step sits: its thread and its place in it.
   const path: TurnNode[] = [];
   for (let t: TurnNode | undefined = node; t; t = t.parentId ? (nodes[t.parentId] as TurnNode | undefined) : undefined) path.unshift(t);
+
+  // Scroll hard past the top: the step above in this thread; past the bottom: the step after
+  // (on this branch if it goes on, else the newest reply). The panel slides, the canvas follows.
+  const prev = path.length > 1 ? path[path.length - 2] : undefined;
+  const kids = Object.values(nodes).filter((n): n is TurnNode => isTurn(n) && n.parentId === node.id);
+  const next = kids.find((k) => k.branchId === node.branchId) ?? kids.sort((a, b) => b.createdAt - a.createdAt)[0];
+  const scroller = useRef<HTMLDivElement>(null);
+  const [slide, setSlide] = useState<'' | 'out-up' | 'out-down' | 'in-up' | 'in-down'>('');
+  const arriving = useRef<'up' | 'down' | null>(null);
+  const pull = useStepPull(scroller, onGo && prev, onGo && next, (target, dir) => {
+    setSlide(dir === 'up' ? 'out-up' : 'out-down');
+    arriving.current = dir;
+    setTimeout(() => onGo?.(target.id), 170);
+  });
+  useEffect(() => {
+    if (!arriving.current) return;
+    const dir = arriving.current;
+    arriving.current = null;
+    if (scroller.current) scroller.current.scrollTop = 0;
+    setSlide(dir === 'up' ? 'in-up' : 'in-down');
+    const t = setTimeout(() => setSlide(''), 380);
+    return () => clearTimeout(t);
+  }, [node.id]);
   const threadName = path[0]?.title || path[0]?.prompt || '';
   const files = parseDiff(diff ?? '');
   const working = isLive(node);
@@ -156,7 +181,8 @@ export function Drawer({ node, onClose, onReply, composer }: { node: TurnNode; o
       </div>
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)} />}
 
-      <div className="drawer-scroll">
+      <div className={`drawer-scroll ${slide ? `slide-${slide}` : ''}`} ref={scroller}>
+        <StepPullHint pull={pull} dir="up" target={onGo && prev} step={path.length - 1} />
         <section className="ds">
           <div className="ds-label">You asked</div>
           <div className={`drawer-prompt ${long ? 'open' : ''}`} onClick={() => setLong(!long)} title={long ? '' : 'Show all'}>
@@ -265,6 +291,7 @@ export function Drawer({ node, onClose, onReply, composer }: { node: TurnNode; o
             </div>
           </details>
         )}
+        <StepPullHint pull={pull} dir="down" target={onGo && next} step={path.length + 1} />
       </div>
       {composer && <div className="drawer-composer">{composer}</div>}
     </aside>
