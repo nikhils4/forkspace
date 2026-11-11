@@ -5,6 +5,7 @@ To cut one: add a section below, then run `npm run release -- <version>`.
 
 ## 0.27.0
 
+- Pick a board's model at the top of Board settings: the newest Opus, Sonnet, Haiku, Fable and Mythos, with older versions folded under "More versions". The list comes from your Claude account, so new models show up on their own
 - Terminal tabs say where they are: your project's folder name, or the thread a card's own copy belongs to, plus what's running in it right now (yarn, node…) instead of "zsh 4 8Hq-coBd"
 - New terminals (+) always open in your project's main folder. To work in a card's own copy, use "Terminal here" on the card's menu or in its details. Clicking a card no longer opens terminals by itself; it just shows that card's terminal if it has one
 - In the details panel, keep scrolling past the top to move to the step above in the thread (past the bottom: the step after). A pill fills as you push so it never happens by accident; the panel slides and the canvas follows

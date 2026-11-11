@@ -1,3 +1,4 @@
+import { listModels } from './models.ts';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -818,6 +819,8 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       return;
     case 'pushStatus':
       return push.hasSubscription(msg.endpoint);
+    case 'listModels':
+      return listModels();
     case 'listDir': {
       const dir = expand(msg.path || '~');
       const entries = fs

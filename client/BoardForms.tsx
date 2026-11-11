@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import type { Board, Isolation, LearnLevel, PermissionMode } from '../shared/types.ts';
+import { useEffect, useState } from 'react';
+import type { Board, Isolation, LearnLevel, ModelChoice, PermissionMode } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
 import { request, send, useStore } from './store.ts';
 import { Sheet, Switch } from './ui.tsx';
@@ -24,6 +24,55 @@ export function ModePicker({ value, onChange }: { value: PermissionMode; onChang
           </span>
         </button>
       ))}
+    </div>
+  );
+}
+
+// The models your account can use, asked once per page load.
+let modelsCache: Promise<ModelChoice[]> | null = null;
+const loadModels = () => (modelsCache ??= request<ModelChoice[]>({ type: 'listModels' }).catch((e) => ((modelsCache = null), Promise.reject(e))));
+const family = (m: ModelChoice) => (m.value === 'default' ? 'default' : m.name.split(' ')[0].toLowerCase());
+
+/**
+ * Pick the model a board's agents use. The newest of each family (Opus, Sonnet, Haiku, Fable,
+ * Mythos…) is shown; older versions fold away under "More versions".
+ */
+export function ModelPicker({ value, onChange }: { value?: string; onChange: (v: string | undefined) => void }) {
+  const [models, setModels] = useState<ModelChoice[] | null>(null);
+  const [error, setError] = useState('');
+  const current = value || 'default';
+  useEffect(() => {
+    loadModels().then(setModels, (e: Error) => setError(e.message));
+  }, []);
+  if (error) return <span className="field-hint">Couldn't load the model list: {error}</span>;
+  if (!models) return <div className="mode-list model-list loading">Loading models…</div>;
+
+  const seen = new Set<string>();
+  const main: ModelChoice[] = [];
+  const more: ModelChoice[] = [];
+  for (const m of models) (seen.has(family(m)) ? more : (seen.add(family(m)), main)).push(m);
+  // A model set earlier that isn't in the list any more (or was typed by hand) still shows, selected.
+  if (!models.some((m) => m.value === current)) main.push({ value: current, name: current, description: 'Set earlier on this board' });
+
+  const row = (m: ModelChoice) => (
+    <button key={m.value} className={`mode-row ${m.value === current ? 'on' : ''}`} onClick={() => onChange(m.value === 'default' ? undefined : m.value)}>
+      <span className="radio" />
+      <span className="mode-text">
+        <b>{m.name}</b>
+        {m.description && <span>{m.description}</span>}
+      </span>
+      {m.resolved && m.resolved !== m.value && m.value !== 'default' && <code className="model-id">{m.resolved}</code>}
+    </button>
+  );
+  return (
+    <div className="mode-list model-list">
+      {main.map(row)}
+      {more.length > 0 && (
+        <details className="model-more" open={more.some((m) => m.value === current)}>
+          <summary>More versions ({more.length})</summary>
+          {more.map(row)}
+        </details>
+      )}
     </div>
   );
 }
@@ -139,7 +188,6 @@ export function NewBoard({ onClose, onCreated }: { onClose: () => void; onCreate
 
 export function BoardSettings({ board, onClose }: { board: Board; onClose: () => void }) {
   const [name, setName] = useState(board.name);
-  const [model, setModel] = useState(board.model ?? '');
   const [preview, setPreview] = useState(board.previewUrl ?? '');
   const update = (patch: Partial<Pick<Board, 'name' | 'permissionMode' | 'model' | 'learn' | 'previewUrl'>>) => send({ type: 'updateBoard', id: board.id, patch });
   const learn = { on: board.learn?.on !== false, level: board.learn?.level ?? ('growing' as LearnLevel) };
@@ -147,6 +195,11 @@ export function BoardSettings({ board, onClose }: { board: Board; onClose: () =>
   return (
     <Sheet title="Board settings" onClose={onClose}>
       <div className="form">
+        <div className="field">
+          <span className="field-label">Model</span>
+          <ModelPicker value={board.model} onChange={(m) => update({ model: m })} />
+          <span className="field-hint">Used by every new step on this board. Steps already running keep their model.</span>
+        </div>
         <label className="field">
           <span className="field-label">Name</span>
           <input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && name !== board.name && update({ name: name.trim() })} />
@@ -169,18 +222,6 @@ export function BoardSettings({ board, onClose }: { board: Board; onClose: () =>
             <Switch on={learn.on} onChange={(on) => update({ learn: { ...learn, on } })} />
           </div>
         </div>
-        <label className="field">
-          <span className="field-label">Model</span>
-          <input
-            value={model}
-            placeholder="Default (your Claude Code setting)"
-            autoCapitalize="off"
-            autoCorrect="off"
-            onChange={(e) => setModel(e.target.value)}
-            onBlur={() => update({ model: model.trim() || undefined })}
-          />
-          <span className="field-hint">For example opus, sonnet or haiku. Applies to new steps.</span>
-        </label>
         <label className="field">
           <span className="field-label">Your app's address</span>
           <input

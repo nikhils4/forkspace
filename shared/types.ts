@@ -294,6 +294,7 @@ export type ClientMsg =
   | { type: 'openEditor'; reqId: string; nodeId: string }
   | { type: 'diff'; reqId: string; nodeId: string }
   | { type: 'listDir'; reqId: string; path: string }
+  | { type: 'listModels'; reqId: string }
   | { type: 'presence'; visible: boolean }
   | { type: 'remoteInfo'; reqId: string }
   | { type: 'awayInfo'; reqId: string }
@@ -553,4 +554,14 @@ export interface TerminalInfo {
   used?: boolean;
   /** What's running in it right now (e.g. "yarn", "node"), when it's not just the shell waiting. */
   running?: string;
+}
+
+/** A model you can pick for a board (from your Claude account's list). */
+export interface ModelChoice {
+  /** What to ask for: an alias ("opus") or a full id ("claude-mythos-5-2"). "default" = your Claude Code setting. */
+  value: string;
+  name: string;
+  description: string;
+  /** The exact model an alias stands for right now. */
+  resolved?: string;
 }
