@@ -3,6 +3,12 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.20.0
+
+- Shrink the sidebar to a slim rail of icons (the ‹ button next to its name): Concepts, Notes, boards, working agents, Away and Settings stay one click away
+- A card you send now glides to the middle of what you can see (left of the details panel, above the message box), even from far away on the board. It used to stay where it landed
+- While it works, the view follows the card as it grows, until you move the view yourself
+
 ## 0.19.0
 
 - Changes show while a step is still working, and for steps that were stopped: the branch folder as it is right now, new files included, refreshing as the agent edits

@@ -7851,3 +7851,105 @@ input.thread-title.editing {
 .turn .atts {
   margin: 2px 14px 8px;
 }
+
+/* ---------- the sidebar shrunk to a rail of icons ---------- */
+.sidebar.rail {
+  width: 60px;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 0 10px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  animation: rail-in 0.28s var(--ease);
+}
+@keyframes rail-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+}
+.rail-btn {
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  padding: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.rail-btn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.rail-btn.on {
+  background: var(--surface-2);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--border-2);
+}
+.rail-mark {
+  margin-bottom: 6px;
+}
+.rail-board .board-initial {
+  width: 26px;
+  height: 26px;
+  font-size: 12px;
+}
+.rail-btn.on .board-initial {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.rail-badge {
+  position: absolute;
+  top: 3px;
+  right: 1px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  font-size: 9.5px;
+  line-height: 14px;
+  color: var(--text-2);
+}
+.rail-live {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--bg-2);
+  animation: beacon-ping 1.6s ease-out infinite;
+}
+.rail-live.warn {
+  background: var(--warn);
+}
+.rail-sep {
+  flex: none;
+  width: 24px;
+  height: 1px;
+  margin: 6px 0;
+  background: var(--border);
+}
+.rail-agent-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--branch);
+  animation: beacon-ping 1.6s ease-out infinite;
+}
+.rail-agent.waiting .rail-agent-dot {
+  background: var(--warn);
+}
+.sidebar.rail .spacer {
+  flex: 1;
+}

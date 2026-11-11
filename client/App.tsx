@@ -96,6 +96,22 @@ function Shell() {
       return !v;
     });
   }, []);
+  // Desktop: or shrink it to a slim rail of icons.
+  const [sideMini, setSideMini] = useState(() => {
+    try {
+      return localStorage.getItem('forkspace:side-mini') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleMini = useCallback(() => {
+    setSideMini((v) => {
+      try {
+        localStorage.setItem('forkspace:side-mini', v ? '0' : '1');
+      } catch {}
+      return !v;
+    });
+  }, []);
   const [tab, setTab] = useState<Tab>('board');
   const [palette, setPalette] = useState(false);
   const [codeOpen, setCodeOpen] = useState<{ path: string; n: number } | null>(null);
@@ -534,7 +550,68 @@ function Shell() {
 
   // ---------------- desktop ----------------
   return (
-    <div className={`app ${openNode ? 'drawer-open' : ''} ${sideOpen ? '' : 'side-closed'}`}>
+    <div className={`app ${openNode ? 'drawer-open' : ''} ${sideOpen ? '' : 'side-closed'} ${sideMini ? 'side-mini' : ''}`}>
+      {sideMini && sideOpen ? (
+        <aside className="sidebar rail">
+          <button className="rail-btn rail-mark" onClick={toggleMini} title="Expand sidebar" aria-label="Expand sidebar">
+            <span className="app-mark">
+              <Icon name="branch" size={15} strokeWidth={2.25} />
+            </span>
+          </button>
+          <button className={`rail-btn ${page === 'concepts' ? 'on' : ''}`} onClick={() => setPage(page === 'concepts' ? 'board' : 'concepts')} title="Concepts" aria-label="Concepts">
+            <span className="mentor-orb small" />
+            {lessonCount > 0 && <span className="rail-badge">{lessonCount > 99 ? '99+' : lessonCount}</span>}
+          </button>
+          <button className={`rail-btn ${page === 'notes' ? 'on' : ''}`} onClick={() => setPage(page === 'notes' ? 'board' : 'notes')} title="Notes" aria-label="Notes">
+            <Icon name="folder" size={17} />
+            {filedCount > 0 && <span className="rail-badge">{filedCount}</span>}
+          </button>
+          <span className="rail-sep" />
+          {store.boards.map((b) => {
+            const live = Object.values(store.nodes).filter((n): n is TurnNode => isTurn(n) && n.boardId === b.id && isLive(n));
+            const needs = live.some((n) => n.status === 'waiting');
+            return (
+              <button
+                key={b.id}
+                className={`rail-btn rail-board ${b.id === board?.id && page === 'board' ? 'on' : ''}`}
+                onClick={() => {
+                  setBoardId(b.id);
+                  setOpenId(null);
+                  setPage('board');
+                }}
+                title={b.name}
+                aria-label={b.name}
+              >
+                <span className="board-initial">{b.name.slice(0, 1).toUpperCase()}</span>
+                {live.length > 0 && <span className={`rail-live ${needs ? 'warn' : ''}`} />}
+              </button>
+            );
+          })}
+          <button className="rail-btn" onClick={() => setSheet('new')} title="New board" aria-label="New board">
+            <Icon name="plus" size={16} />
+          </button>
+          {(waiting.length > 0 || running.length > 0) && (
+            <>
+              <span className="rail-sep" />
+              {[...waiting, ...running].slice(0, 6).map((t) => (
+                <button key={t.id} className={`rail-btn rail-agent ${t.status}`} onClick={() => (setPage('board'), goTo(t))} title={`${t.status === 'waiting' ? 'Needs you' : 'Working'}: ${t.prompt}`} aria-label={t.prompt}>
+                  <span className="rail-agent-dot" style={{ ['--branch' as any]: branchColor(t.branchId) }} />
+                </button>
+              ))}
+            </>
+          )}
+          <span className="spacer" />
+          <button className="rail-btn" onClick={goAway} title="Away mode" aria-label="Away mode">
+            <Icon name="moon" size={16} />
+          </button>
+          <button className="rail-btn" onClick={() => setSheet('devices')} title="Settings" aria-label="Settings">
+            <Icon name="settings" size={16} />
+          </button>
+          <button className="rail-btn" onClick={toggleMini} title="Expand sidebar" aria-label="Expand sidebar">
+            <Icon name="chevronRight" size={16} />
+          </button>
+        </aside>
+      ) : (
       <aside className="sidebar" aria-hidden={!sideOpen}>
         <div className="brand">
           <div className="app-mark">
@@ -543,6 +620,9 @@ function Shell() {
           <span>Forkspace</span>
           <ConnDot />
           <ThemeToggle />
+          <button className="icon-btn sm side-hide" onClick={toggleMini} title="Shrink to icons" aria-label="Shrink sidebar">
+            <Icon name="chevronLeft" size={15} />
+          </button>
           <button className="icon-btn sm side-hide" onClick={toggleSide} title="Hide sidebar (⌘\)" aria-label="Hide sidebar">
             <Icon name="sidebar" size={15} />
           </button>
@@ -598,6 +678,7 @@ function Shell() {
           </a>
         </div>
       </aside>
+      )}
 
       <main className="main">
         <ConnectionBanner />

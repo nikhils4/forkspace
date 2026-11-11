@@ -166,10 +166,29 @@ export function Canvas({
     return () => clearTimeout(t);
   }, [active, board.id, rfNodes, items.length, fitVisible]);
 
-  // Pan to a card when asked (new card sent, sidebar click, notification tap).
+  // Pan to a card when asked (new card sent, sidebar click, notification tap). A card you just
+  // sent can take a moment to arrive and be measured, so keep trying briefly.
+  // While it works, the view follows it as it grows, until you move the view yourself.
+  const following = useRef<{ id: string; at: number; h: number } | null>(null);
+  const centerRef = useRef(centerOn);
+  centerRef.current = centerOn;
+  const nodesRef = useRef(store.nodes);
+  nodesRef.current = store.nodes;
   useEffect(() => {
     if (!focus) return;
-    const t = setTimeout(() => centerOn(focus.id), 80);
+    let tries = 0;
+    let t: ReturnType<typeof setTimeout>;
+    const go = () => {
+      const internal = rf.getInternalNode(focus.id);
+      if (!internal?.measured?.width || !nodesRef.current[focus.id]) {
+        if (tries++ < 40) t = setTimeout(go, 75);
+        return;
+      }
+      // The latest centerOn: the one from when you pressed send doesn't know the new card yet.
+      centerRef.current(focus.id);
+      following.current = { id: focus.id, at: Date.now(), h: internal.measured.height ?? 0 };
+    };
+    t = setTimeout(go, 40);
     return () => clearTimeout(t);
   }, [focus?.n]);
 
@@ -241,6 +260,20 @@ export function Canvas({
     // Only remember full-size heights: zoomed far out, cards are drawn as short title cards.
     const full = rf.getZoom() >= 0.55;
     for (const c of changes) if (full && c.type === 'dimensions' && c.dimensions) heights.set(c.id, c.dimensions.height);
+    // Keep the card you're watching in the middle as it grows (at most every 1.2 s).
+    const f = following.current;
+    if (f)
+      for (const c of changes)
+        if (c.type === 'dimensions' && c.id === f.id && c.dimensions && Math.abs(c.dimensions.height - f.h) > 30 && Date.now() - f.at > 1200) {
+          const n = nodesRef.current[f.id];
+          if (!n || !isTurn(n) || !isLive(n)) {
+            following.current = null;
+            break;
+          }
+          f.h = c.dimensions.height;
+          f.at = Date.now();
+          setTimeout(() => centerRef.current(f.id), 0);
+        }
     setRfNodes((nds) => applyNodeChanges(changes.filter((c) => c.type !== 'remove'), nds));
   }, []);
 
@@ -636,6 +669,10 @@ export function Canvas({
         panActivationKeyCode="Space"
         onlyRenderVisibleElements={false}
         disableKeyboardA11y
+        // You moved the view yourself: stop following the working card.
+        onMoveStart={(e) => {
+          if (e) following.current = null;
+        }}
         // Lets a working card's glow stay the same size on screen at any zoom.
         onMove={(_, vp) => (document.querySelector('.pane.on .canvas') as HTMLElement | null)?.style.setProperty('--inv-zoom', String(1 / vp.zoom))}
         onInit={(inst) => (document.querySelector('.pane.on .canvas') as HTMLElement | null)?.style.setProperty('--inv-zoom', String(1 / inst.getZoom()))}
