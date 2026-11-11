@@ -7847,3 +7847,7 @@ input.thread-title.editing {
     opacity: 0;
   }
 }
+/* attachments on a card line up with the rest of its content */
+.turn .atts {
+  margin: 2px 14px 8px;
+}

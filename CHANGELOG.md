@@ -3,6 +3,10 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.18.1
+
+- Attached images and files on a card line up with the rest of the card instead of touching its edge
+
 ## 0.18.0
 
 - Working cards say what they're doing, live: "Editing math.ts", "Running npm test", "Needs your OK". It replaces the plain "Running" label
