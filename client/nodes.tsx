@@ -435,6 +435,12 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
         {!node.completed && <StatusDot status={node.status} />}
         {live ? <LiveLine node={node} /> : readyPill || <span className="status-label">{node.completed ? 'Completed' : STATUS_LABEL[node.status]}</span>}
         <span className="spacer" />
+        {!!node.queued?.length && (
+          <span className="queued-pill" title={node.queued.map((q) => q.prompt).join('\n\n')}>
+            <Icon name="clock" size={11} />
+            {node.queued.length} queued
+          </span>
+        )}
         {node.imported ? (
           <span className="branch-tag" title="Brought in from Claude Code">
             <Icon name="download" size={11} />

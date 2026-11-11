@@ -10151,3 +10151,78 @@ input.thread-title.editing {
   flex-wrap: wrap;
   align-self: flex-start;
 }
+
+/* Messages waiting on a working step */
+.queued-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 8px;
+  padding: 7px 8px;
+  border-radius: 10px;
+  border: 1px dashed color-mix(in srgb, var(--branch, var(--accent)) 45%, transparent);
+  background: color-mix(in srgb, var(--branch, var(--accent)) 6%, transparent);
+  max-height: 150px;
+  overflow-y: auto;
+}
+.queued-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+.queued-head .link-btn {
+  margin-left: auto;
+  font-size: 12px;
+}
+.queued-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+}
+.queued-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.queued-att {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--text-2);
+}
+.queued-x {
+  flex-shrink: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  color: var(--text-2);
+}
+.queued-x:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+.queued-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  margin-right: 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--branch, var(--accent));
+  background: color-mix(in srgb, var(--branch, var(--accent)) 12%, transparent);
+}

@@ -269,7 +269,9 @@ function Shell() {
     if (!board) return false;
     const position = placeFor(store.nodes, board.id, parentId, { x: 0, y: 0 });
     try {
-      const { id } = await request<{ id: string }>({ type: 'send', boardId: board.id, parentId, prompt, position, attachments });
+      const { id, queued } = await request<{ id: string; queued?: boolean }>({ type: 'send', boardId: board.id, parentId, prompt, position, attachments });
+      // Sent to a step that's still working: it waits on that card and runs next.
+      if (queued) return toast('Queued. It runs as the next step when this one finishes.'), true;
       setTargetId(id);
       setFocus({ id, n: Date.now() });
       return true;

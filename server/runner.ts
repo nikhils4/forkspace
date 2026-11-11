@@ -285,8 +285,37 @@ async function run(board: Board, branch: Branch, node: TurnNode, parent: TurnNod
           touch(node);
         }
       });
-    if (node.status === 'done' || node.status === 'error') notifyFn(node, 'finished');
+    // You sent more while it worked: that goes next, in the same thread, without waiting for you.
+    // (Stopped or failed: the messages stay on the card until you send or drop them.)
+    const goesOn = node.status === 'done' && !!node.queued?.length;
+    if ((node.status === 'done' && !goesOn) || node.status === 'error') notifyFn(node, 'finished');
     if (node.status === 'done') activityFn(node, true);
+    if (goesOn) runQueued(node).catch(() => {});
+  }
+}
+
+/** Keep a message you sent to a step that's still working; it runs as the next step. */
+export function queueMessage(node: TurnNode, prompt: string, position: Position, attachments: Attachment[] = []) {
+  node.queued = [...(node.queued ?? []), { id: nanoid(8), prompt, position, at: Date.now(), ...(attachments.length ? { attachments } : {}) }];
+  touch(node);
+}
+
+/** Send a step's waiting messages as its next step: several become one, in the order you wrote them. */
+export async function runQueued(node: TurnNode): Promise<TurnNode | undefined> {
+  const list = node.queued;
+  if (!list?.length) return;
+  delete node.queued;
+  touch(node);
+  const prompt = list.map((q) => q.prompt).join('\n\n');
+  const attachments = list.flatMap((q) => q.attachments ?? []);
+  try {
+    return await startTurn(node.boardId, node.id, prompt, list[0].position, attachments);
+  } catch (err: any) {
+    // Couldn't start (no session, say): put them back so nothing you wrote is lost.
+    node.queued = [...list, ...(node.queued ?? [])];
+    node.error = (node.error ? node.error + '\n' : '') + `Couldn't send your queued message: ${err?.message ?? err}`;
+    touch(node);
+    throw err;
   }
 }
 

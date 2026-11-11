@@ -5,6 +5,7 @@ To cut one: add a section below, then run `npm run release -- <version>`.
 
 ## 0.27.0
 
+- Forgot something while an agent is working? Send it anyway: it waits on the card ("1 queued") and runs as the next step in the same thread as soon as the agent finishes, even with the page closed. Several become one step, in order. Drop any of them with × above the message box. If the agent was stopped or failed, they stay put until you press Send now
 - Choose a board's effort (how hard the model thinks) right under the model: Default, Low, Medium, High, Extra high or Max. Only the levels the chosen model takes are offered, each explained in a line
 - Pick a board's model at the top of Board settings: the newest Opus, Sonnet, Haiku, Fable and Mythos, with older versions folded under "More versions". The list comes from your Claude account, so new models show up on their own
 - Terminal tabs say where they are: your project's folder name, or the thread a card's own copy belongs to, plus what's running in it right now (yarn, node…) instead of "zsh 4 8Hq-coBd"

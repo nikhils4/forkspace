@@ -231,6 +231,8 @@ export interface TurnNode {
   durationMs?: number;
   error?: string;
   pending?: PendingPermission;
+  /** Messages you sent while this step was working. They run as the next step once it finishes. */
+  queued?: QueuedMessage[];
   lessons?: Lesson[];
   /** Imported turns: resume the session at this message to continue from exactly here. */
   resumeAt?: string;
@@ -240,6 +242,15 @@ export interface TurnNode {
   position: Position;
   createdAt: number;
   finishedAt?: number;
+}
+
+export interface QueuedMessage {
+  id: string;
+  prompt: string;
+  attachments?: Attachment[];
+  /** Where the next step's card goes (worked out when you sent it). */
+  position: Position;
+  at: number;
 }
 
 export interface NoteNode {
@@ -289,6 +300,10 @@ export type ClientMsg =
   | { type: 'clearBoard'; id: string }
   | { type: 'send'; reqId: string; boardId: string; parentId: string | null; prompt: string; position: Position; attachments?: Attachment[] }
   | { type: 'stop'; nodeId: string }
+  /** Drop one message waiting on a working step. */
+  | { type: 'unqueue'; reqId: string; nodeId: string; id: string }
+  /** Run a step's waiting messages now (it stopped or failed, so they didn't go on their own). */
+  | { type: 'sendQueued'; reqId: string; nodeId: string }
   | { type: 'permission'; nodeId: string; requestId: string; decision: 'allow' | 'always' | 'deny'; answers?: Record<string, string>; message?: string }
   | { type: 'upsertNote'; note: NoteNode }
   | { type: 'move'; moves: { id: string; position: Position; width?: number; height?: number }[] }

@@ -4,7 +4,7 @@ import type { Attachment, Board, TurnNode } from '../shared/types.ts';
 import { fileSize, uploadAttachment } from './Shots.tsx';
 import { Icon } from './icons.tsx';
 import { branchColor } from './nodes.tsx';
-import { toast, useStore } from './store.ts';
+import { request, toast, useStore } from './store.ts';
 import { isLive } from './tree.ts';
 import { useIsMobile } from './ui.tsx';
 
@@ -159,7 +159,8 @@ export function Composer({
     input.onchange = () => addFiles([...(input.files ?? [])]);
     input.click();
   };
-  const canSend = (!!text.trim() || ready.length > 0) && !uploading && !busy && !targetBusy;
+  const canSend = (!!text.trim() || ready.length > 0) && !uploading && !busy;
+  const queued = target?.queued ?? [];
 
   const go = async () => {
     if (!canSend) return;
@@ -226,6 +227,7 @@ export function Composer({
             </>
           )}
         </div>
+        {target && queued.length > 0 && <QueuedList node={target} live={targetBusy} />}
         {atts.length > 0 && (
           <div className="composer-atts">
             {atts.map((a) => (
@@ -254,7 +256,7 @@ export function Composer({
             value={text}
             rows={1}
             enterKeyHint={mobile ? 'enter' : 'send'}
-            placeholder={targetBusy ? 'Agent is working. Type your next step…' : target ? 'What next?' : 'Describe a task for a new agent…'}
+            placeholder={targetBusy ? 'Agent is working. Send anything you forgot: it goes next…' : target ? 'What next?' : 'Describe a task for a new agent…'}
             onChange={(e) => setText(e.target.value)}
             onPaste={(e) => {
               const files = [...e.clipboardData.files];
@@ -276,11 +278,51 @@ export function Composer({
             // Keep focus in the textarea: on phones a blur here hides the keyboard and shifts the layout mid-tap.
             onPointerDown={(e) => e.preventDefault()}
             onMouseDown={(e) => e.preventDefault()}
-            disabled={!canSend} onClick={go} aria-label="Send" title={targetBusy ? 'Wait for the agent to finish' : uploading ? 'Attaching…' : 'Send (Enter)'}>
-            {busy ? <span className="spinner light" /> : <Icon name="send" size={18} strokeWidth={2.25} />}
+            disabled={!canSend} onClick={go} aria-label="Send" title={targetBusy ? 'Queue it: runs as soon as the agent finishes (Enter)' : uploading ? 'Attaching…' : 'Send (Enter)'}>
+            {busy ? <span className="spinner light" /> : <Icon name={targetBusy ? 'clock' : 'send'} size={18} strokeWidth={2.25} />}
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Messages waiting on a working step, shown above the box. They run together as its next step. */
+function QueuedList({ node, live }: { node: TurnNode; live: boolean }) {
+  const list = node.queued ?? [];
+  const drop = (id: string) => request({ type: 'unqueue', nodeId: node.id, id }).catch((e: Error) => toast(e.message, 'error'));
+  const sendNow = () => request({ type: 'sendQueued', nodeId: node.id }).catch((e: Error) => toast(e.message, 'error'));
+  return (
+    <div className="queued-list">
+      <div className="queued-head">
+        <Icon name="clock" size={12} />
+        {live ? (
+          <span>{list.length === 1 ? 'Goes next, when the agent finishes' : `${list.length} messages go next, together, when the agent finishes`}</span>
+        ) : (
+          <>
+            <span>{node.status === 'done' ? 'Waiting to send' : `Not sent: the agent ${node.status === 'error' ? 'failed' : 'was stopped'}`}</span>
+            <button className="link-btn" onClick={sendNow}>
+              Send now
+            </button>
+          </>
+        )}
+      </div>
+      {list.map((q) => (
+        <div key={q.id} className="queued-item">
+          <span className="queued-text" title={q.prompt}>
+            {q.prompt}
+          </span>
+          {!!q.attachments?.length && (
+            <span className="queued-att" title={q.attachments.map((a) => a.name).join(', ')}>
+              <Icon name="clip" size={11} />
+              {q.attachments.length}
+            </span>
+          )}
+          <button className="queued-x" onClick={() => drop(q.id)} aria-label="Don’t send this" title="Don’t send this">
+            <Icon name="x" size={11} />
+          </button>
+        </div>
+      ))}
     </div>
   );
 }

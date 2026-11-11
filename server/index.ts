@@ -24,7 +24,7 @@ import { attachTerminal, closeBoardTerminals, closeTerminal, listTerminals, open
 import { checkAttachments, deleteAttachment, saveAttachment } from './attachments.ts';
 import { saveCheckpoint } from './runner.ts';
 import { askMap, buildMap, forgetAnswer, linkCheck, loadAnswers, loadMap, mapIsStale, saveFlow, zoomItem } from './codemap.ts';
-import { answer, isRunning, pruneBranches, setActivityHook, setEmitter, setNotifier, startTurn, stop, touch } from './runner.ts';
+import { answer, isRunning, pruneBranches, queueMessage, runQueued, setActivityHook, setEmitter, setNotifier, startTurn, stop, touch } from './runner.ts';
 import { explain, onActivity, organizeConcepts, readImageText, setTutorTouch, threadTitle, tidyDictation } from './tutor.ts';
 import { flush, getBoard, getBranch, getNode, getTurn, save, state, subtree } from './store.ts';
 
@@ -438,12 +438,33 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       const attachments = checkAttachments(msg.attachments);
       const prompt = msg.prompt.trim() || (attachments.length ? `Take a look at the attached ${attachments.length === 1 ? 'file' : 'files'}.` : '');
       if (!prompt) throw new Error('Empty prompt');
+      // Replying to a step that's still working: wait on it, then run as the next step.
+      const parent = msg.parentId ? getTurn(msg.parentId) : undefined;
+      if (parent && (parent.status === 'running' || parent.status === 'waiting')) {
+        queueMessage(parent, prompt, goodPos(msg.position) ? msg.position : { x: parent.position.x, y: parent.position.y + 300 }, attachments);
+        return { id: parent.id, queued: true };
+      }
       const node = await startTurn(msg.boardId, msg.parentId, prompt, goodPos(msg.position) ? msg.position : { x: 0, y: 0 }, attachments);
       return { id: node.id };
     }
     case 'stop':
       stop(msg.nodeId);
       return;
+    case 'unqueue': {
+      const n = getTurn(msg.nodeId);
+      if (n?.queued) {
+        n.queued = n.queued.filter((q) => q.id !== msg.id);
+        if (!n.queued.length) delete n.queued;
+        touch(n);
+      }
+      return;
+    }
+    case 'sendQueued': {
+      const n = getTurn(msg.nodeId);
+      if (!n) throw new Error('Step not found');
+      const node = await runQueued(n);
+      return { id: node?.id };
+    }
     case 'permission':
       answer(msg.nodeId, msg.requestId, msg.decision, msg.answers, msg.message);
       return;
