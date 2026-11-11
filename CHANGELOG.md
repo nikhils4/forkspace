@@ -3,6 +3,15 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.25.0
+
+- Walkthroughs are easier to follow: each step has a short headline, and only the step you're on is open. The rest stay as one line each
+- Every decision is spelled out: each if/else, limit, error, retry and special case gets its own "If … then …" box, coloured by what happens (stops, goes another way, skips, tries again), followed by what happens otherwise
+- The journey is split into a few parts (like Holding stock, Paying, Saving the order) on a bar at the top; click one to jump there
+- "What changed" says it in words. The raw data is one click away and remembers if you like it open
+- Plainer language throughout: what the person sees, not status codes. The code details sit at the bottom of each step
+- Play gives longer steps more time to read
+
 ## 0.24.0
 
 - Map walkthroughs: ask how something happens ("What happens at checkout?") and watch it play out. A sample of the real data starts the trip, then each step shows the function, file and line, what it does in plain words, and how the data looks now, with new and changed fields highlighted

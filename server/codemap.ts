@@ -237,15 +237,32 @@ const ANSWER_SCHEMA = {
         input: { type: 'string', description: 'The data it starts with, as valid JSON text: a small, realistic made-up example in the exact shape the code expects.' },
         steps: {
           type: 'array',
-          maxItems: 14,
+          maxItems: 16,
           items: {
             type: 'object',
             properties: {
+              title: { type: 'string', description: 'A short plain headline, 2 to 5 words, like "Hold the stock" or "Charge the card".' },
+              stage: { type: 'string', description: 'Which part of the journey this belongs to, 2 or 3 words, like "Before payment", "Payment", "After payment". Use 2 to 4 stages for the whole trace, in order.' },
+              checks: {
+                type: 'array',
+                maxItems: 8,
+                description: 'Every decision made in this step: each if/else, early return, error, limit and special case, in the order the code checks them. Leave out nothing that changes what happens.',
+                items: {
+                  type: 'object',
+                  properties: {
+                    if: { type: 'string', description: 'The condition in plain words, like "the cart has more than 10 pieces" or "the piece is a pre-order".' },
+                    then: { type: 'string', description: 'What happens in that case, in plain words, like "it stops and tells the shopper: Too many items".' },
+                    kind: { type: 'string', enum: ['stop', 'skip', 'continue', 'retry', 'other'], description: 'stop: the flow ends here (error or refusal). skip: this part is skipped. continue: carries on a different way. retry: tries again. other.' },
+                  },
+                  required: ['if', 'then', 'kind'],
+                },
+              },
+              changes: { type: 'array', maxItems: 5, items: { type: 'string' }, description: 'What changed in this step, in plain words, like "A hold is placed on 1 bangle for 15 minutes" or "The price now comes from the database".' },
               item: { type: 'string', description: 'id of the map item this happens in, if one fits.' },
               path: { type: 'string', description: 'File path relative to the project root.' },
               line: { type: 'number' },
               fn: { type: 'string', description: 'The function, handler or component, like "createOrder()".' },
-              does: { type: 'string', description: 'What happens here, in one or two plain sentences with the real details, like "Checks each line is in stock and holds the quantity for 15 minutes."' },
+              does: { type: 'string', description: 'What happens on the normal path, in one or two short plain sentences with the real details. Decisions go in checks, not here.' },
               data: { type: 'string', description: 'The data as it stands after this step, as valid JSON text, continuing the same example: the object this step changes or produces (the checked request, the saved record with its new id and status, the response). Give it at most steps. Keep it small: only the fields that matter here.' },
               tables: {
                 type: 'array',
@@ -256,7 +273,7 @@ const ANSWER_SCHEMA = {
                 },
               },
             },
-            required: ['path', 'does'],
+            required: ['title', 'path', 'does'],
           },
         },
       },
@@ -278,9 +295,10 @@ export async function askMap(board: Board, map: CodeMap, question: string, onPro
       `Their question: "${question.slice(0, 1500)}"\n\n` +
       `Answer it. Use the map to know where to look, and read the actual code to be sure. Point to the map items involved (focus).\n\n` +
       `If the question is about something that happens (someone checks out, a request comes in, a job runs), also give a trace: follow it through the real code from start to finish. ` +
-      `Start with a small realistic example of the data that comes in, then each stop: the file, line and function, what it does in plain words with the real details (checks, rules, numbers), ` +
+      `Start with a small realistic example of the data that comes in, then each stop: a short headline, the file, line and function, what it does on the normal path in plain words with the real details (rules, numbers, limits), ` +
+      `every decision it makes (each if/else, early return, error, limit, special case: what happens in each case, so the reader misses nothing), what changed in words (changes: 1 to 3 short lines for every step that changes anything), ` +
       `how the example data looks after it (most steps should show it, so the reader sees it change: ids appear, statuses move, totals get worked out), and which database tables it reads or changes. Keep the answer itself to 2 or 3 sentences when there is a trace.`,
-    'You explain codebases clearly and accurately, in plain words, for someone new to the project. Sample data is made up but always matches the real shapes in the code.',
+    'You explain codebases clearly and accurately for someone new to the project. Write like you talk to a smart friend: short sentences, everyday words, no jargon. Say what the person sees or what happens to the data, not status codes or route names (those go in fn). If a technical term is needed, explain it in a few words in brackets. Sample data is made up but always matches the real shapes in the code.',
     ANSWER_SCHEMA,
     board.cwd,
     onProgress,
@@ -291,7 +309,7 @@ export async function askMap(board: Board, map: CodeMap, question: string, onPro
     ? {
         title: res.trace.title,
         input: res.trace.input,
-        steps: res.trace.steps.slice(0, 14).map((s) => ({ ...s, path: String(s.path ?? '').replace(/^\.?\//, ''), item: s.item && ids.has(s.item) ? s.item : undefined })),
+        steps: res.trace.steps.slice(0, 16).map((s) => ({ ...s, path: String(s.path ?? '').replace(/^\.?\//, ''), item: s.item && ids.has(s.item) ? s.item : undefined })),
       }
     : undefined;
   const a: MapAnswer = { question, answer: res.answer, focus: (res.focus ?? []).filter((id) => ids.has(id)), trace, at: Date.now() };

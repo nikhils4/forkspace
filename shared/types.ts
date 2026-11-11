@@ -155,6 +155,14 @@ export interface MapZoom {
 export type TableOp = 'read' | 'create' | 'update' | 'delete';
 /** One stop on a walkthrough: where it happens, what happens, and what the data looks like after. */
 export interface MapTraceStep {
+  /** A short plain headline, like "Hold the stock". */
+  title?: string;
+  /** Which part of the journey, like "Before payment". */
+  stage?: string;
+  /** Every decision here: each if/else, early stop, error and special case. */
+  checks?: { if: string; then: string; kind: 'stop' | 'skip' | 'continue' | 'retry' | 'other' }[];
+  /** What changed, in words. */
+  changes?: string[];
   item?: string;
   path: string;
   line?: number;

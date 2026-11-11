@@ -403,6 +403,31 @@ function JsonTree({ v, prev, depth = 0 }: { v: unknown; prev: unknown; depth?: n
   );
 }
 
+/** What changed between two samples, in words, for steps that didn't say. */
+function changesInWords(prev?: string, next?: string): string[] {
+  const a = parse(prev);
+  const b = parse(next);
+  if (!b?.ok) return [];
+  const flat = (v: unknown, pre = '', out = new Map<string, unknown>(), depth = 0) => {
+    if (isObj(v) && depth < 3 && !Array.isArray(v)) for (const [k, x] of Object.entries(v)) flat(x, pre ? `${pre}.${k}` : k, out, depth + 1);
+    else out.set(pre, v);
+    return out;
+  };
+  const short = (v: unknown) => {
+    const t = Array.isArray(v) ? `${v.length} item${v.length === 1 ? '' : 's'}` : isObj(v) ? 'set' : scalar(v);
+    return t.length > 40 ? `${t.slice(0, 38)}…` : t;
+  };
+  const before = a?.ok ? flat(a.v) : new Map();
+  const after = flat(b.v);
+  const out: string[] = [];
+  for (const [k, v] of after) {
+    if (/(^|\.)_/.test(k)) continue;
+    if (!before.has(k)) out.push(`New: ${k} is ${short(v)}`);
+    else if (!same(before.get(k), v)) out.push(`${k} went from ${short(before.get(k))} to ${short(v)}`);
+  }
+  return out.slice(0, 4);
+}
+
 function DataCard({ text, prev, label }: { text: string; prev?: string; label: string }) {
   const cur = parse(text)!;
   const before = parse(prev);
@@ -427,21 +452,74 @@ function DataCard({ text, prev, label }: { text: string; prev?: string; label: s
   );
 }
 
+const CHECK_WORD: Record<string, string> = { stop: 'Stops', skip: 'Skips', continue: 'Goes another way', retry: 'Tries again', other: 'Then' };
+/** "stops: too many items" → "too many items" (the label already says it stops). */
+const plainThen = (t: string) => {
+  const v = t.replace(/^(it\s+)?(stops|skips|tries again|retries|then)\b[:,]?\s*/i, '').trim();
+  return v ? v[0].toUpperCase() + v.slice(1) : t;
+};
+const stepTitle = (s: MapTraceStep, i: number) => s.title || s.fn || `Step ${i + 1}`;
+const seeData = () => {
+  try {
+    return localStorage.getItem('forkspace:map-data') === '1';
+  } catch {
+    return false;
+  }
+};
+
 function Walkthrough({ trace, step, setStep, open, nameOf, playing, setPlaying }: { trace: MapTrace; step: number; setStep: (n: number) => void; open: (p: string, l?: number) => void; nameOf: (id: string) => string; playing: boolean; setPlaying: (b: boolean) => void }) {
   const list = useRef<HTMLOListElement>(null);
+  const [showData, setShowData] = useState(seeData);
   const n = trace.steps.length;
   useEffect(() => {
     list.current?.querySelector('.tr-step.on')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [step]);
+  const toggleData = () =>
+    setShowData((v) => {
+      try {
+        localStorage.setItem('forkspace:map-data', v ? '0' : '1');
+      } catch {}
+      return !v;
+    });
   // The data as it was before a step: the last step that had some, or what came in.
   const before = (i: number) => {
     for (let j = i - 1; j >= 0; j--) if (trace.steps[j].data) return trace.steps[j].data;
     return trace.input;
   };
+  // The journey in a few parts ("Before payment", "Payment"...), in order.
+  const stages = useMemo(() => {
+    const out: { name: string; first: number; last: number }[] = [];
+    trace.steps.forEach((s, i) => {
+      const name = s.stage?.trim();
+      if (!name) return;
+      const last = out.at(-1);
+      if (last && last.name === name) last.last = i;
+      else out.push({ name, first: i, last: i });
+    });
+    return out.length > 1 ? out : [];
+  }, [trace]);
+  const cur = step >= 0 ? trace.steps[step] : undefined;
+
   return (
     <div className="trace">
       <div className="tr-bar">
         <b className="tr-title">{trace.title}</b>
+        {stages.length > 0 && (
+          <div className="tr-stages">
+            {stages.map((g) => {
+              const st = step > g.last ? 'past' : step >= g.first ? 'on' : '';
+              const fill = st === 'past' ? 1 : st === 'on' ? (step - g.first + 1) / (g.last - g.first + 1) : 0;
+              return (
+                <button key={g.first} className={`tr-stage ${st}`} style={{ flex: 1 }} onClick={() => setStep(g.first)} title={`Jump to: ${g.name}`}>
+                  <i>
+                    <u style={{ width: `${fill * 100}%` }} />
+                  </i>
+                  <span className="ellipsis">{g.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
         <div className="tr-controls">
           <button className="icon-btn sm" onClick={() => setStep(Math.max(-1, step - 1))} disabled={step <= -1} aria-label="Back" title="Back (←)">
             <Icon name="chevronLeft" size={15} />
@@ -452,11 +530,13 @@ function Walkthrough({ trace, step, setStep, open, nameOf, playing, setPlaying }
           <button className="icon-btn sm" onClick={() => setStep(Math.min(n - 1, step + 1))} disabled={step >= n - 1} aria-label="Next" title="Next (→)">
             <Icon name="chevronRight" size={15} />
           </button>
-          <span className="faint small">{step < 0 ? 'Start' : `${step + 1} of ${n}`}</span>
+          <span className="faint small">{step < 0 ? 'Start' : `Step ${step + 1} of ${n}`}</span>
         </div>
-        <div className="tr-progress">
-          <i style={{ width: `${((step + 1) / n) * 100}%` }} />
-        </div>
+        {!stages.length && (
+          <div className="tr-progress">
+            <i style={{ width: `${((step + 1) / n) * 100}%` }} />
+          </div>
+        )}
       </div>
       <ol className="tr-steps" ref={list}>
         {trace.input && (
@@ -465,42 +545,111 @@ function Walkthrough({ trace, step, setStep, open, nameOf, playing, setPlaying }
               <Icon name="play" size={10} />
             </span>
             <div className="tr-body">
-              <b>What comes in</b>
-              {step === -1 && <DataCard text={trace.input} label="Sample" />}
-            </div>
-          </li>
-        )}
-        {trace.steps.map((s, i) => (
-          <li key={i} className={`tr-step ${i === step ? 'on' : i < step ? 'past' : ''}`} onClick={() => setStep(i)}>
-            <span className="tr-num">{i + 1}</span>
-            <div className="tr-body">
-              <div className="tr-where">
-                {s.fn && <code>{s.fn}</code>}
-                {s.item && <span className="faint">in {nameOf(s.item)}</span>}
-              </div>
-              <p>{s.does}</p>
-              {i === step && (
+              <b className="tr-step-title">What comes in</b>
+              {step === -1 && (
                 <>
-                  {!!s.tables?.length && (
-                    <div className="tr-tables">
-                      {s.tables.map((t, k) => (
-                        <span key={k} className={`tr-table ${t.op}`}>
-                          <Icon name="db" size={11} /> {OP_WORD[t.op] ?? t.op} <b>{t.name}</b>
-                          {t.what && <em>{t.what}</em>}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {s.data && <DataCard text={s.data} prev={before(i)} label="The data now" />}
-                  <button className="tr-file" onClick={(e) => (e.stopPropagation(), open(s.path, s.line))}>
-                    <Icon name="file" size={11} /> {s.path}
-                    {s.line ? `:${s.line}` : ''}
-                  </button>
+                  <p>This is a made-up example in the real shape. Press play or → to follow it.</p>
+                  <DataCard text={trace.input} label="The example" />
                 </>
               )}
             </div>
           </li>
-        ))}
+        )}
+        {trace.steps.map((s, i) => {
+          const stageHere = stages.find((g) => g.first === i);
+          const on = i === step;
+          const checks = s.checks ?? [];
+          const changes = on ? (s.changes?.length ? s.changes : changesInWords(before(i), s.data)) : [];
+          return (
+            <li key={i} className={`tr-step ${on ? 'on' : i < step ? 'past' : ''} ${stageHere ? 'stage-start' : ''}`} data-stage={stageHere?.name} onClick={() => !on && setStep(i)}>
+              <span className="tr-num">{i < step ? <Icon name="check" size={11} strokeWidth={2.6} /> : i + 1}</span>
+              <div className="tr-body">
+                <div className="tr-head">
+                  <b className="tr-step-title">{stepTitle(s, i)}</b>
+                  {!on && checks.length > 0 && (
+                    <span className="tr-badge" title={`${checks.length} decision${checks.length === 1 ? '' : 's'} here`}>
+                      <Icon name="branch" size={10} /> {checks.length}
+                    </span>
+                  )}
+                </div>
+                {on && (
+                  <div className="tr-open">
+                    <p className="tr-does">{s.does}</p>
+                    {checks.length > 0 && (
+                      <div className="tr-checks">
+                        <div className="tr-label">
+                          <Icon name="branch" size={11} /> {checks.length === 1 ? 'One decision here' : `${checks.length} decisions here`}
+                        </div>
+                        {checks.map((c, k) => (
+                          <div key={k} className={`tr-check ${c.kind}`}>
+                            <div className="tr-if">
+                              <span>If</span> {c.if.replace(/^if\s+/i, '')}
+                            </div>
+                            <div className="tr-then">
+                              <em>{CHECK_WORD[c.kind] ?? 'Then'}</em> {plainThen(c.then)}
+                            </div>
+                          </div>
+                        ))}
+                        <div className="tr-check otherwise">
+                          <div className="tr-then">
+                            <em>Otherwise</em> it carries on to {trace.steps[i + 1] ? <b>{stepTitle(trace.steps[i + 1], i + 1)}</b> : 'the end'}.
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {(changes.length > 0 || !!s.tables?.length) && (
+                      <div className="tr-changes">
+                        <div className="tr-label">What changed</div>
+                        {changes.map((c, k) => (
+                          <div key={k} className="tr-change">
+                            {c}
+                          </div>
+                        ))}
+                        {!!s.tables?.length && (
+                          <div className="tr-tables">
+                            {s.tables.map((t, k) => (
+                              <span key={k} className={`tr-table ${t.op}`}>
+                                <Icon name="db" size={11} /> {OP_WORD[t.op] ?? t.op} <b>{t.name}</b>
+                                {t.what && <em>{t.what}</em>}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {s.data && (
+                      <>
+                        <button className="tr-toggle" onClick={toggleData}>
+                          <Icon name={showData ? 'chevronDown' : 'chevronRight'} size={12} /> {showData ? 'Hide the data' : 'See the data at this point'}
+                        </button>
+                        {showData && <DataCard text={s.data} prev={before(i)} label="The data now" />}
+                      </>
+                    )}
+                    <div className="tr-code">
+                      <span className="faint">In the code:</span>
+                      <button className="tr-file" onClick={() => open(s.path, s.line)} title="Open in the Code view">
+                        {s.fn && <code>{s.fn}</code>}
+                        <span>
+                          {s.path.split('/').pop()}
+                          {s.line ? `:${s.line}` : ''}
+                        </span>
+                      </button>
+                      {s.item && <span className="faint">· {nameOf(s.item)}</span>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </li>
+          );
+        })}
+        {cur && step === n - 1 && (
+          <li className="tr-end">
+            <Icon name="check" size={13} /> That's the whole journey.{' '}
+            <button className="linkish" onClick={() => (setStep(-1), setPlaying(true))}>
+              Play it again
+            </button>
+          </li>
+        )}
       </ol>
     </div>
   );
@@ -557,8 +706,10 @@ export function MapView({ board, onOpenFile }: { board: Board; onOpenFile: (path
     if (!playing || !shown?.trace) return;
     const n = shown.trace.steps.length;
     if (step >= n - 1) return setPlaying(false);
-    const next = shown.trace.steps[step + 1];
-    const t = setTimeout(() => setStep(step + 1), step < 0 ? 2600 : next?.data || shown.trace.steps[step]?.data ? 3600 : 2600);
+    // Time to read: longer when the step has more to say or decisions to take in.
+    const here = shown.trace.steps[step];
+    const words = here ? `${here.does} ${(here.checks ?? []).map((c) => `${c.if} ${c.then}`).join(' ')} ${(here.changes ?? []).join(' ')}`.split(/\s+/).length : 25;
+    const t = setTimeout(() => setStep(step + 1), Math.min(14000, Math.max(3000, words * 230)));
     return () => clearTimeout(t);
   }, [playing, step, shown]);
   // Arrow keys walk the steps; Space plays.
@@ -797,7 +948,14 @@ export function MapView({ board, onOpenFile }: { board: Board; onOpenFile: (path
                     </button>
                   </div>
                   <h3 className="ms-q">{shown.question}</h3>
-                  <Md text={shown.answer} />
+                  {shown.trace ? (
+                    <details className="ms-short" open={step < 0}>
+                      <summary>In short</summary>
+                      <Md text={shown.answer} />
+                    </details>
+                  ) : (
+                    <Md text={shown.answer} />
+                  )}
                   {shown.trace ? (
                     <Walkthrough
                       trace={shown.trace}
