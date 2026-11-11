@@ -7551,3 +7551,149 @@ input.thread-title.editing {
 .composer.docked textarea {
   max-height: 180px;
 }
+
+/* ---------- working cards stand out, even zoomed far out ---------- */
+.turn.status-running {
+  border-color: color-mix(in srgb, var(--branch) 75%, transparent);
+  animation: run-glow 2.4s ease-in-out infinite;
+}
+@keyframes run-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, var(--branch) 40%, transparent),
+      0 0 26px -4px color-mix(in srgb, var(--branch) 55%, transparent),
+      var(--shadow);
+  }
+  50% {
+    box-shadow:
+      0 0 0 5px color-mix(in srgb, var(--branch) 26%, transparent),
+      0 0 48px 2px color-mix(in srgb, var(--branch) 45%, transparent),
+      var(--shadow);
+  }
+}
+/* zoomed out the card is drawn small, so its glow is drawn bigger */
+.turn.far.status-running {
+  border-width: 3px;
+  animation-name: run-glow-far;
+}
+@keyframes run-glow-far {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 calc(3px * var(--inv-zoom, 2)) color-mix(in srgb, var(--branch) 70%, transparent),
+      0 0 calc(30px * var(--inv-zoom, 2)) calc(6px * var(--inv-zoom, 2)) color-mix(in srgb, var(--branch) 55%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 calc(6px * var(--inv-zoom, 2)) color-mix(in srgb, var(--branch) 45%, transparent),
+      0 0 calc(48px * var(--inv-zoom, 2)) calc(12px * var(--inv-zoom, 2)) color-mix(in srgb, var(--branch) 45%, transparent);
+  }
+}
+.turn.far.status-waiting {
+  border-width: 3px;
+  box-shadow:
+    0 0 0 calc(5px * var(--inv-zoom, 2)) color-mix(in srgb, var(--warn) 60%, transparent),
+    0 0 calc(40px * var(--inv-zoom, 2)) calc(8px * var(--inv-zoom, 2)) color-mix(in srgb, var(--warn) 40%, transparent);
+}
+.react-flow__minimap-node.mm-live {
+  animation: mm-blink 1.4s ease-in-out infinite;
+  stroke: var(--text);
+  stroke-width: 6px;
+}
+.react-flow__minimap-node.mm-live.waiting {
+  fill: var(--warn) !important;
+}
+@keyframes mm-blink {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* ---------- the path you're on, and selecting several cards ---------- */
+.react-flow__edge-path {
+  transition:
+    stroke-width 0.3s var(--ease),
+    stroke-opacity 0.3s var(--ease);
+}
+.react-flow__selection {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  border-radius: 6px;
+}
+.react-flow__nodesselection-rect {
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--accent) 60%, transparent);
+  border-radius: 14px;
+  cursor: grab;
+}
+/* two or more selected: each gets a clear ring (one alone is just "the card you're on") */
+.react-flow__nodes:has(.react-flow__node.selected ~ .react-flow__node.selected) .react-flow__node.selected .turn,
+.react-flow__nodes:has(.react-flow__node.selected ~ .react-flow__node.selected) .react-flow__node.selected .note {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.react-flow__node.dragging .turn {
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.55);
+  transform: scale(1.01);
+}
+.turn {
+  transition:
+    box-shadow 0.25s var(--ease),
+    border-color 0.25s var(--ease),
+    transform 0.2s var(--ease),
+    opacity 0.3s var(--ease);
+}
+
+/* ---------- pages ease in ---------- */
+.page-enter {
+  animation: page-in 0.32s var(--ease) both;
+}
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.pane.on {
+  animation: pane-in 0.26s var(--ease);
+}
+@keyframes pane-in {
+  from {
+    opacity: 0;
+    transform: scale(0.995);
+  }
+}
+.drawer {
+  animation: slide-left 0.32s var(--ease);
+}
+.notes-grid > *,
+.lib-grid > * {
+  animation: page-in 0.35s var(--ease) both;
+}
+.notes-grid > *:nth-child(2),
+.lib-grid > *:nth-child(2) {
+  animation-delay: 30ms;
+}
+.notes-grid > *:nth-child(3),
+.lib-grid > *:nth-child(3) {
+  animation-delay: 60ms;
+}
+.notes-grid > *:nth-child(n + 4),
+.lib-grid > *:nth-child(n + 4) {
+  animation-delay: 90ms;
+}
+.turn.fresh.status-running {
+  animation:
+    card-in 0.45s var(--ease),
+    run-glow 2.4s ease-in-out 0.45s infinite;
+}
+.turn.far.fresh.status-running {
+  animation:
+    card-in 0.45s var(--ease),
+    run-glow-far 2.4s ease-in-out 0.45s infinite;
+}

@@ -326,11 +326,13 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
   const summary = live ? '' : lastText(node);
 
   const root = !node.parentId;
+  // A card that just appeared slides in; older ones don't replay it when the view changes.
+  const fresh = Date.now() - node.createdAt < 6000;
   if (far)
     return (
       <>
       {root && <ThreadDone node={node} cover={data.cover} />}
-      <div className={`turn far status-${node.status} ${isTarget ? 'target' : ''} ${dim}`} style={{ ['--branch' as any]: color }}>
+      <div className={`turn far status-${node.status} ${isTarget ? 'target' : ''} ${dim} ${fresh ? 'fresh' : ''}`} style={{ ['--branch' as any]: color }}>
         <Handle type="target" position={Position.Top} />
         <div className="far-status">
           <StatusDot status={node.status} />

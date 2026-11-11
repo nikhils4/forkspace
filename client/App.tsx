@@ -119,9 +119,15 @@ function Shell() {
     },
     [store.nodes, board?.id, targetId],
   );
+  // Also when the step only just arrived: a new thread's card can land a moment after you send.
+  const targetLoaded = !!(targetId && store.nodes[targetId]);
   useEffect(() => {
     if (targetId && openId && openId !== targetId && isTurn(store.nodes[targetId])) setOpenIdRaw(targetId);
-  }, [targetId]);
+  }, [targetId, targetLoaded]);
+  // The details panel belongs to the board: going to Concepts or Notes closes it.
+  useEffect(() => {
+    if (page !== 'board') setOpenIdRaw(null);
+  }, [page]);
 
   useEffect(() => {
     if (board) ls.set('forkspace:board', board.id);
@@ -596,7 +602,7 @@ function Shell() {
       <main className="main">
         <ConnectionBanner />
         {page === 'concepts' && (
-          <div className="concepts-page">
+          <div className="concepts-page page-enter">
             <header className="topbar">
               <div className="concepts-title">
                 <span className="mentor-orb" /> Concepts
@@ -622,7 +628,7 @@ function Shell() {
           </div>
         )}
         {page === 'notes' && (
-          <div className="concepts-page">
+          <div className="concepts-page page-enter">
             <header className="topbar">
               <div className="concepts-title">
                 <Icon name="folder" size={17} /> Notes
@@ -668,7 +674,7 @@ function Shell() {
           </header>
         )}
         {/* Kept mounted behind the Concepts page so the canvas keeps its place. */}
-        <div className="main-body" style={page !== 'board' ? { display: 'none' } : undefined}>
+        <div className="main-body page-enter" style={page !== 'board' ? { display: 'none' } : undefined}>
           {boardView}
         </div>
         {termOpen && board && page === 'board' && (

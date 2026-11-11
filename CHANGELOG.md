@@ -3,6 +3,17 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.17.0
+
+- Working cards glow and pulse in their branch colour, and stay easy to spot at any zoom; they blink on the minimap too
+- Select several cards: drag a box on empty canvas, or ⇧/⌘ click. Drag any of them to move them all
+- ⌘Z undoes moving cards and notes (and tidy layout); ⇧⌘Z redoes. ⌘A selects everything, ⇧1 fits the board
+- Walk a thread with the arrow keys: ↑ the step before, ↓ the next one, ← → other branches. Enter opens details
+- The path from a thread's start to the card you're on is drawn bold; the rest steps back
+- Pan with two fingers, the scroll wheel, Space + drag or the middle mouse button; pinch or ⌘ scroll zooms
+- The details panel follows a new thread as soon as you send it, and closes when you go to Concepts or Notes
+- Smoother motion: pages and views ease in, cards lift while dragged, lines ease when the path changes
+
 ## 0.16.0
 
 - The details panel has its own message box for the step it shows: type, dictate, paste or drop images and files, and send right from there

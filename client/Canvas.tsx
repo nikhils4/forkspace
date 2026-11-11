@@ -4,6 +4,7 @@ import {
   Controls,
   MiniMap,
   ReactFlow,
+  SelectionMode,
   applyNodeChanges,
   useReactFlow,
   type Edge,
@@ -173,6 +174,9 @@ export function Canvas({
 
   const edges: Edge[] = useMemo(() => {
     const out: Edge[] = [];
+    // The path from the thread's start to the card you're on stands out; the rest steps back.
+    const onPath = new Set<string>();
+    for (let t = targetId ? store.nodes[targetId] : undefined; t && isTurn(t); t = t.parentId ? store.nodes[t.parentId] : undefined) onPath.add(t.id);
     for (const n of items) {
       if (!isTurn(n) || !n.parentId) continue;
       const parent = store.nodes[n.parentId] as TurnNode | undefined;
@@ -184,7 +188,8 @@ export function Canvas({
         target: n.id,
         animated: isLive(n),
         type: 'default',
-        style: { stroke: c, strokeWidth: 1.5, strokeOpacity: 0.7, strokeDasharray: forked ? '5 5' : undefined },
+        className: onPath.has(n.id) ? 'on-path' : onPath.size ? 'off-path' : undefined,
+        style: { stroke: c, strokeWidth: onPath.has(n.id) ? 2.5 : 1.5, strokeOpacity: onPath.has(n.id) ? 1 : onPath.size ? 0.4 : 0.7, strokeDasharray: forked ? '5 5' : undefined },
         label: forked ? 'fork' : undefined,
         labelStyle: { fill: c, fontSize: 11, fontWeight: 600 },
         labelBgStyle: { fill: 'var(--bg)' },
@@ -195,7 +200,41 @@ export function Canvas({
     const here = new Set(items.map((n) => n.id));
     for (const l of board.links) if (here.has(l.source) && here.has(l.target)) out.push({ id: l.id, source: l.source, target: l.target, className: 'link-edge' });
     return out;
-  }, [items, board.links, store.nodes]);
+  }, [items, board.links, store.nodes, targetId]);
+
+  // ---- undo / redo for moving things on the canvas (⌘Z, ⇧⌘Z) ----
+  type Moves = { id: string; position: { x: number; y: number } }[];
+  const history = useRef<{ undo: { before: Moves; after: Moves }[]; redo: { before: Moves; after: Moves }[] }>({ undo: [], redo: [] });
+  const dragFrom = useRef<Moves>([]);
+  const record = (before: Moves, after: Moves) => {
+    const moved = after.some((a) => {
+      const b = before.find((x) => x.id === a.id);
+      return !b || Math.abs(b.position.x - a.position.x) > 0.5 || Math.abs(b.position.y - a.position.y) > 0.5;
+    });
+    if (!moved) return;
+    history.current.undo.push({ before, after });
+    if (history.current.undo.length > 100) history.current.undo.shift();
+    history.current.redo = [];
+  };
+  const applyMoves = (moves: Moves) => {
+    const live = moves.filter((m) => store.nodes[m.id]);
+    if (!live.length) return false;
+    const at = new Map(live.map((m) => [m.id, m.position]));
+    setRfNodes((nds) => nds.map((n) => (at.has(n.id) ? { ...n, position: at.get(n.id)! } : n)));
+    send({ type: 'move', moves: live });
+    return true;
+  };
+  const undoMove = (redo = false) => {
+    const h = history.current;
+    const step = (redo ? h.redo : h.undo).pop();
+    if (!step) return toast(redo ? 'Nothing to redo' : 'Nothing to undo');
+    (redo ? h.undo : h.redo).push(step);
+    applyMoves(redo ? step.after : step.before);
+  };
+  const posOf = (id: string) => {
+    const n = store.nodes[id];
+    return n?.position ? { x: n.position.x, y: n.position.y } : { x: 0, y: 0 };
+  };
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     // Only remember full-size heights: zoomed far out, cards are drawn as short title cards.
@@ -264,6 +303,7 @@ export function Canvas({
       place(r, x, start.y);
       x += width.get(r.id)! + GAP_X * 2.5;
     }
+    record(moves.map((m) => ({ id: m.id, position: posOf(m.id) })), moves.map((m) => ({ id: m.id, position: m.position })));
     send({ type: 'move', moves });
     setTimeout(() => fitVisible(500), 120);
   };
@@ -451,6 +491,51 @@ export function Canvas({
     const onKey = (e: KeyboardEvent) => {
       if (!active) return;
       if ((e.target as HTMLElement).closest('input, textarea, select, [contenteditable]')) return;
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        return undoMove(e.shiftKey);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        return undoMove(true);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        return setRfNodes((nds) => nds.map((n) => ({ ...n, selected: true })));
+      }
+      if (e.shiftKey && (e.key === '!' || e.code === 'Digit1')) {
+        e.preventDefault();
+        return fitVisible(450);
+      }
+      // Walk a thread with the arrow keys: up to the step before, down to the next, sideways to other branches.
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && !e.metaKey && !e.altKey) {
+        const from = targetId && isTurn(store.nodes[targetId]) ? (store.nodes[targetId] as TurnNode) : null;
+        const turns = items.filter(isTurn) as TurnNode[];
+        let next: TurnNode | undefined;
+        if (!from) next = turns.slice().sort((a, b) => b.createdAt - a.createdAt)[0];
+        else if (e.key === 'ArrowUp') next = from.parentId ? (store.nodes[from.parentId] as TurnNode) : undefined;
+        else if (e.key === 'ArrowDown') {
+          const kids = turns.filter((t) => t.parentId === from.id);
+          // Prefer the step that continues this branch, then the newest fork.
+          next = kids.find((k) => k.branchId === from.branchId) ?? kids.sort((a, b) => b.createdAt - a.createdAt)[0];
+        } else {
+          const sibs = turns.filter((t) => t.parentId === from.parentId).sort((a, b) => a.position.x - b.position.x);
+          const i = sibs.findIndex((t) => t.id === from.id);
+          next = sibs[i + (e.key === 'ArrowRight' ? 1 : -1)];
+        }
+        e.preventDefault();
+        if (!next) return;
+        setTargetId(next.id);
+        setRfNodes((nds) => nds.map((n) => ({ ...n, selected: n.id === next!.id })));
+        if (document.querySelector('.drawer')) openDetails(next.id);
+        setTimeout(() => centerOn(next!.id), 30);
+        return;
+      }
+      if (e.key === 'Enter' && targetId && isTurn(store.nodes[targetId])) {
+        e.preventDefault();
+        openDetails(targetId);
+        return;
+      }
       if (e.key === 'Backspace' || e.key === 'Delete') deleteSelected();
       if (e.key === 'n' && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
@@ -499,10 +584,17 @@ export function Canvas({
         edges={edges}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
-        onNodeDragStop={(_, __, nodes) => send({ type: 'move', moves: nodes.map((n) => ({ id: n.id, position: n.position })) })}
+        onNodeDragStart={(_, __, nodes) => (dragFrom.current = nodes.map((n) => ({ id: n.id, position: posOf(n.id) })))}
+        onNodeDragStop={(_, __, nodes) => {
+          const after = nodes.map((n) => ({ id: n.id, position: n.position }));
+          record(dragFrom.current, after);
+          send({ type: 'move', moves: after });
+        }}
         onNodeClick={(e, n) => {
           const node = store.nodes[n.id];
           if (!isTurn(node)) return; // notes: clicking is for typing, don't move the view
+          // ⇧ or ⌘ click adds to the selection (to move several at once); nothing else happens.
+          if (e.shiftKey || e.metaKey || e.ctrlKey) return;
           // Buttons, links, checkboxes and approvals inside the card do their own thing.
           if ((e.target as HTMLElement).closest('button, a, input, textarea, .perm, .shot-thumb, .card-comments')) {
             if (!isLive(node) && node.sessionId) setTargetId(n.id);
@@ -533,6 +625,19 @@ export function Canvas({
         colorMode={theme}
         proOptions={{ hideAttribution: true }}
         panOnScroll={!mobile}
+        // Desktop: drag on empty canvas draws a box to select several cards; pan with two fingers,
+        // the scroll wheel, Space + drag or the middle mouse button. Phones: drag pans.
+        selectionOnDrag={!mobile}
+        panOnDrag={mobile ? true : [1]}
+        selectionMode={SelectionMode.Partial}
+        multiSelectionKeyCode={['Meta', 'Shift', 'Control']}
+        selectionKeyCode={null}
+        panActivationKeyCode="Space"
+        onlyRenderVisibleElements={false}
+        disableKeyboardA11y
+        // Lets a working card's glow stay the same size on screen at any zoom.
+        onMove={(_, vp) => (document.querySelector('.pane.on .canvas') as HTMLElement | null)?.style.setProperty('--inv-zoom', String(1 / vp.zoom))}
+        onInit={(inst) => (document.querySelector('.pane.on .canvas') as HTMLElement | null)?.style.setProperty('--inv-zoom', String(1 / inst.getZoom()))}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1.3} />
         {!mobile && <Controls showInteractive={false} position="bottom-left" onFitView={() => fitVisible(400)} />}
@@ -542,6 +647,7 @@ export function Canvas({
             zoomable
             position="bottom-right"
             nodeBorderRadius={6}
+            nodeClassName={(n) => (n.type === 'turn' && isLive((n.data as any).node) ? `mm-live ${(n.data as any).node.status}` : '')}
             nodeColor={(n) => (n.type === 'note' ? ((n.data as any).node.color as string) : branchColor((n.data as any).node.branchId))}
           />
         )}
