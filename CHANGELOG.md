@@ -3,6 +3,13 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.23.0
+
+- Map: a new view that shows how your project fits together. Claude reads the code (read-only, with your Claude Code login) and draws lanes for screens, API routes, logic, data, jobs and setup, with a card for every page, route, service and model and lines for what uses what
+- Click a card to see what it does, what it connects to, and open its file in the Code view
+- Ask anything about the codebase in plain words ("Where is checkout handled?"). The answer names files and lines, and the parts it's about light up on the map, numbered in the order to read them
+- Search the map by name, route or file; Redraw when the code has changed (it tells you)
+
 ## 0.22.0
 
 - Concepts, rebuilt: ten plain topics that don't overlap (Problem solving, The language, Code structure, Screens, Servers & APIs, Data, Speed, Safety, Testing & debugging, Tools & shipping), each with a line saying what lives there. Older concepts move over on their own

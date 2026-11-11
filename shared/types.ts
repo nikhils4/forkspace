@@ -115,6 +115,24 @@ export interface CardComment {
   at: number;
 }
 
+/** A map of a project: its big parts, the pieces worth knowing, and what uses what. */
+export interface CodeMap {
+  summary: string;
+  layers: { id: string; name: string; kind: 'screens' | 'api' | 'logic' | 'data' | 'jobs' | 'infra' | 'shared'; summary: string }[];
+  items: { id: string; layer: string; name: string; kind: string; path: string; line?: number; route?: string; summary: string }[];
+  links: { from: string; to: string; label?: string }[];
+  builtAt: number;
+  /** HEAD when it was drawn, to tell when the code has moved on. */
+  commit?: string;
+}
+export interface MapAnswer {
+  question: string;
+  answer: string;
+  /** Map item ids the answer is about. */
+  focus: string[];
+  at: number;
+}
+
 export interface TurnNode {
   kind: 'turn';
   /** Your comments on this card. */
@@ -219,6 +237,9 @@ export type ClientMsg =
   | { type: 'captureShot'; reqId: string; nodeId: string }
   | { type: 'removeShot'; nodeId: string; shotId: string }
   | { type: 'setTitle'; nodeId: string; title: string }
+  | { type: 'mapGet'; reqId: string; boardId: string }
+  | { type: 'mapBuild'; reqId: string; boardId: string }
+  | { type: 'mapAsk'; reqId: string; boardId: string; question: string }
   /** Practice: you knew it (or not). Spaces out when you see it next. */
   | { type: 'practiceConcept'; key: string; knew: boolean }
   | { type: 'setComments'; nodeId: string; comments: CardComment[] }
@@ -250,6 +271,8 @@ export interface RemoteInfo {
 }
 
 export type ServerMsg =
+  /** What the map builder or a question is reading right now. */
+  | { type: 'mapProgress'; boardId: string; text: string }
   | { type: 'state'; state: State; home: string; build: string; startCommand: string }
   | { type: 'updateProgress'; stage: string; done?: boolean; error?: string }
   /** Pushed when a check finds something new, so every screen knows without asking. */

@@ -8,6 +8,7 @@ import { AwayLink, AwayScreen, goAway } from './Away.tsx';
 import { ShotViewer } from './Shots.tsx';
 import { ContextMenu, type MenuItem } from './ContextMenu.tsx';
 // The terminal (xterm) loads only when you open it.
+const MapView = lazy(() => import('./MapView.tsx').then((m) => ({ default: m.MapView })));
 const TerminalPanel = lazy(() => import('./Terminal.tsx').then((m) => ({ default: m.TerminalPanel })));
 import { bugReportUrl, ideaUrl } from './feedback.ts';
 import { CodeView, fileCache } from './CodeView.tsx';
@@ -30,7 +31,7 @@ import { branchColor, STATUS_LABEL } from './nodes.tsx';
 import { isLive, isTurn, latestLeaf, leaves } from './tree.ts';
 import { Segmented, Sheet, useIsMobile } from './ui.tsx';
 
-type View = 'chat' | 'canvas' | 'code';
+type View = 'chat' | 'canvas' | 'code' | 'map';
 type Tab = 'board' | 'agents' | 'learn' | 'devices';
 
 const ls = {
@@ -298,8 +299,22 @@ function Shell() {
         <div className={`pane ${view === 'code' ? 'on' : ''}`} aria-hidden={view !== 'code'} inert={view !== 'code'}>
           {wasOpened('code') && <CodeView board={board} target={target} setTargetId={setTargetId} openRequest={codeOpen} />}
         </div>
+        <div className={`pane ${view === 'map' ? 'on' : ''}`} aria-hidden={view !== 'map'} inert={view !== 'map'}>
+          {wasOpened('map') && (
+            <Suspense fallback={null}>
+              <MapView
+                board={board}
+                onOpenFile={(f) => {
+                  setCodeOpen({ path: f, n: Date.now() });
+                  setView('code');
+                }}
+              />
+            </Suspense>
+          )}
+        </div>
       </div>
-      <Composer key={board.id} target={target} board={board} onSubmit={submit} onClear={() => setTargetId(null)} drawerOpen={!!openNode} />
+      {/* The map has its own box, for questions about the code. */}
+      {view !== 'map' && <Composer key={board.id} target={target} board={board} onSubmit={submit} onClear={() => setTargetId(null)} drawerOpen={!!openNode} />}
     </div>
   ) : (
     <Welcome onNew={() => setSheet('new')} />
@@ -337,16 +352,26 @@ function Shell() {
             </>
           ),
         },
+        {
+          value: 'map',
+          label: (
+            <>
+              <Icon name="grid" size={14} />
+              {!mobile && <span className="seg-label">Map</span>}
+            </>
+          ),
+        },
       ]}
     />
   );
 
   const paletteItems: PaletteItem[] = [];
   if (palette) {
-    const views: [View, string, 'chat' | 'canvas' | 'code'][] = [
+    const views: [View, string, 'chat' | 'canvas' | 'code' | 'grid'][] = [
       ['chat', 'Chat view', 'chat'],
       ['canvas', 'Canvas view', 'canvas'],
       ['code', 'Code view', 'code'],
+      ['map', 'Map of the codebase', 'grid'],
     ];
     for (const [v, label, icon] of views) if (board) paletteItems.push({ id: `v-${v}`, group: 'Views', label, icon, run: () => setView(v) });
     paletteItems.push(

@@ -22,6 +22,7 @@ import { capture, deleteShot, imageType, readShot, saveShot } from './shots.ts';
 import { attachTerminal, closeBoardTerminals, closeTerminal, listTerminals, openTerminal, resizeTerminal, setTerminalEmitter, setTerminalRemoteAllowed, terminalRemoteAllowed, terminalSupported, writeTerminal } from './terminal.ts';
 import { checkAttachments, deleteAttachment, saveAttachment } from './attachments.ts';
 import { saveCheckpoint } from './runner.ts';
+import { askMap, buildMap, loadMap, mapIsStale } from './codemap.ts';
 import { answer, isRunning, pruneBranches, setActivityHook, setEmitter, setNotifier, startTurn, stop, touch } from './runner.ts';
 import { explain, onActivity, organizeConcepts, readImageText, setTutorTouch, threadTitle, tidyDictation } from './tutor.ts';
 import { flush, getBoard, getBranch, getNode, getTurn, save, state, subtree } from './store.ts';
@@ -709,6 +710,27 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       save();
       broadcast({ type: 'node', node: t });
       return;
+    }
+    case 'mapGet': {
+      const board = getBoard(msg.boardId);
+      if (!board) throw new Error('Board not found');
+      const map = loadMap(board.id);
+      return { map, stale: map ? await mapIsStale(board, map) : false };
+    }
+    case 'mapBuild': {
+      const board = getBoard(msg.boardId);
+      if (!board) throw new Error('Board not found');
+      const map = await buildMap(board, (text) => broadcast({ type: 'mapProgress', boardId: board.id, text }));
+      return { map, stale: false };
+    }
+    case 'mapAsk': {
+      const board = getBoard(msg.boardId);
+      if (!board) throw new Error('Board not found');
+      const map = loadMap(board.id);
+      if (!map) throw new Error('Draw the map first.');
+      const q = String(msg.question ?? '').trim();
+      if (!q) throw new Error('Ask a question.');
+      return askMap(board, map, q, (text) => broadcast({ type: 'mapProgress', boardId: board.id, text }));
     }
     case 'setCompleted': {
       const t = getTurn(msg.nodeId);

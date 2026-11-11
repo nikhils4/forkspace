@@ -76,6 +76,12 @@ export function onUpdateInfo(f: (i: UpdateInfo) => void) {
   updateListeners.add(f);
   return () => void updateListeners.delete(f);
 }
+const mapListeners = new Set<(m: { boardId: string; text: string }) => void>();
+/** What the map builder (or a question about the map) is reading right now. */
+export function onMapProgress(f: (m: { boardId: string; text: string }) => void) {
+  mapListeners.add(f);
+  return () => void mapListeners.delete(f);
+}
 const waiting = new Map<string, { resolve: (v: any) => void; reject: (e: Error) => void }>();
 let retry: number | undefined;
 let backoff = 500;
@@ -141,6 +147,9 @@ function onMessage(msg: ServerMsg) {
       break;
     case 'updateInfo':
       updateListeners.forEach((f) => f(msg.info));
+      break;
+    case 'mapProgress':
+      mapListeners.forEach((f) => f(msg));
       break;
     case 'updateProgress':
       set({ update: { stage: msg.stage, done: msg.done, error: msg.error } });
