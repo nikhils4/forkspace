@@ -3,6 +3,14 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.21.0
+
+- The details panel is one page that reads top to bottom, no tabs: You asked, Answer, What changed, Worth knowing, and How it got there (folded)
+- Its header says where you are: the thread's name and which step this is
+- What changed is a tidy file list with counts; click a file to see its changes. When nothing changed, it says so in one quiet line
+- Comments stay beside the card on the canvas; the panel no longer repeats them. The extra Reply button is gone too: the box at the bottom says what sending will do ("Reply · continues this thread" or "Branch · starts a new path from here")
+- Explain this step and Copy folder path are in the panel's ⋯ menu
+
 ## 0.20.0
 
 - Shrink the sidebar to a slim rail of icons (the ‹ button next to its name): Concepts, Notes, boards, working agents, Away and Settings stay one click away

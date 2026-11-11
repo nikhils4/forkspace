@@ -204,10 +204,10 @@ export function Composer({
             <>
               <span className={`target-chip ${isFork ? 'fork' : ''}`}>
                 <Icon name={isFork ? 'branch' : 'chat'} size={12} />
-                {isFork ? 'New branch from' : 'Continue'}
+                {docked ? (isFork ? 'Branch' : 'Reply') : isFork ? 'New branch from' : 'Continue'}
               </span>
               {docked ? (
-                <span className="target-text faint">{isFork ? 'this step, keeping the original' : 'this step'}</span>
+                <span className="target-text faint">{isFork ? 'starts a new path from here; the original stays' : 'continues this thread'}</span>
               ) : (
                 <>
                   <span className="target-text">{target.prompt}</span>
