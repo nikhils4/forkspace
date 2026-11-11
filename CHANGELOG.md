@@ -3,6 +3,13 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.26.0
+
+- Save a flow: keep any walkthrough under a name ("Checkout"). Saved flows sit at the top of the map and in the side list, and never get pushed out by newer questions
+- When the code changes after a flow was worked out, it says so; Refresh works it out again and keeps the name
+- Check it for real: one click starts an agent that writes tests sending the walkthrough's example through the real code, one test per decision where it can. It works in its own copy of the code, never touches live databases, payments or email, and only changes tests
+- The result shows on the walkthrough: a one-line verdict, a table of what matched, and anything the walkthrough got wrong or any bug it found. Open the thread to see the work
+
 ## 0.25.0
 
 - Walkthroughs are easier to follow: each step has a short headline, and only the step you're on is open. The rest stay as one line each

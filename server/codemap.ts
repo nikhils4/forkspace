@@ -283,7 +283,7 @@ const ANSWER_SCHEMA = {
   required: ['answer', 'focus'],
 };
 
-export async function askMap(board: Board, map: CodeMap, question: string, onProgress: Progress): Promise<MapAnswer> {
+export async function askMap(board: Board, map: CodeMap, question: string, onProgress: Progress, replace?: number): Promise<MapAnswer> {
   const compact = {
     summary: map.summary,
     layers: map.layers.map((l) => `${l.id}: ${l.name} (${l.kind})`),
@@ -312,8 +312,13 @@ export async function askMap(board: Board, map: CodeMap, question: string, onPro
         steps: res.trace.steps.slice(0, 16).map((s) => ({ ...s, path: String(s.path ?? '').replace(/^\.?\//, ''), item: s.item && ids.has(s.item) ? s.item : undefined })),
       }
     : undefined;
-  const a: MapAnswer = { question, answer: res.answer, focus: (res.focus ?? []).filter((id) => ids.has(id)), trace, at: Date.now() };
-  saveAnswers(board.id, [a, ...loadAnswers(board.id)].slice(0, 30));
+  const commit = board.repoRoot ? await g.git(board.cwd, 'rev-parse', 'HEAD').catch(() => undefined) : undefined;
+  const a: MapAnswer = { question, answer: res.answer, focus: (res.focus ?? []).filter((id) => ids.has(id)), trace, commit, at: Date.now() };
+  // Refreshing a saved flow keeps its name and its place.
+  const list = loadAnswers(board.id);
+  const old = replace ? list.find((x) => x.at === replace) : undefined;
+  if (old?.saved) a.saved = old.saved;
+  saveAnswers(board.id, [a, ...list.filter((x) => x !== old)]);
   return a;
 }
 
@@ -327,8 +332,23 @@ export function loadAnswers(boardId: string): MapAnswer[] {
   }
 }
 function saveAnswers(boardId: string, list: MapAnswer[]) {
-  fs.writeFileSync(answersFile(boardId), JSON.stringify(list), { mode: 0o600 });
+  // Saved flows stay; of the rest, the 30 newest.
+  let loose = 0;
+  const kept = list.filter((a) => a.saved || ++loose <= 30);
+  fs.writeFileSync(answersFile(boardId), JSON.stringify(kept), { mode: 0o600 });
 }
+function patchAnswer(boardId: string, at: number, patch: Partial<MapAnswer>) {
+  const list = loadAnswers(boardId);
+  const a = list.find((x) => x.at === at);
+  if (!a) throw new Error('That answer is gone.');
+  Object.assign(a, patch);
+  for (const k of Object.keys(patch) as (keyof MapAnswer)[]) if (patch[k] === undefined) delete a[k];
+  saveAnswers(boardId, list);
+  return a;
+}
+export const saveFlow = (boardId: string, at: number, name: string | null) =>
+  patchAnswer(boardId, at, { saved: name ? { name: name.slice(0, 80), at: Date.now() } : undefined });
+export const linkCheck = (boardId: string, at: number, nodeId: string) => patchAnswer(boardId, at, { check: { nodeId, at: Date.now() } });
 export function forgetAnswer(boardId: string, at: number) {
   saveAnswers(boardId, loadAnswers(boardId).filter((a) => a.at !== at));
 }

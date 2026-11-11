@@ -308,6 +308,21 @@ function Shell() {
                   setCodeOpen({ path: f, line, n: Date.now() });
                   setView('code');
                 }}
+                onStartThread={async (prompt) => {
+                  const position = placeFor(store.nodes, board.id, null, { x: 0, y: 0 });
+                  try {
+                    const { id } = await request<{ id: string }>({ type: 'send', boardId: board.id, parentId: null, prompt, position });
+                    return id;
+                  } catch (err: any) {
+                    toast(err.message, 'error');
+                    return null;
+                  }
+                }}
+                onOpenThread={(id) => {
+                  setTargetId(id);
+                  setFocus({ id, n: Date.now() });
+                  setView('canvas');
+                }}
               />
             </Suspense>
           )}

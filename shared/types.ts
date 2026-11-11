@@ -185,6 +185,12 @@ export interface MapAnswer {
   focus: string[];
   /** For questions about something that happens: the path it takes, step by step. */
   trace?: MapTrace;
+  /** Kept as a named flow (never dropped from the list). */
+  saved?: { name: string; at: number };
+  /** The thread that checked it against the real code. */
+  check?: { nodeId: string; at: number };
+  /** The commit it was worked out on, to tell when the code moved on. */
+  commit?: string;
   at: number;
 }
 
@@ -294,7 +300,9 @@ export type ClientMsg =
   | { type: 'setTitle'; nodeId: string; title: string }
   | { type: 'mapGet'; reqId: string; boardId: string }
   | { type: 'mapBuild'; reqId: string; boardId: string }
-  | { type: 'mapAsk'; reqId: string; boardId: string; question: string }
+  | { type: 'mapAsk'; reqId: string; boardId: string; question: string; replace?: number }
+  | { type: 'mapSave'; reqId: string; boardId: string; at: number; name: string | null }
+  | { type: 'mapCheck'; reqId: string; boardId: string; at: number; nodeId: string }
   | { type: 'mapZoom'; reqId: string; boardId: string; itemId: string }
   | { type: 'mapForget'; reqId: string; boardId: string; at: number }
   /** Practice: you knew it (or not). Spaces out when you see it next. */

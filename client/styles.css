@@ -9693,3 +9693,144 @@ input.thread-title.editing {
 .tr-stage {
   min-width: 70px;
 }
+
+/* ---------- saved flows + checking a walkthrough for real ---------- */
+.save-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 220px;
+  height: 26px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--border-2);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.save-btn:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+.save-btn.on {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+.save-form {
+  display: flex;
+  gap: 6px;
+  margin-right: 4px;
+}
+.save-form input {
+  width: 170px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--bg-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  outline: none;
+}
+.ms-stale {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--warn, #f5a524) 12%, transparent);
+  font-size: 12.5px;
+  color: var(--text);
+}
+.check-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 45%, var(--border-2));
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+.check-card p {
+  font-size: 12.5px !important;
+  line-height: 1.5;
+}
+.check-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  font-size: 13.5px;
+}
+.check-head > svg {
+  color: var(--accent);
+}
+.check-card.live {
+  border-style: solid;
+}
+.check-card.done {
+  border-style: solid;
+  border-color: color-mix(in srgb, #3ecf8e 45%, var(--border-2));
+  background: color-mix(in srgb, #3ecf8e 5%, transparent);
+}
+.check-card.done .check-head > svg {
+  color: #3ecf8e;
+}
+.check-card.error .check-head > svg,
+.check-card.stopped .check-head > svg {
+  color: #ff6b6b;
+}
+.check-card .faint.ellipsis {
+  max-width: 100%;
+}
+.check-words {
+  position: relative;
+  width: 100%;
+  max-height: 220px;
+  overflow: hidden;
+  font-size: 13px;
+}
+.check-words.all {
+  max-height: none;
+}
+.check-words:not(.all)::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 60px;
+  background: linear-gradient(transparent, var(--surface));
+}
+.check-more {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  bottom: 6px;
+  transform: translateX(-50%);
+  padding: 3px 12px;
+  border: 1px solid var(--border-2);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 12px;
+  cursor: pointer;
+}
+.map-suggest button.saved {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border-2));
+  color: var(--text);
+}
+.map-suggest-break {
+  flex-basis: 100%;
+  height: 0;
+}

@@ -1,9 +1,10 @@
 import { Background, BackgroundVariant, Controls, Handle, Position, ReactFlow, ReactFlowProvider, useReactFlow, type Edge, type Node, type NodeProps } from '@xyflow/react';
 import { createContext, memo, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { Board, CodeMap, MapAnswer, MapTrace, MapTraceStep, MapZoom, TableOp } from '../shared/types.ts';
+import type { Board, CodeMap, MapAnswer, MapTrace, MapTraceStep, MapZoom, TableOp, TurnNode } from '../shared/types.ts';
+import { currentActivity, isLive } from './tree.ts';
 import { Icon } from './icons.tsx';
 import { Md } from './nodes.tsx';
-import { onMapProgress, request, toast } from './store.ts';
+import { onMapProgress, request, toast, useStore } from './store.ts';
 import { useResolvedTheme } from './theme.ts';
 import { timeAgo, useTick } from './ui.tsx';
 
@@ -655,10 +656,142 @@ function Walkthrough({ trace, step, setStep, open, nameOf, playing, setPlaying }
   );
 }
 
-export function MapView({ board, onOpenFile }: { board: Board; onOpenFile: (path: string, line?: number) => void }) {
+/** The prompt for an agent to check a walkthrough against the real code. */
+function checkPrompt(a: MapAnswer) {
+  const t = a.trace!;
+  const steps = t.steps
+    .map((s, i) => {
+      const checks = (s.checks ?? []).map((c) => `   - If ${c.if}: ${c.then}`).join('\n');
+      return `${i + 1}. ${s.title ?? s.fn ?? 'Step'} (${s.fn ? `${s.fn}, ` : ''}${s.path}${s.line ? `:${s.line}` : ''})\n   ${s.does}${checks ? `\n${checks}` : ''}`;
+    })
+    .join('\n');
+  return [
+    `Check this walkthrough against the real code by running it: "${a.question}"`,
+    ``,
+    `## The walkthrough: ${t.title}`,
+    t.input ? `Sample input:\n\`\`\`json\n${t.input}\n\`\`\`` : '',
+    steps,
+    ``,
+    `## What to do`,
+    `1. Find how this project runs tests (package.json scripts, the test folder, existing tests for this area) and follow the same setup.`,
+    `2. Write automated tests that send the sample through the real code and check the outcome of each step. Give every "If" its own test case where it's practical.`,
+    `3. Run them and fix only the tests, never the app code.`,
+    ``,
+    `## Safety`,
+    `- Never touch real databases, payment providers, email or any live service. Use the test setup's test or in-memory database and mocks.`,
+    `- Don't use secrets from .env for live services.`,
+    `- If there is no safe way to run this, stop and say what's missing instead.`,
+    ``,
+    `## Finish with`,
+    `- One line verdict: does the code do what the walkthrough says?`,
+    `- A table: step or decision | matches? (yes / no / not tested) | test name.`,
+    `- Anything the walkthrough got wrong, and any bug you found, in plain words.`,
+    `- Where the test file is and the command to run it again.`,
+  ]
+    .filter((x) => x !== '')
+    .join('\n');
+}
+
+function lastWords(t: TurnNode) {
+  for (let i = t.events.length - 1; i >= 0; i--) {
+    const e = t.events[i];
+    if (e.t === 'text' && e.text.trim()) return e.text;
+  }
+  return '';
+}
+
+function CheckCard({ a, board, onStart, onOpen }: { a: MapAnswer; board: Board; onStart: () => void; onOpen: (id: string) => void }) {
+  const { nodes } = useStore();
+  const turn = a.check ? (nodes[a.check.nodeId] as TurnNode | undefined) : undefined;
+  const [more, setMore] = useState(false);
+  if (!turn)
+    return (
+      <div className="check-card">
+        <div className="check-head">
+          <Icon name="flask" size={15} />
+          <b>Check it for real</b>
+        </div>
+        <p>
+          An agent writes tests that send this example through the real code and checks every step and decision. It works {board.isolation === 'worktree' ? 'in its own copy of the code' : 'in your project folder'} and never touches live data or payments.
+        </p>
+        <button className="btn sm primary" onClick={onStart}>
+          <Icon name="play" size={12} /> Run the check
+        </button>
+      </div>
+    );
+  const live = isLive(turn);
+  const words = lastWords(turn);
+  return (
+    <div className={`check-card ${live ? 'live' : turn.status}`}>
+      <div className="check-head">
+        {live ? <span className="spinner" /> : <Icon name={turn.status === 'done' ? 'check' : 'x'} size={14} />}
+        <b>{live ? (turn.status === 'waiting' ? 'The check needs your OK' : 'Checking against the real code…') : turn.status === 'done' ? 'Checked against the real code' : 'The check did not finish'}</b>
+        <span className="spacer" />
+        <button className="linkish small" onClick={() => onOpen(turn.id)}>
+          Open the thread
+        </button>
+      </div>
+      {live ? (
+        <p className="faint ellipsis">{currentActivity(turn)}</p>
+      ) : words ? (
+        <div className={`check-words ${more ? 'all' : ''}`}>
+          <Md text={words} />
+          {!more && <button className="check-more" onClick={() => setMore(true)}>Show all</button>}
+        </div>
+      ) : null}
+      {!live && (
+        <button className="btn sm" onClick={onStart}>
+          <Icon name="refresh" size={12} /> Check again
+        </button>
+      )}
+    </div>
+  );
+}
+
+function SaveBar({ a, onSave }: { a: MapAnswer; onSave: (name: string | null) => void }) {
+  const [naming, setNaming] = useState(false);
+  const [name, setName] = useState('');
+  if (a.saved)
+    return (
+      <button className="save-btn on" onClick={() => onSave(null)} title="Saved. Click to remove from saved flows">
+        <Icon name="bookmark" size={13} fill="currentColor" /> {a.saved.name}
+      </button>
+    );
+  if (naming)
+    return (
+      <form
+        className="save-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (name.trim()) onSave(name.trim());
+          setNaming(false);
+        }}
+      >
+        <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Name this flow" onKeyDown={(e) => e.key === 'Escape' && (e.stopPropagation(), setNaming(false))} />
+        <button className="btn sm primary" type="submit" disabled={!name.trim()}>
+          Save
+        </button>
+      </form>
+    );
+  return (
+    <button
+      className="save-btn"
+      onClick={() => {
+        setName(a.trace?.title.replace(/^(A|An|The)\s+/, '').slice(0, 60) ?? a.question.slice(0, 60));
+        setNaming(true);
+      }}
+      title="Keep this flow to come back to"
+    >
+      <Icon name="bookmark" size={13} /> Save flow
+    </button>
+  );
+}
+
+export function MapView({ board, onOpenFile, onStartThread, onOpenThread }: { board: Board; onOpenFile: (path: string, line?: number) => void; onStartThread: (prompt: string) => Promise<string | null>; onOpenThread: (id: string) => void }) {
   useTick();
   const [map, setMap] = useState<CodeMap | null>(null);
   const [stale, setStale] = useState(false);
+  const [head, setHead] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
   const [building, setBuilding] = useState(false);
   const [progress, setProgress] = useState<string[]>([]);
@@ -681,9 +814,10 @@ export function MapView({ board, onOpenFile }: { board: Board; onOpenFile: (path
     setAnswers([]);
     setShown(null);
     setExpanded(new Set());
-    request<{ map: CodeMap | null; stale: boolean; answers?: MapAnswer[] }>({ type: 'mapGet', boardId: board.id }).then(
+    request<{ map: CodeMap | null; stale: boolean; answers?: MapAnswer[]; head?: string }>({ type: 'mapGet', boardId: board.id }).then(
       (r) => {
         setMap(r.map);
+        setHead(r.head);
         setStale(r.stale);
         setAnswers(r.answers ?? []);
         setLoading(false);
@@ -743,17 +877,18 @@ export function MapView({ board, onOpenFile }: { board: Board; onOpenFile: (path
     setBuilding(false);
   };
 
-  const ask = async (question = q) => {
+  const ask = async (question = q, replace?: MapAnswer) => {
     const text = question.trim();
     if (!text || asking) return;
-    const had = answers.find((a) => a.question.toLowerCase() === text.toLowerCase());
+    const had = !replace && answers.find((a) => a.question.toLowerCase() === text.toLowerCase());
     if (had) return show(had), setQ('');
     setAsking(true);
     setProgress([]);
     setSel(null);
     try {
-      const a = await request<MapAnswer>({ type: 'mapAsk', boardId: board.id, question: text });
-      setAnswers((l) => [a, ...l].slice(0, 30));
+      const a = await request<MapAnswer>({ type: 'mapAsk', boardId: board.id, question: text, replace: replace?.at });
+      setAnswers((l) => [a, ...l.filter((x) => x.at !== replace?.at)]);
+      if (a.commit) setHead(a.commit);
       show(a);
       setQ('');
     } catch (e: any) {
@@ -761,6 +896,22 @@ export function MapView({ board, onOpenFile }: { board: Board; onOpenFile: (path
     }
     setAsking(false);
   };
+  const patch = (a: MapAnswer) => {
+    setAnswers((l) => l.map((x) => (x.at === a.at ? a : x)));
+    setShown((s) => (s?.at === a.at ? a : s));
+  };
+  const saveFlow = (a: MapAnswer, name: string | null) =>
+    request<MapAnswer>({ type: 'mapSave', boardId: board.id, at: a.at, name }).then(
+      (r) => (patch(r), toast(name ? 'Saved. It stays at the top of the map' : 'Removed from saved flows')),
+      (e: Error) => toast(e.message, 'error'),
+    );
+  const runCheck = async (a: MapAnswer) => {
+    const id = await onStartThread(checkPrompt(a));
+    if (!id) return;
+    request<MapAnswer>({ type: 'mapCheck', boardId: board.id, at: a.at, nodeId: id }).then(patch, () => {});
+    toast('Check started. It runs as a thread on the canvas');
+  };
+  const savedFlows = answers.filter((a) => a.saved);
   const forget = (a: MapAnswer) => {
     setAnswers((l) => l.filter((x) => x.at !== a.at));
     if (shown?.at === a.at) show(null);
@@ -943,11 +1094,20 @@ export function MapView({ board, onOpenFile }: { board: Board; onOpenFile: (path
                   <div className="ms-top">
                     <span className="ms-kind">{shown.trace ? 'Walkthrough' : 'Answer'}</span>
                     <span className="spacer" />
+                    <SaveBar a={shown} onSave={(n) => saveFlow(shown, n)} />
                     <button className="icon-btn sm" onClick={() => show(null)} aria-label="Close">
                       <Icon name="x" size={14} />
                     </button>
                   </div>
                   <h3 className="ms-q">{shown.question}</h3>
+                  {shown.commit && head && shown.commit !== head && (
+                    <div className="ms-stale">
+                      <span>The code changed since this was worked out.</span>
+                      <button className="linkish" onClick={() => ask(shown.question, shown)} disabled={asking}>
+                        {asking ? 'Refreshing…' : 'Refresh it'}
+                      </button>
+                    </div>
+                  )}
                   {shown.trace ? (
                     <details className="ms-short" open={step < 0}>
                       <summary>In short</summary>
@@ -956,6 +1116,7 @@ export function MapView({ board, onOpenFile }: { board: Board; onOpenFile: (path
                   ) : (
                     <Md text={shown.answer} />
                   )}
+                  {shown.trace && <CheckCard a={shown} board={board} onStart={() => runCheck(shown)} onOpen={onOpenThread} />}
                   {shown.trace ? (
                     <Walkthrough
                       trace={shown.trace}
@@ -980,11 +1141,23 @@ export function MapView({ board, onOpenFile }: { board: Board; onOpenFile: (path
                   )}
                 </>
               ) : null}
-              {answers.length > 1 && !item && (
+              {savedFlows.some((a) => a.at !== shown?.at) && !item && (
+                <div className="ms-links">
+                  <div className="ds-label">Saved flows</div>
+                  {savedFlows
+                    .filter((a) => a.at !== shown?.at)
+                    .map((a) => (
+                      <button key={a.at} className="ms-link" onClick={() => show(a)}>
+                        <Icon name="bookmark" size={11} /> {a.saved!.name}
+                      </button>
+                    ))}
+                </div>
+              )}
+              {answers.some((a) => !a.saved && a.at !== shown?.at) && !item && (
                 <div className="ms-links">
                   <div className="ds-label">Earlier questions</div>
                   {answers
-                    .filter((a) => a.at !== shown?.at)
+                    .filter((a) => !a.saved && a.at !== shown?.at)
                     .map((a) => (
                       <div key={a.at} className="ms-earlier">
                         <button className="ms-link" onClick={() => show(a)}>
@@ -1008,8 +1181,19 @@ export function MapView({ board, onOpenFile }: { board: Board; onOpenFile: (path
             )}
             {!asking && !shown && !sel && (
               <div className="map-suggest">
+                {savedFlows.length > 0 && (
+                  <>
+                    <span className="faint small">Saved</span>
+                    {savedFlows.map((a) => (
+                      <button key={a.at} className="saved" onClick={() => show(a)} title={a.question}>
+                        <Icon name="bookmark" size={10} fill="currentColor" /> {a.saved!.name}
+                      </button>
+                    ))}
+                    <span className="map-suggest-break" />
+                  </>
+                )}
                 <span className="faint small">Walk through</span>
-                {flows.map((f) => (
+                {flows.filter((f) => !savedFlows.some((a) => a.question === f.question)).map((f) => (
                   <button key={f.question} onClick={() => ask(f.question)} title={f.question}>
                     <Icon name="play" size={10} /> {f.name}
                   </button>
