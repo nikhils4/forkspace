@@ -142,14 +142,15 @@ export function CodeView({
   board: Board;
   target?: TurnNode;
   setTargetId: (id: string | null) => void;
-  openRequest: { path: string; n: number } | null;
+  openRequest: { path: string; line?: number; n: number } | null;
 }) {
   const { nodes, branches } = useStore();
   const mobile = useIsMobile();
   const tips = useMemo(() => leaves(nodes, board.id), [nodes, board.id]);
   const focusTurn = target ?? tips[0];
-  const branchId = focusTurn?.branchId;
-  const branch = branchId ? branches[branchId] : undefined;
+  // No thread yet: show the project's own folder (opening a file from the Map, say).
+  const branchId = focusTurn?.branchId ?? `main:${board.id}`;
+  const branch = focusTurn ? branches[branchId] : undefined;
 
   const [files, setFiles] = useState<FilesResult | null>(null);
   const [loadErr, setLoadErr] = useState('');
@@ -167,6 +168,7 @@ export function CodeView({
   const [follow, setFollow] = useState(true);
   const [pickBranch, setPickBranch] = useState(false);
   const [explaining, setExplaining] = useState(false);
+  const [jump, setJump] = useState<{ path: string; line: number; n: number } | null>(null);
 
   const branchTurns = useMemo(() => turnsOf(nodes, board.id).filter((t) => t.branchId === branchId), [nodes, board.id, branchId]);
   const liveTurn = branchTurns.find(isLive);
@@ -238,7 +240,9 @@ export function CodeView({
 
   // Requests from the command palette or a step's file chip.
   useEffect(() => {
-    if (openRequest) openFile(openRequest.path);
+    if (!openRequest) return;
+    openFile(openRequest.path);
+    setJump(openRequest.line ? { path: openRequest.path, line: openRequest.line, n: openRequest.n } : null);
   }, [openRequest?.n]);
 
   // Follow the agent: open each file as it gets edited.
@@ -272,13 +276,6 @@ export function CodeView({
   const currentChange = current ? changed.get(current) : undefined;
   const canDiff = !!file && file.base != null && file.base !== file.text;
 
-  if (!branchId)
-    return (
-      <div className="code-empty-all">
-        <Icon name="code" size={26} />
-        <div>Start a thread and its files show up here.</div>
-      </div>
-    );
 
   // ---- left pane ----
   const sidebar = (
@@ -287,7 +284,7 @@ export function CodeView({
         <button className="branch-pick" style={{ ['--branch' as any]: branchColor(branchId) }} onClick={() => setPickBranch(!pickBranch)}>
           <span className="branch-swatch" />
           <span className="branch-pick-text">
-            <span className="ellipsis">{focusTurn?.prompt}</span>
+            <span className="ellipsis">{focusTurn?.prompt ?? board.name}</span>
             <span className="faint mono small">{branch?.gitBranch ?? 'working folder'}</span>
           </span>
           <Icon name="chevronDown" size={14} />
@@ -463,7 +460,7 @@ export function CodeView({
           <div className="code-placeholder faint">This file was deleted on this branch.</div>
         ) : (
           <Suspense fallback={<div className="faint pad">Loading editor…</div>}>
-            <CodeEditor path={current} text={file.text} base={file.base} diff={showDiff && canDiff} wrap={mobile} />
+            <CodeEditor path={current} text={file.text} base={file.base} diff={showDiff && canDiff} wrap={mobile} jump={jump && jump.path === current ? jump : null} />
           </Suspense>
         )}
       </div>

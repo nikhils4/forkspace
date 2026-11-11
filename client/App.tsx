@@ -115,7 +115,7 @@ function Shell() {
   }, []);
   const [tab, setTab] = useState<Tab>('board');
   const [palette, setPalette] = useState(false);
-  const [codeOpen, setCodeOpen] = useState<{ path: string; n: number } | null>(null);
+  const [codeOpen, setCodeOpen] = useState<{ path: string; line?: number; n: number } | null>(null);
   // Views are mounted on first visit and then kept alive, so switching never loses your place.
   const [visited, setVisited] = useState<Record<string, View[]>>({});
   const { waiting, running } = useAgents();
@@ -304,8 +304,8 @@ function Shell() {
             <Suspense fallback={null}>
               <MapView
                 board={board}
-                onOpenFile={(f) => {
-                  setCodeOpen({ path: f, n: Date.now() });
+                onOpenFile={(f, line) => {
+                  setCodeOpen({ path: f, line, n: Date.now() });
                   setView('code');
                 }}
               />

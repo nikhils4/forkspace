@@ -3,6 +3,15 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.24.0
+
+- Map walkthroughs: ask how something happens ("What happens at checkout?") and watch it play out. A sample of the real data starts the trip, then each step shows the function, file and line, what it does in plain words, and how the data looks now, with new and changed fields highlighted
+- The map follows along: the card for each step lights up, the path so far glows, and the database tables a step reads or changes pulse in their own colour (read, add, change, remove)
+- Play, pause, or step with the arrow keys. Click any step to jump there or open its file at that exact line
+- Open up any card (the arrow, or double click) to see the files and functions inside, each with one line on what it does and what it calls. Click one to open it at its line
+- Data models show their fields right on the card, like a table
+- The map suggests the main flows of your app to walk through, and keeps your questions so walkthroughs are there next time
+
 ## 0.23.0
 
 - Map: a new view that shows how your project fits together. Claude reads the code (read-only, with your Claude Code login) and draws lanes for screens, API routes, logic, data, jobs and setup, with a card for every page, route, service and model and lines for what uses what

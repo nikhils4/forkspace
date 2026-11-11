@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { nanoid } from 'nanoid';
 import { WebSocketServer, type WebSocket } from 'ws';
-import { conceptKey, type Board, type ClientMsg, type ServerMsg, type TurnNode } from '../shared/types.ts';
+import { conceptKey, type Board, type Branch, type ClientMsg, type ServerMsg, type TurnNode } from '../shared/types.ts';
 import { openFolder } from './editor.ts';
 import { listFiles, readFile } from './files.ts';
 import { importSessions, listImportable } from './importer.ts';
@@ -22,7 +22,7 @@ import { capture, deleteShot, imageType, readShot, saveShot } from './shots.ts';
 import { attachTerminal, closeBoardTerminals, closeTerminal, listTerminals, openTerminal, resizeTerminal, setTerminalEmitter, setTerminalRemoteAllowed, terminalRemoteAllowed, terminalSupported, writeTerminal } from './terminal.ts';
 import { checkAttachments, deleteAttachment, saveAttachment } from './attachments.ts';
 import { saveCheckpoint } from './runner.ts';
-import { askMap, buildMap, loadMap, mapIsStale } from './codemap.ts';
+import { askMap, buildMap, forgetAnswer, loadAnswers, loadMap, mapIsStale, zoomItem } from './codemap.ts';
 import { answer, isRunning, pruneBranches, setActivityHook, setEmitter, setNotifier, startTurn, stop, touch } from './runner.ts';
 import { explain, onActivity, organizeConcepts, readImageText, setTutorTouch, threadTitle, tidyDictation } from './tutor.ts';
 import { flush, getBoard, getBranch, getNode, getTurn, save, state, subtree } from './store.ts';
@@ -245,6 +245,20 @@ const wss = new WebSocketServer({
   verifyClient: ({ req }: { req: http.IncomingMessage }) => checkToken(new URL(req.url || '/', 'http://x').searchParams.get('t')),
 });
 const clients = new Set<WebSocket>();
+
+/** A branch's files, or the board's own folder ("main:<boardId>") when there's no thread yet. */
+function filesOf(id: string): { board: Board; branch: Branch } {
+  if (String(id).startsWith('main:')) {
+    const board = getBoard(id.slice(5));
+    if (!board) throw new Error('Board not found');
+    return { board, branch: { id, boardId: board.id, cwd: board.cwd } };
+  }
+  const branch = getBranch(id);
+  const board = branch && getBoard(branch.boardId);
+  if (!branch || !board) throw new Error('Branch not found');
+  return { board, branch };
+}
+
 // The http server's errors (like the port being busy) are re-emitted here; without a listener Node would crash.
 wss.on('error', () => {});
 
@@ -589,15 +603,11 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       return explain(turn, msg.path);
     }
     case 'files': {
-      const branch = getBranch(msg.branchId);
-      const board = branch && getBoard(branch.boardId);
-      if (!branch || !board) throw new Error('Branch not found');
+      const { board, branch } = filesOf(msg.branchId);
       return listFiles(board, branch);
     }
     case 'readFile': {
-      const branch = getBranch(msg.branchId);
-      const board = branch && getBoard(branch.boardId);
-      if (!branch || !board) throw new Error('Branch not found');
+      const { board, branch } = filesOf(msg.branchId);
       return readFile(board, branch, msg.path);
     }
     case 'presence':
@@ -715,7 +725,18 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       const board = getBoard(msg.boardId);
       if (!board) throw new Error('Board not found');
       const map = loadMap(board.id);
-      return { map, stale: map ? await mapIsStale(board, map) : false };
+      return { map, stale: map ? await mapIsStale(board, map) : false, answers: loadAnswers(board.id) };
+    }
+    case 'mapZoom': {
+      const board = getBoard(msg.boardId);
+      if (!board) throw new Error('Board not found');
+      return zoomItem(board, String(msg.itemId ?? ''), (text) => broadcast({ type: 'mapProgress', boardId: board.id, text }));
+    }
+    case 'mapForget': {
+      const board = getBoard(msg.boardId);
+      if (!board) throw new Error('Board not found');
+      forgetAnswer(board.id, Number(msg.at));
+      return { ok: true };
     }
     case 'mapBuild': {
       const board = getBoard(msg.boardId);

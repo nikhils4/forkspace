@@ -8477,12 +8477,12 @@ input.thread-title.editing {
   overflow: hidden;
 }
 .map-item {
-  width: 250px;
+  position: relative;
+  width: 260px;
   height: 58px;
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 12px;
+  flex-direction: column;
+  overflow: hidden;
   border-radius: 12px;
   border: 1px solid var(--border-2);
   background: var(--surface);
@@ -8790,4 +8790,614 @@ input.thread-title.editing {
 }
 .map-edge.on .react-flow__edge-textbg {
   fill: var(--surface);
+}
+
+/* ---------- map v2: open cards, data fields, walkthroughs ---------- */
+.mi-head {
+  flex: none;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px 0 12px;
+}
+.mi-handle {
+  top: 29px !important;
+}
+.mi-open {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  transition: transform 0.25s var(--ease), background 0.15s, color 0.15s;
+}
+.mi-open:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.map-item.open .mi-open {
+  transform: rotate(180deg);
+}
+.map-item {
+  transition:
+    opacity 0.25s,
+    transform 0.2s var(--ease),
+    border-color 0.2s,
+    box-shadow 0.25s,
+    height 0.3s var(--ease);
+}
+.react-flow__node-item {
+  transition: transform 0.35s var(--ease);
+}
+.mi-fields {
+  margin: 0 8px 8px;
+  padding: 4px 0;
+  border-top: 1px dashed color-mix(in srgb, var(--lane) 40%, var(--border-2));
+}
+.mi-field {
+  height: 21px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 6px;
+  border-radius: 5px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-2);
+}
+.mi-field em {
+  font-style: normal;
+  color: var(--text-3);
+  max-width: 55%;
+  text-align: right;
+}
+.mi-field.more {
+  color: var(--text-3);
+  font-family: inherit;
+}
+.mi-inside {
+  margin: 0 8px 8px;
+  padding-top: 6px;
+  border-top: 1px dashed color-mix(in srgb, var(--lane) 40%, var(--border-2));
+  animation: fade 0.3s var(--ease);
+  cursor: default;
+}
+.mi-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 6px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.mi-files {
+  display: flex;
+  gap: 4px;
+  height: 26px;
+  margin-bottom: 4px;
+  overflow: hidden;
+}
+.mi-files button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  max-width: 120px;
+  padding: 0 7px;
+  border: 1px solid var(--border-2);
+  border-radius: 6px;
+  background: var(--bg-2);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--text-2);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mi-files button:hover {
+  color: var(--text);
+}
+.mi-part {
+  height: 46px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 6px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.mi-part:hover {
+  background: var(--surface-2);
+}
+.mi-part-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.mi-part code {
+  font-size: 11.5px;
+  color: var(--text);
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.mi-part > span {
+  font-size: 11px;
+  color: var(--text-3);
+}
+.mi-uses {
+  flex: none;
+  max-width: 96px;
+  padding: 0 5px;
+  border: 0;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  font-size: 10px;
+  line-height: 16px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* a table the current step touches */
+.map-item.touch {
+  --op: #5ec8e5;
+  border-color: var(--op);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--op) 30%, transparent),
+    0 0 30px -4px color-mix(in srgb, var(--op) 55%, transparent);
+  animation: touch-pulse 1.6s var(--ease) infinite;
+}
+.map-item.touch.create {
+  --op: #3ecf8e;
+}
+.map-item.touch.update {
+  --op: #f5a524;
+}
+.map-item.touch.delete {
+  --op: #ff6b6b;
+}
+@keyframes touch-pulse {
+  50% {
+    box-shadow:
+      0 0 0 6px color-mix(in srgb, var(--op) 14%, transparent),
+      0 0 40px -2px color-mix(in srgb, var(--op) 45%, transparent);
+  }
+}
+.mi-touch {
+  position: absolute;
+  top: 6px;
+  right: 40px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--op);
+  color: #0b0c10;
+  font-size: 10px;
+  font-weight: 700;
+}
+.map-item.focus .mi-order,
+.map-item .mi-order {
+  font-size: 10.5px;
+  padding: 0 6px;
+}
+/* the path the data takes */
+.map-edge.trace .react-flow__edge-path {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  stroke-opacity: 0.9;
+}
+.map-edge.trace.ahead .react-flow__edge-path {
+  stroke-opacity: 0.18;
+  stroke-dasharray: 4 6;
+}
+.map-edge.trace.now .react-flow__edge-path,
+.map-edge.touch .react-flow__edge-path {
+  stroke-width: 3.5;
+  stroke-opacity: 1;
+  stroke-linecap: round;
+  stroke-dasharray: 0.5 11;
+  animation: flow-dots 0.6s linear infinite;
+}
+.map-edge.touch .react-flow__edge-path {
+  stroke: #5ec8e5;
+}
+.map-side.wide {
+  width: min(440px, 46%);
+}
+.ms-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px 3px 4px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 12px;
+  cursor: pointer;
+}
+.ms-fields {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-2);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.ms-fields > div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  border-top: 1px solid var(--border);
+}
+.ms-fields > div:first-child {
+  border-top: 0;
+}
+.ms-fields code {
+  font-size: 12px;
+  color: var(--text);
+}
+.ms-fields em {
+  font-style: normal;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-3);
+}
+.ms-fields span {
+  margin-left: auto;
+  color: var(--text-3);
+  font-size: 11.5px;
+  text-align: right;
+}
+.ms-part {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.ms-part:hover {
+  background: var(--surface-2);
+}
+.ms-part code {
+  font-size: 12px;
+  color: var(--text);
+}
+.ms-part span {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.ms-earlier {
+  display: flex;
+  align-items: center;
+}
+.ms-earlier .ms-link {
+  flex: 1;
+  min-width: 0;
+}
+.ms-earlier .icon-btn {
+  opacity: 0;
+}
+.ms-earlier:hover .icon-btn {
+  opacity: 1;
+}
+.map-suggest .faint {
+  align-self: center;
+  margin-right: 2px;
+}
+.map-suggest button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.map-suggest button svg {
+  color: var(--accent);
+}
+.map-suggest button.ghost {
+  border-style: dashed;
+}
+/* walkthrough */
+.trace {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+.tr-bar {
+  position: sticky;
+  top: -14px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 -16px;
+  padding: 10px 16px 0;
+  background: var(--surface);
+}
+.tr-title {
+  font-size: 13.5px;
+}
+.tr-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tr-controls .faint {
+  margin-left: auto;
+}
+.tr-play {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tr-progress {
+  height: 2px;
+  background: var(--border);
+}
+.tr-progress i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.4s var(--ease);
+}
+.tr-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.tr-step {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  padding: 8px 6px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.25s, background 0.25s;
+}
+.tr-step::before {
+  content: '';
+  position: absolute;
+  left: 17px;
+  top: 32px;
+  bottom: -4px;
+  width: 2px;
+  background: var(--border-2);
+}
+.tr-step:last-child::before {
+  display: none;
+}
+.tr-step.past {
+  opacity: 0.8;
+}
+.tr-step.past::before {
+  background: var(--accent);
+}
+.tr-step.on {
+  opacity: 1;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+.tr-step:hover {
+  opacity: 1;
+}
+.tr-num {
+  flex: none;
+  position: relative;
+  z-index: 1;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 2px solid var(--border-2);
+  background: var(--surface);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+.tr-step.past .tr-num {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.tr-step.on .tr-num {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.tr-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 2px;
+}
+.tr-body > b {
+  font-size: 13px;
+}
+.tr-where {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 11.5px;
+}
+.tr-where code {
+  font-size: 12px;
+  color: var(--text);
+}
+.tr-body p {
+  font-size: 13px !important;
+  color: var(--text) !important;
+  line-height: 1.45;
+}
+.tr-tables {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 2px;
+}
+.tr-table {
+  --op: #5ec8e5;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--op) 50%, transparent);
+  background: color-mix(in srgb, var(--op) 12%, transparent);
+  font-size: 11.5px;
+  color: var(--text);
+}
+.tr-table svg {
+  color: var(--op);
+}
+.tr-table em {
+  font-style: normal;
+  color: var(--text-3);
+}
+.tr-table.create {
+  --op: #3ecf8e;
+}
+.tr-table.update {
+  --op: #f5a524;
+}
+.tr-table.delete {
+  --op: #ff6b6b;
+}
+.tr-file {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 3px 8px;
+  border: 1px solid var(--border-2);
+  border-radius: 6px;
+  background: var(--bg-2);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--text-3);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tr-file:hover {
+  color: var(--text);
+}
+.tr-data {
+  margin-top: 4px;
+  border: 1px solid var(--border-2);
+  border-radius: 10px;
+  background: var(--bg-2);
+  overflow: hidden;
+  animation: fade 0.35s var(--ease);
+}
+.tr-data-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.tr-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+.tr-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  margin-left: 4px;
+}
+.tr-legend i.add {
+  background: #3ecf8e;
+}
+.tr-legend i.chg {
+  background: #f5a524;
+}
+.jv {
+  margin: 0;
+  padding: 8px 10px;
+  max-height: 300px;
+  overflow: auto;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+  white-space: pre-wrap;
+}
+.jv-block,
+.jv-row {
+  display: block;
+}
+.jv-block {
+  display: inline;
+}
+.jv-row {
+  border-radius: 4px;
+}
+.jv-k {
+  color: var(--text);
+}
+.jv-v.string {
+  color: var(--syn-string, #3ecf8e);
+}
+.jv-v.number,
+.jv-v.boolean {
+  color: var(--syn-number, #f5a524);
+}
+.jv-row.add {
+  background: color-mix(in srgb, #3ecf8e 16%, transparent);
+  box-shadow: inset 2px 0 0 #3ecf8e;
+}
+.jv-row.chg {
+  background: color-mix(in srgb, #f5a524 16%, transparent);
+  box-shadow: inset 2px 0 0 #f5a524;
+}
+.jv-row.del {
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+
+.tr-step {
+  scroll-margin-top: 110px;
 }

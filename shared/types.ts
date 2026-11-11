@@ -119,17 +119,64 @@ export interface CardComment {
 export interface CodeMap {
   summary: string;
   layers: { id: string; name: string; kind: 'screens' | 'api' | 'logic' | 'data' | 'jobs' | 'infra' | 'shared'; summary: string }[];
-  items: { id: string; layer: string; name: string; kind: string; path: string; line?: number; route?: string; summary: string }[];
+  items: { id: string; layer: string; name: string; kind: string; path: string; line?: number; route?: string; summary: string; fields?: MapField[] }[];
   links: { from: string; to: string; label?: string }[];
+  /** The main things that happen in the app, to walk through. */
+  flows?: { name: string; question: string }[];
+  /** Opened-up items: their files and the functions inside. */
+  zoom?: Record<string, MapZoom>;
   builtAt: number;
   /** HEAD when it was drawn, to tell when the code has moved on. */
   commit?: string;
+}
+/** A field of a data model or table. */
+export interface MapField {
+  name: string;
+  type?: string;
+  note?: string;
+}
+/** A function, component or handler inside an item. */
+export interface MapPart {
+  name: string;
+  kind: string;
+  path: string;
+  line?: number;
+  summary: string;
+  /** Map item ids it calls or reads. */
+  uses?: string[];
+}
+export interface MapZoom {
+  files: { path: string; summary: string }[];
+  parts: MapPart[];
+  /** Fields found when a model is opened up. */
+  fields?: MapField[];
+  at: number;
+}
+export type TableOp = 'read' | 'create' | 'update' | 'delete';
+/** One stop on a walkthrough: where it happens, what happens, and what the data looks like after. */
+export interface MapTraceStep {
+  item?: string;
+  path: string;
+  line?: number;
+  fn?: string;
+  does: string;
+  /** Sample data after this step, as JSON text. */
+  data?: string;
+  tables?: { name: string; op: TableOp; what?: string }[];
+}
+export interface MapTrace {
+  title: string;
+  /** The sample data it starts with, as JSON text. */
+  input?: string;
+  steps: MapTraceStep[];
 }
 export interface MapAnswer {
   question: string;
   answer: string;
   /** Map item ids the answer is about. */
   focus: string[];
+  /** For questions about something that happens: the path it takes, step by step. */
+  trace?: MapTrace;
   at: number;
 }
 
@@ -240,6 +287,8 @@ export type ClientMsg =
   | { type: 'mapGet'; reqId: string; boardId: string }
   | { type: 'mapBuild'; reqId: string; boardId: string }
   | { type: 'mapAsk'; reqId: string; boardId: string; question: string }
+  | { type: 'mapZoom'; reqId: string; boardId: string; itemId: string }
+  | { type: 'mapForget'; reqId: string; boardId: string; at: number }
   /** Practice: you knew it (or not). Spaces out when you see it next. */
   | { type: 'practiceConcept'; key: string; knew: boolean }
   | { type: 'setComments'; nodeId: string; comments: CardComment[] }

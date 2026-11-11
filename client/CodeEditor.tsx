@@ -97,9 +97,11 @@ export interface CodeEditorProps {
   diff: boolean;
   /** Wrap long lines (phones). */
   wrap?: boolean;
+  /** Jump to this line (once per `jump.n`). */
+  jump?: { line: number; n: number } | null;
 }
 
-export default function CodeEditor({ path, text, base, diff, wrap }: CodeEditorProps) {
+export default function CodeEditor({ path, text, base, diff, wrap, jump }: CodeEditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const lastPath = useRef(path);
@@ -138,6 +140,15 @@ export default function CodeEditor({ path, text, base, diff, wrap }: CodeEditorP
     view.current.scrollDOM.scrollTop = scroll;
     lastPath.current = path;
   }, [path, text, base, diff, wrap]);
+
+  const jumped = useRef(0);
+  useEffect(() => {
+    const v = view.current;
+    if (!v || !jump || jumped.current === jump.n) return;
+    jumped.current = jump.n;
+    const l = v.state.doc.line(Math.min(Math.max(1, jump.line), v.state.doc.lines));
+    v.dispatch({ selection: { anchor: l.from, head: l.to }, effects: EditorView.scrollIntoView(l.from, { y: 'center' }) });
+  }, [jump?.n, path, text]);
 
   useEffect(
     () => () => {
