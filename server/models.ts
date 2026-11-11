@@ -30,7 +30,7 @@ async function read(): Promise<ModelChoice[]> {
   try {
     const q = query({ prompt: nothing() as any, options: { cwd: os.homedir(), settingSources: [], persistSession: false, abortController: abort } });
     const models = await Promise.race([q.supportedModels(), new Promise<never>((_, no) => setTimeout(() => no(new Error('timed out')), 20_000))]);
-    const list = models.map((m) => ({ value: m.value, name: m.displayName, description: m.description, resolved: m.resolvedModel }));
+    const list = models.map((m) => ({ value: m.value, name: m.displayName, description: m.description, resolved: m.resolvedModel, efforts: m.supportedEffortLevels }));
     if (list.length) cache = { at: Date.now(), list };
     return list.length ? list : FALLBACK;
   } catch {

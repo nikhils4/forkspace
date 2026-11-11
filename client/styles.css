@@ -10145,3 +10145,9 @@ input.thread-title.editing {
     animation-duration: 0.01s;
   }
 }
+
+/* effort: the level row can wrap on narrow screens */
+.effort-field .segmented {
+  flex-wrap: wrap;
+  align-self: flex-start;
+}

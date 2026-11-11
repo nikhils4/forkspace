@@ -243,6 +243,8 @@ async function run(board: Board, branch: Branch, node: TurnNode, parent: TurnNod
       systemPrompt: { type: 'preset', preset: 'claude_code', append: SAFETY_RULES },
       hooks: safetyHooks,
       model: board.model || undefined,
+      // A level the model doesn't take is lowered to the nearest one it does (Claude Code does this).
+      ...(board.effort ? { effort: board.effort } : {}),
       ...(branch.worktree ? { projectConfigRoot: board.cwd } : {}),
     },
   });

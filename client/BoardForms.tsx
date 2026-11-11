@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import type { Board, Isolation, LearnLevel, ModelChoice, PermissionMode } from '../shared/types.ts';
+import { EFFORT_LEVELS, type Board, type EffortLevel, type Isolation, type LearnLevel, type ModelChoice, type PermissionMode } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
 import { request, send, useStore } from './store.ts';
-import { Sheet, Switch } from './ui.tsx';
+import { Segmented, Sheet, Switch } from './ui.tsx';
 
 export const MODES: { value: PermissionMode; label: string; hint: string }[] = [
   { value: 'default', label: 'Ask me', hint: 'You approve each risky step' },
@@ -74,6 +74,40 @@ export function ModelPicker({ value, onChange }: { value?: string; onChange: (v:
         </details>
       )}
     </div>
+  );
+}
+
+const EFFORT: Record<EffortLevel | 'default', { label: string; hint: string }> = {
+  default: { label: 'Default', hint: 'The model decides how much to think. A good choice for most boards.' },
+  low: { label: 'Low', hint: 'Quickest and cheapest. Fine for small, clear tasks.' },
+  medium: { label: 'Medium', hint: 'A little more thought, still quick.' },
+  high: { label: 'High', hint: 'Thinks things through. Good for most real work.' },
+  xhigh: { label: 'Extra high', hint: 'Extra thinking for tricky changes. Slower and uses more.' },
+  max: { label: 'Max', hint: 'Thinks the longest. Slowest, and uses the most of your plan.' },
+};
+
+/** How hard the board's model thinks. Only the levels the chosen model accepts are offered. */
+export function EffortPicker({ model, value, onChange }: { model?: string; value?: EffortLevel; onChange: (v: EffortLevel | undefined) => void }) {
+  const [models, setModels] = useState<ModelChoice[] | null>(null);
+  useEffect(() => {
+    loadModels().then(setModels, () => setModels([]));
+  }, []);
+  if (!models) return null;
+  const m = models.find((x) => x.value === (model || 'default'));
+  // A model not in the list (typed by hand): offer every level.
+  const levels = m ? (m.efforts ?? []) : EFFORT_LEVELS;
+  if (!levels.length) return <span className="field-hint">{m?.name ?? 'This model'} doesn't take an effort level.</span>;
+  const current = value ?? 'default';
+  const offered = value && !levels.includes(value);
+  return (
+    <>
+      <Segmented<EffortLevel | 'default'>
+        value={current}
+        onChange={(v) => onChange(v === 'default' ? undefined : v)}
+        options={(['default', ...(offered ? [value!] : []), ...levels] as (EffortLevel | 'default')[]).map((v) => ({ value: v, label: EFFORT[v].label }))}
+      />
+      <span className="field-hint">{offered ? `${EFFORT[value!].label} isn't offered for ${m?.name ?? 'this model'}; it will use the nearest level it has.` : EFFORT[current].hint}</span>
+    </>
   );
 }
 
@@ -189,7 +223,7 @@ export function NewBoard({ onClose, onCreated }: { onClose: () => void; onCreate
 export function BoardSettings({ board, onClose }: { board: Board; onClose: () => void }) {
   const [name, setName] = useState(board.name);
   const [preview, setPreview] = useState(board.previewUrl ?? '');
-  const update = (patch: Partial<Pick<Board, 'name' | 'permissionMode' | 'model' | 'learn' | 'previewUrl'>>) => send({ type: 'updateBoard', id: board.id, patch });
+  const update = (patch: Partial<Pick<Board, 'name' | 'permissionMode' | 'model' | 'effort' | 'learn' | 'previewUrl'>>) => send({ type: 'updateBoard', id: board.id, patch });
   const learn = { on: board.learn?.on !== false, level: board.learn?.level ?? ('growing' as LearnLevel) };
 
   return (
@@ -199,6 +233,10 @@ export function BoardSettings({ board, onClose }: { board: Board; onClose: () =>
           <span className="field-label">Model</span>
           <ModelPicker value={board.model} onChange={(m) => update({ model: m })} />
           <span className="field-hint">Used by every new step on this board. Steps already running keep their model.</span>
+        </div>
+        <div className="field effort-field">
+          <span className="field-label">Effort</span>
+          <EffortPicker model={board.model} value={board.effort} onChange={(e) => update({ effort: e })} />
         </div>
         <label className="field">
           <span className="field-label">Name</span>

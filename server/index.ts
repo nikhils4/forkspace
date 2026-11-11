@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { nanoid } from 'nanoid';
 import { WebSocketServer, type WebSocket } from 'ws';
-import { conceptKey, type Board, type Branch, type ClientMsg, type ServerMsg, type TurnNode } from '../shared/types.ts';
+import { EFFORT_LEVELS, conceptKey, type Board, type EffortLevel, type Branch, type ClientMsg, type ServerMsg, type TurnNode } from '../shared/types.ts';
 import { openFolder } from './editor.ts';
 import { listFiles, readFile } from './files.ts';
 import { importSessions, listImportable } from './importer.ts';
@@ -394,6 +394,7 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       if (typeof p.name === 'string' && p.name.trim()) board.name = p.name.trim().slice(0, 80);
       if (typeof p.permissionMode === 'string' && MODES.has(p.permissionMode)) board.permissionMode = p.permissionMode as Board['permissionMode'];
       if ('model' in p) board.model = typeof p.model === 'string' && p.model.trim() ? p.model.trim().slice(0, 80) : undefined;
+      if ('effort' in p) board.effort = EFFORT_LEVELS.includes(p.effort as EffortLevel) ? (p.effort as EffortLevel) : undefined;
       if (p.learn && typeof p.learn === 'object') board.learn = { on: (p.learn as any).on !== false, level: (p.learn as any).level ?? 'growing' };
       if ('previewUrl' in p) {
         const u = typeof p.previewUrl === 'string' ? p.previewUrl.trim() : '';

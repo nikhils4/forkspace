@@ -18,6 +18,8 @@ export interface Board {
   /** Your app's address while it runs (http://localhost:3000). Snapped after steps that change files. */
   previewUrl?: string;
   model?: string;
+  /** How hard the model thinks on each step (unset = the model's own default). */
+  effort?: EffortLevel;
   createdAt: number;
   links: Link[];
   /** Learn mode: a mentor explains what the agents do as they work. On unless turned off. */
@@ -270,7 +272,7 @@ export interface State {
 
 export type ClientMsg =
   | { type: 'createBoard'; reqId: string; name: string; cwd: string; isolation: Isolation; permissionMode: PermissionMode }
-  | { type: 'updateBoard'; id: string; patch: Partial<Pick<Board, 'name' | 'permissionMode' | 'model' | 'links' | 'learn' | 'previewUrl'>> }
+  | { type: 'updateBoard'; id: string; patch: Partial<Pick<Board, 'name' | 'permissionMode' | 'model' | 'effort' | 'links' | 'learn' | 'previewUrl'>> }
   | { type: 'explain'; reqId: string; nodeId: string; path?: string }
   /** Fix what speech recognition misheard, using the board's file names and recent prompts. */
   | { type: 'tidyDictation'; reqId: string; boardId: string; text: string; before?: string }
@@ -564,4 +566,9 @@ export interface ModelChoice {
   description: string;
   /** The exact model an alias stands for right now. */
   resolved?: string;
+  /** Effort levels this model accepts (none = it doesn't take one). */
+  efforts?: EffortLevel[];
 }
+
+export type EffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+export const EFFORT_LEVELS: EffortLevel[] = ['low', 'medium', 'high', 'xhigh', 'max'];
