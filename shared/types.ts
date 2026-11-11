@@ -93,6 +93,8 @@ export interface PendingPermission {
   toolName: string;
   input: Record<string, unknown>;
   canAlways: boolean;
+  /** Why it's asking, when one of Forkspace's safety rules paused it (e.g. "this uses AWS"). */
+  safety?: string;
 }
 
 export interface Position {
@@ -218,6 +220,8 @@ export interface TurnNode {
   sessionId?: string;
   /** HEAD when the turn started. */
   baseCommit?: string;
+  /** Checked once that baseCommit counts only this step's own work (see repairStepBases). */
+  baseRepaired?: boolean;
   /** Git commit checkpoint taken when the turn finished. */
   commit?: string;
   diffStat?: { files: number; insertions: number; deletions: number };

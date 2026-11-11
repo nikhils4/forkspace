@@ -218,13 +218,20 @@ function SeenIn({ g, onOpen }: { g: ConceptGroup; onOpen: (t: TurnNode) => void 
 
 // ---- the Concepts page: shelves by topic, a clear card per idea, and practice to remember ----
 
-const ACRONYMS = new Set(['http', 'https', 'css', 'html', 'api', 'sql', 'ui', 'url', 'json', 'dom', 'jwt', 'cors', 'ci', 'cd', 'dns', 'tcp', 'io', 'cli', 'git', 'svg', 'xss', 'csrf', 'orm', 'ssr', 'npm', 'rest']);
+const ACRONYMS = new Set(['http', 'https', 'css', 'html', 'api', 'sql', 'ui', 'url', 'json', 'dom', 'jwt', 'cors', 'ci', 'cd', 'dns', 'tcp', 'io', 'cli', 'svg', 'xss', 'csrf', 'orm', 'ssr', 'npm', 'rest', 'pr', 'hmac', 'sso', 'sdk', 'aws', 'ssh', 'tls', 'ssl', 'qa', 'db', 'id', 'ip', 'llm', 'ttl', 'utc', 'uuid', 'crud', 'rpc', 'grpc', 'trpc', 'cdn', 'cpu', 'gpu', 'mfa', 'otp', 'rbac', 'saml', 'yaml', 'csv', 'pdf', 'dto', 'env', 'e2e']);
+// Names with their own spelling: "git worktree" → "Git worktree", not "GIT worktree".
+const SPELLED: Record<string, string> = { git: 'Git', github: 'GitHub', oauth: 'OAuth', graphql: 'GraphQL', javascript: 'JavaScript', typescript: 'TypeScript', postgres: 'Postgres', webhook: 'webhook', websocket: 'WebSocket', nextjs: 'Next.js', react: 'React', redis: 'Redis', docker: 'Docker' };
 /** "http caching" → "HTTP caching": the short name of a concept. */
 export const conceptName = (g: ConceptGroup) =>
   g.lesson.key
     ? g.key
         .split(' ')
-        .map((w, i) => (ACRONYMS.has(w) ? w.toUpperCase() : i === 0 ? w[0].toUpperCase() + w.slice(1) : w))
+        .map((w, i) => {
+          const lw = w.toLowerCase();
+          const fixed = ACRONYMS.has(lw) ? lw.toUpperCase() : SPELLED[lw];
+          if (fixed) return i === 0 ? fixed[0].toUpperCase() + fixed.slice(1) : fixed;
+          return i === 0 && w ? w[0].toUpperCase() + w.slice(1) : w;
+        })
         .join(' ')
     : g.lesson.title.split(':')[0];
 
@@ -334,7 +341,7 @@ export function LearnLibrary({ onOpen }: { onOpen: (t: TurnNode) => void }) {
         </div>
         <div className="code-search lib-search">
           <Icon name="search" size={14} />
-          <input value={q} placeholder="Search what you've learned…" onChange={(e) => setQ(e.target.value)} />
+          <input value={q} placeholder="Search ideas…" onChange={(e) => setQ(e.target.value)} />
         </div>
         <button className="btn sm primary" onClick={() => setPractice(true)} disabled={!groups.length}>
           <Icon name="spark" size={13} /> Practice{dueNow.length ? ` · ${Math.min(dueNow.length, 10)}` : ''}
@@ -349,10 +356,11 @@ export function LearnLibrary({ onOpen }: { onOpen: (t: TurnNode) => void }) {
                 <Icon name={(AREA_ICONS[area] ?? 'spark') as any} size={14} />
               </span>
               <div>
-                <h3>{area}</h3>
+                <h3>
+                  {area} <span className="shelf-count">{items.length}</span>
+                </h3>
                 <p>{AREA_HINTS[area] ?? 'Waiting to be sorted into a topic.'}</p>
               </div>
-              <span className="shelf-count">{items.length}</span>
             </header>
             <div className="shelf-row">
               {items.map((g) => (
@@ -413,7 +421,17 @@ function IdeaSheet({ g, all, onPick, onOpen, onClose }: { g: ConceptGroup; all: 
         )}
         {g.lesson.snippet && (
           <div className="is-block">
-            <div className="is-label">In your code{g.lesson.file ? ` · ${g.lesson.file}` : ''}</div>
+            <div className="is-label">
+              In your code
+              {g.lesson.file && (
+                <>
+                  {' · '}
+                  <span className="is-file" title={g.lesson.file}>
+                    {g.lesson.file}
+                  </span>
+                </>
+              )}
+            </div>
             <CodeBlock className="code concept-snippet" code={g.lesson.snippet} />
           </div>
         )}

@@ -89,6 +89,34 @@ export async function recentSubjects(dir: string, n = 12) {
     .slice(0, n);
 }
 
+/**
+ * Where a step's own changes really begin. `startHead` is the commit the folder was on when the
+ * step started; `head` is the commit its changes sit on now. If those differ, something moved the
+ * folder during the step (the agent ran `git checkout origin/main`, a pull, a rebase): comparing
+ * with the old start would count everyone else's work on main as this step's. So start from the
+ * first commit the step made itself (one no remote has), or, if it made none, from where it
+ * moved to. Your own pushed copy of this branch doesn't count as "someone else's": pushing a
+ * step for a PR mustn't make its work disappear from the list.
+ */
+export async function stepBase(dir: string, base: string, startHead: string, head: string): Promise<string> {
+  if (!head || head === startHead) return base;
+  try {
+    const branch = await git(dir, 'rev-parse', '--abbrev-ref', 'HEAD').catch(() => 'HEAD');
+    // Patterns match remote names without "refs/remotes/", e.g. "origin/my-branch".
+    const mine = [`--exclude=*/${branch}`, '--exclude=*/HEAD'];
+    const own = (await git(dir, 'rev-list', '--reverse', '--topo-order', head, '--not', startHead, ...mine, '--remotes')).split('\n').filter(Boolean);
+    if (!own.length) return head;
+    return await git(dir, 'rev-parse', `${own[0]}^`).catch(() => head);
+  } catch {
+    return base;
+  }
+}
+
+/** The commit the folder was on when a step started: the start itself, or a snapshot's parent. */
+export async function startHeadOf(dir: string, base: string, snapshotMode: boolean) {
+  return snapshotMode ? git(dir, 'rev-parse', `${base}^`).catch(() => base) : base;
+}
+
 export async function diffStat(dir: string, from: string, to: string) {
   const out = await git(dir, 'diff', '--shortstat', from, to);
   const num = (re: RegExp) => Number(out.match(re)?.[1] ?? 0);

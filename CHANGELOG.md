@@ -5,9 +5,12 @@ To cut one: add a section below, then run `npm run release -- <version>`.
 
 ## 0.27.0
 
+- Safety rules for every agent, on every board, in every approval mode: agents never push (they give you the commands instead), never commit on their own, and stop to ask before using AWS or other clouds, databases that aren't on this machine, or credential files. The card says which rule paused it, and these can't be "always allowed"
+- Fixed: "What changed" counted everyone else's work when an agent switched to newer code mid-step (for example `git checkout -b … origin/main`), showing hundreds of files instead of the handful it changed. Steps already saved this way are corrected on the next start
 - Ready for review: when a card finishes while you're looking elsewhere, it says "Ready for review" (or "Failed, take a look"), on the card and on a tag at the edge of the view pointing to it. It clears once you click the card, open it, or start the next step from it
 - Notes off screen get small, faint pointers at the edge of the view. They darken on hover; click one to fly to the note
 - Tags at the edge of the view now always stay fully visible, instead of being cut off on the right next to the details panel
+- Concepts page tidy-up: topic counts sit next to their name; file paths keep their real case; code in an idea no longer breaks words in half or hides under the copy button; names read "PR", "HMAC" and "Git" properly; on phones the search box isn't cut off, short cards aren't padded tall, and Practice doesn't show keyboard hints
 
 ## 0.26.0
 

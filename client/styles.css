@@ -1211,6 +1211,13 @@ pre.code,
 .perm-label svg {
   color: var(--warn);
 }
+/* paused by a Forkspace safety rule (push, commit, AWS, databases, secrets) */
+.perm-safety {
+  border-color: color-mix(in srgb, var(--err) 45%, var(--border-2));
+}
+.perm-safety .perm-label svg {
+  color: var(--err);
+}
 .perm-title {
   font-weight: 600;
 }
@@ -8280,9 +8287,16 @@ input.thread-title.editing {
   color: var(--text-3);
 }
 .shelf-count {
-  margin-left: auto;
-  font-size: 12px;
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  vertical-align: 2px;
   color: var(--text-3);
+  background: color-mix(in srgb, var(--topic) 12%, transparent);
 }
 .shelf-row {
   display: grid;
@@ -8335,6 +8349,15 @@ input.thread-title.editing {
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+@media (max-width: 640px) {
+  /* One card per row on phones: no need to keep short cards as tall as long ones. */
+  .idea-card {
+    min-height: 0;
+  }
+  .idea-foot {
+    margin-top: 6px;
+  }
 }
 .idea-foot {
   margin-top: auto;
@@ -8431,6 +8454,20 @@ input.thread-title.editing {
   text-transform: uppercase;
   color: var(--text-3);
 }
+/* File paths care about case: never shout them. */
+.is-file {
+  font-family: var(--mono);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  overflow-wrap: anywhere;
+}
+/* Code in an idea: break long lines between words, and leave room for the copy button. */
+.idea-sheet .concept-snippet {
+  word-break: normal;
+  overflow-wrap: anywhere;
+  padding-right: 40px;
+}
 .practice-bar {
   flex: 1;
   height: 4px;
@@ -8488,7 +8525,18 @@ input.thread-title.editing {
   border-radius: 4px;
   font-size: 10.5px;
   font-family: var(--mono);
+  /* Same colour as the button's text, so it's readable on the purple button too. */
+  color: inherit;
+  opacity: 0.8;
+  border-color: color-mix(in srgb, currentColor 35%, transparent);
   background: color-mix(in srgb, currentColor 14%, transparent);
+}
+/* Phones and tablets have no Space key: don't show key hints there. */
+@media (pointer: coarse) {
+  .flashcard kbd,
+  .practice kbd {
+    display: none;
+  }
 }
 
 /* ---------- Map: the codebase as lanes of parts, with questions on top ---------- */

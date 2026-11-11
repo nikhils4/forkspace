@@ -1,3 +1,4 @@
+import { SAFETY_RULES, check, safetyHooks } from './guard.ts';
 import { query, type CanUseTool, type PermissionResult, type PermissionUpdate } from '@anthropic-ai/claude-agent-sdk';
 import { nanoid } from 'nanoid';
 import path from 'node:path';
@@ -128,11 +129,15 @@ export async function startTurn(boardId: string, parentId: string | null, prompt
 export async function saveCheckpoint(board: Board, branch: Branch, node: TurnNode) {
   try {
     if (branch.worktree) {
+      // If the folder moved to other code during the step (a checkout or pull), count only this
+      // step's own work, not everything that landed on main in between.
+      const head = await g.git(branch.worktree, 'rev-parse', 'HEAD');
+      if (node.baseCommit) node.baseCommit = await g.stepBase(branch.worktree, node.baseCommit, node.baseCommit, head);
       const staged = await g.stageAll(branch.worktree);
       if (!staged.stat.trim()) {
-        // Nothing changed: no empty commit, the step ends where it began.
-        node.commit = await g.git(branch.worktree, 'rev-parse', 'HEAD');
-        node.diffStat = { files: 0, insertions: 0, deletions: 0 };
+        // Nothing left to save: no empty commit. (Commits the agent made itself still count.)
+        node.commit = head;
+        node.diffStat = node.baseCommit && node.baseCommit !== head ? await g.diffStat(branch.worktree, node.baseCommit, head) : { files: 0, insertions: 0, deletions: 0 };
         return;
       }
       const history: string[] = [];
@@ -152,6 +157,8 @@ export async function saveCheckpoint(board: Board, branch: Branch, node: TurnNod
       node.commitMessage = msg.subject;
       if (node.baseCommit) node.diffStat = await g.diffStat(branch.worktree, node.baseCommit, node.commit);
     } else if (board.repoRoot && node.baseCommit) {
+      const head = await g.git(branch.cwd, 'rev-parse', 'HEAD');
+      node.baseCommit = await g.stepBase(branch.cwd, node.baseCommit, await g.startHeadOf(branch.cwd, node.baseCommit, true), head);
       node.commit = await g.snapshot(branch.cwd);
       node.diffStat = await g.diffStat(branch.cwd, node.baseCommit, node.commit);
     }
@@ -202,14 +209,16 @@ async function run(board: Board, branch: Branch, node: TurnNode, parent: TurnNod
 
   r.showNext = () => {
     const next = r.queue[0];
-    node.pending = next ? { requestId: next.requestId, toolName: next.toolName, input: next.input, canAlways: next.canAlways } : undefined;
+    node.pending = next ? { requestId: next.requestId, toolName: next.toolName, input: next.input, canAlways: next.canAlways, safety: next.safety } : undefined;
     node.status = next ? 'waiting' : 'running';
     touch(node);
   };
 
   const canUseTool: CanUseTool = (toolName, input, { signal, suggestions }) =>
     new Promise<PermissionResult>((resolve) => {
-      const p: Pending = { requestId: nanoid(8), toolName, input, canAlways: !!suggestions?.length, suggestions, resolve };
+      // Paused by a safety rule: say why, and offer no "Always" (each one gets its own yes).
+      const safety = check(toolName, input)?.reason;
+      const p: Pending = { requestId: nanoid(8), toolName, input, canAlways: !safety && !!suggestions?.length, suggestions, safety, resolve };
       r.queue.push(p);
       if (r.queue.length === 1) queueMicrotask(() => notifyFn(node, 'waiting'));
       signal.addEventListener('abort', () => answer(node.id, p.requestId, 'deny'));
@@ -230,7 +239,9 @@ async function run(board: Board, branch: Branch, node: TurnNode, parent: TurnNod
       allowDangerouslySkipPermissions: board.permissionMode === 'bypassPermissions',
       canUseTool,
       includePartialMessages: true,
-      systemPrompt: { type: 'preset', preset: 'claude_code' },
+      // Forkspace's safety rules: told to the agent, and enforced before every tool, in every mode.
+      systemPrompt: { type: 'preset', preset: 'claude_code', append: SAFETY_RULES },
+      hooks: safetyHooks,
       model: board.model || undefined,
       ...(branch.worktree ? { projectConfigRoot: board.cwd } : {}),
     },

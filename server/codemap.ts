@@ -1,3 +1,4 @@
+import { check, safetyHooks } from './guard.ts';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -157,7 +158,10 @@ async function readOnly<T>(prompt: string, system: string, schema: object, cwd: 
       maxTurns,
       systemPrompt: system,
       outputFormat: { type: 'json_schema', schema: schema as Record<string, unknown> },
-      canUseTool: async (name) => (READ_ONLY.includes(name) ? { behavior: 'allow', updatedInput: undefined as any } : { behavior: 'deny', message: 'Read-only: only Read, Grep and Glob.' }),
+      // Safety rules apply here too; with nobody to ask, anything they'd pause (credential files) is refused.
+      hooks: safetyHooks,
+      canUseTool: async (name, input) =>
+        READ_ONLY.includes(name) && !check(name, input) ? { behavior: 'allow', updatedInput: undefined as any } : { behavior: 'deny', message: 'Read-only, and no credential files: only Read, Grep and Glob on the project.' },
     },
   });
   let out: T | null = null;

@@ -240,12 +240,10 @@ export function Permission({ node, p }: { node: TurnNode; p: PendingPermission }
     );
 
   return (
-    <div className="perm nodrag">
+    <div className={`perm nodrag ${p.safety ? 'perm-safety' : ''}`}>
       <div className="perm-label">
         <Icon name="shield" size={13} />
-        <span>
-          Allow <b>{p.toolName}</b>?
-        </span>
+        <span>{p.safety ? p.safety : <>Allow <b>{p.toolName}</b>?</>}</span>
       </div>
       <OwnScroll as="pre" className="perm-input">
         {short(toolSummary(p.toolName, p.input) || JSON.stringify(p.input, null, 2))}

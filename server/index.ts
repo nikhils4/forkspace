@@ -529,7 +529,9 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       // branch marks where it ended; if there is none, show the folder as it is right now.
       const next = state.nodes.find((n): n is TurnNode => n.kind === 'turn' && n.parentId === turn.id && n.branchId === turn.branchId && !!n.baseCommit);
       if (next?.baseCommit) return g.diff(dir, turn.baseCommit, next.baseCommit);
-      return g.liveDiff(dir, turn.baseCommit);
+      // Still working: if the folder moved to other code meanwhile, show only this step's work.
+      const head = await g.git(dir, 'rev-parse', 'HEAD').catch(() => '');
+      return g.liveDiff(dir, await g.stepBase(dir, turn.baseCommit, await g.startHeadOf(dir, turn.baseCommit, !branch.worktree), head));
     }
     case 'listSessions': {
       const board = getBoard(msg.boardId);
@@ -851,6 +853,36 @@ async function recoverCheckpoints() {
   save();
 }
 setTimeout(() => void recoverCheckpoints().catch(() => {}), 3000);
+
+// Steps saved before the fix above may count other people's work: if the folder moved to newer
+// code during the step, measure again from where this step's own work starts. Runs once per step.
+async function repairStepBases() {
+  let changed = false;
+  for (const n of state.nodes) {
+    if (n.kind !== 'turn' || !n.commit || !n.baseCommit || n.baseRepaired) continue;
+    const branch = getBranch(n.branchId);
+    const dir = branch && (branch.worktree ?? branch.cwd);
+    if (!branch || !dir || !fs.existsSync(dir)) continue;
+    try {
+      // Separate copy: the step ended at its checkpoint commit (or where the folder was, if nothing
+      // was left to save). Your own folder: both ends are hidden snapshots; their parents are
+      // where the folder was at the start and at the end.
+      const snap = !branch.worktree;
+      const start = await g.startHeadOf(dir, n.baseCommit, snap);
+      const head = snap ? await g.git(dir, 'rev-parse', `${n.commit}^`).catch(() => start) : n.commit;
+      const base = n.commit === n.baseCommit ? n.baseCommit : await g.stepBase(dir, n.baseCommit, start, head);
+      if (base !== n.baseCommit) {
+        n.baseCommit = base;
+        n.diffStat = await g.diffStat(dir, base, n.commit);
+        broadcast({ type: 'node', node: n });
+      }
+      n.baseRepaired = true;
+      changed = true;
+    } catch {}
+  }
+  if (changed) save();
+}
+setTimeout(() => void repairStepBases().catch(() => {}), 5000);
 
 server.listen(PORT, HOST, () => {
   console.log(`\n  Forkspace → http://localhost:${PORT}\n`);
