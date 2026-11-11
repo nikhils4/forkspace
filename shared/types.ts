@@ -56,6 +56,8 @@ export interface Lesson {
   asked?: boolean;
   /** You marked it "Got it": it leaves the step views and stays in Concepts. */
   reviewed?: boolean;
+  /** Practice: how well you know it (0 new … 4 solid) and when to see it again. */
+  memory?: { box: number; due: number };
 }
 
 /** A user-drawn connection (note to node, node to node). */
@@ -217,6 +219,8 @@ export type ClientMsg =
   | { type: 'captureShot'; reqId: string; nodeId: string }
   | { type: 'removeShot'; nodeId: string; shotId: string }
   | { type: 'setTitle'; nodeId: string; title: string }
+  /** Practice: you knew it (or not). Spaces out when you see it next. */
+  | { type: 'practiceConcept'; key: string; knew: boolean }
   | { type: 'setComments'; nodeId: string; comments: CardComment[] }
   | { type: 'termOpen'; reqId: string; boardId: string; branchId?: string; cols: number; rows: number }
   | { type: 'termList'; reqId: string; boardId: string }
@@ -379,23 +383,62 @@ export interface AwayInfo {
 }
 
 /** Where a concept lives in tech. Used to group the concept map. */
+/**
+ * Ten plain topics, sorted by the problem an idea solves (so nothing belongs in two places).
+ * Caching that makes things faster is Speed; the HTTP rules behind it are Servers & APIs.
+ */
 export const CONCEPT_AREAS = [
-  'Algorithms',
-  'Data structures',
-  'Language features',
-  'Performance',
-  'Testing',
-  'Debugging',
-  'Architecture and design',
-  'Web and networking',
-  'Data and databases',
-  'Security',
-  'Concurrency and async',
-  'UI and frontend',
-  'Tooling and build',
-  'DevOps and infrastructure',
-  'Version control',
+  'Problem solving',
+  'The language',
+  'Code structure',
+  'Screens',
+  'Servers & APIs',
+  'Data',
+  'Speed',
+  'Safety',
+  'Testing & debugging',
+  'Tools & shipping',
 ] as const;
+
+/** What each topic holds, in a few words (shown on the page and given to the model). */
+export const AREA_HINTS: Record<string, string> = {
+  'Problem solving': 'Algorithms, data structures, recursion: ways to work a problem out',
+  'The language': 'Features of the language itself: types, closures, async and await',
+  'Code structure': 'How code is split up and fits together: modules, components, patterns',
+  Screens: 'What people see and touch: rendering, state, styling, accessibility',
+  'Servers & APIs': 'How apps talk: requests, routes, HTTP, auth flows, real time',
+  Data: 'Keeping information: databases, schemas, queries, storage',
+  Speed: 'Making things fast: caching, memoizing, doing work at once',
+  Safety: 'Keeping things safe and correct: security, validation, error handling',
+  'Testing & debugging': 'Proving it works and finding out why it does not',
+  'Tools & shipping': 'Git, builds, packages, deploys and the machines it runs on',
+};
+
+/** Topics from older versions, mapped to today's. */
+const LEGACY_AREAS: Record<string, string> = {
+  Algorithms: 'Problem solving',
+  'Data structures': 'Problem solving',
+  'Language features': 'The language',
+  Performance: 'Speed',
+  Testing: 'Testing & debugging',
+  Debugging: 'Testing & debugging',
+  'Architecture and design': 'Code structure',
+  'Web and networking': 'Servers & APIs',
+  'Data and databases': 'Data',
+  Security: 'Safety',
+  'Concurrency and async': 'The language',
+  'UI and frontend': 'Screens',
+  'Tooling and build': 'Tools & shipping',
+  'DevOps and infrastructure': 'Tools & shipping',
+  'Version control': 'Tools & shipping',
+};
+
+/** Today's topic for any stored area (old names included), or undefined. */
+export function topicOf(area?: string): string | undefined {
+  if (!area) return undefined;
+  if ((CONCEPT_AREAS as readonly string[]).includes(area)) return area;
+  return LEGACY_AREAS[area];
+}
 
 /** Normalise a concept key so small differences ("Memoization!", "memoization ") match. */
 export const conceptKey = (s: string) =>

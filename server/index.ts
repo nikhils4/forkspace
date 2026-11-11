@@ -651,6 +651,28 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       broadcast({ type: 'node', node: t });
       return;
     }
+    case 'practiceConcept': {
+      // Spaced practice: each time you know it, it comes back later (now, 1, 3, 7, 21 days).
+      const key = conceptKey(String(msg.key ?? ''));
+      if (!key) return;
+      const DAYS = [0, 1, 3, 7, 21];
+      let box = 0;
+      for (const n of state.nodes) if (n.kind === 'turn') for (const l of n.lessons ?? []) if ((l.key || conceptKey(l.title)) === key) box = Math.max(box, l.memory?.box ?? 0);
+      box = msg.knew ? Math.min(4, box + 1) : 0;
+      const memory = { box, due: Date.now() + DAYS[box] * 86_400_000 + (msg.knew ? 0 : 10 * 60_000) };
+      for (const n of state.nodes) {
+        if (n.kind !== 'turn' || !n.lessons?.length) continue;
+        let changed = false;
+        for (const l of n.lessons)
+          if ((l.key || conceptKey(l.title)) === key) {
+            l.memory = memory;
+            changed = true;
+          }
+        if (changed) broadcast({ type: 'node', node: n });
+      }
+      save();
+      return memory;
+    }
     case 'reviewConcept': {
       // A concept is one idea, so "Got it" applies to every lesson about it, on every step.
       const key = conceptKey(String(msg.key ?? ''));

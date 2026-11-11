@@ -1,7 +1,7 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { nanoid } from 'nanoid';
 import path from 'node:path';
-import { CONCEPT_AREAS, conceptKey, type Board, type Branch, type Lesson, type TurnEvent, type TurnNode } from '../shared/types.ts';
+import { CONCEPT_AREAS, conceptKey, type Board, type Branch, type Lesson, type TurnEvent, type TurnNode, topicOf, AREA_HINTS } from '../shared/types.ts';
 import * as g from './git.ts';
 import { getBoard, getBranch, state } from './store.ts';
 
@@ -35,7 +35,7 @@ const LESSON_SCHEMA = {
         type: 'object',
         properties: {
           key: { type: 'string', description: 'The textbook name of the idea, lowercase, 1 to 3 words, like "memoization", "http caching", "recursion". Never the title or a sentence. Reuse an existing key exactly when it is the same idea.' },
-          area: { type: 'string', enum: [...CONCEPT_AREAS], description: 'Where in tech this concept belongs.' },
+          area: { type: 'string', enum: [...CONCEPT_AREAS], description: 'The topic, by the problem the idea solves: ' + Object.entries(AREA_HINTS).map(([k, v]) => `${k} (${v})`).join('; ') },
           related: { type: 'array', items: { type: 'string' }, maxItems: 4, description: 'Keys of already-known concepts this one connects to. Only use keys from the list given.' },
           title: { type: 'string', description: 'The idea in plain words a beginner would understand. At most 5 words.' },
           body: { type: 'string', description: 'What the idea is and why it matters here. At most 40 words. Simple words, short sentences. A comparison only if it really helps.' },
@@ -53,7 +53,7 @@ const EXPLAIN_SCHEMA = {
   type: 'object',
   properties: {
     key: { type: 'string', description: 'The textbook name of the main idea, lowercase, 1 to 3 words, like "memoization". Never the title. If it is the same idea as a known concept, use that exact key.' },
-    area: { type: 'string', enum: [...CONCEPT_AREAS], description: 'Where in tech this concept belongs.' },
+    area: { type: 'string', enum: [...CONCEPT_AREAS], description: 'The topic, by the problem the idea solves: ' + Object.entries(AREA_HINTS).map(([k, v]) => `${k} (${v})`).join('; ') },
     related: { type: 'array', items: { type: 'string' }, maxItems: 4, description: 'Keys of known concepts this connects to, from the list given.' },
     title: { type: 'string', description: 'The idea in plain words a beginner would understand. At most 6 words.' },
     body: { type: 'string', description: 'The idea, then how it shows up in this step. At most 70 words. Simple words, short sentences. A comparison only if it really helps.' },
@@ -120,7 +120,7 @@ const shortKey = (k: unknown, title: string) => {
   const c = conceptKey(String(k || '') || title.split(':')[0]);
   return c.split(' ').slice(0, 4).join(' ');
 };
-const area = (a: unknown) => ((CONCEPT_AREAS as readonly string[]).includes(String(a)) ? String(a) : undefined);
+const area = (a: unknown) => topicOf(String(a ?? ''));
 
 async function ask<T>(prompt: string, system: string, schema: object, cwd: string): Promise<T | null> {
   const q = query({

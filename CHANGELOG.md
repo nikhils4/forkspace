@@ -3,6 +3,14 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.22.0
+
+- Concepts, rebuilt: ten plain topics that don't overlap (Problem solving, The language, Code structure, Screens, Servers & APIs, Data, Speed, Safety, Testing & debugging, Tools & shipping), each with a line saying what lives there. Older concepts move over on their own
+- Each topic is a shelf of idea cards: the name, the idea in one line, and how well you know it
+- Open an idea for the one-line gist, the explanation, the real code it came from, what it goes with and where you met it
+- Practice: flashcards to actually remember. See the name, think, flip. What you know comes back in days, the rest sooner
+- "Got it" stays on steps only; the Concepts page no longer shows it
+
 ## 0.21.0
 
 - The details panel is one page that reads top to bottom, no tabs: You asked, Answer, What changed, Worth knowing, and How it got there (folded)
