@@ -38,6 +38,76 @@ export function toolSummary(name: string, input: any): string {
   return '';
 }
 
+const base = (p: unknown) => (typeof p === 'string' ? p.split('/').filter(Boolean).pop() ?? p : '');
+
+/** What a tool call is doing, in a few plain words: "Editing math.ts", "Running npm test". */
+export function toolHuman(name: string, input: any): { verb: string; what?: string } {
+  const i = input && typeof input === 'object' ? input : {};
+  switch (name) {
+    case 'Edit':
+    case 'MultiEdit':
+    case 'NotebookEdit':
+      return { verb: 'Editing', what: base(i.file_path ?? i.notebook_path) };
+    case 'Write':
+      return { verb: 'Writing', what: base(i.file_path) };
+    case 'Read':
+      return { verb: 'Reading', what: base(i.file_path) };
+    case 'Bash':
+      return { verb: 'Running', what: String(i.command ?? '').replace(/\s+/g, ' ').slice(0, 48) };
+    case 'Grep':
+      return { verb: 'Searching for', what: String(i.pattern ?? '').slice(0, 32) };
+    case 'Glob':
+      return { verb: 'Finding', what: String(i.pattern ?? 'files').slice(0, 32) };
+    case 'WebFetch':
+      try {
+        return { verb: 'Reading', what: new URL(String(i.url)).hostname };
+      } catch {
+        return { verb: 'Reading the web' };
+      }
+    case 'WebSearch':
+      return { verb: 'Searching the web', what: String(i.query ?? '').slice(0, 32) };
+    case 'Task':
+    case 'Agent':
+      return { verb: 'Asking a helper', what: String(i.description ?? '').slice(0, 32) };
+    case 'TodoWrite':
+      return { verb: 'Planning' };
+    case 'AskUserQuestion':
+      return { verb: 'Asking you' };
+    default:
+      return { verb: name.replace(/^mcp__\w+__/, '').replace(/_/g, ' ') };
+  }
+}
+
+/** What a working card is doing right now (null when it isn't working). */
+export function liveActivity(node: TurnNode): { verb: string; what?: string; waiting?: boolean } | null {
+  if (node.status === 'waiting') {
+    if (!node.pending) return { verb: 'Needs you', waiting: true };
+    const t = toolHuman(node.pending.toolName, node.pending.input);
+    return { verb: node.pending.toolName === 'AskUserQuestion' ? 'Has a question' : 'Needs your OK', what: t.what || t.verb, waiting: true };
+  }
+  if (node.status !== 'running') return null;
+  for (let k = node.events.length - 1; k >= 0; k--) {
+    const e = node.events[k];
+    if (e.t === 'tool') return e.result == null ? toolHuman(e.name, e.input) : { verb: 'Thinking' };
+    if (e.t === 'text') return e.partial ? { verb: 'Writing the answer' } : { verb: 'Thinking' };
+  }
+  return { verb: 'Starting' };
+}
+
+/** The live line: what the agent is doing, changing as it works. */
+export function LiveLine({ node, big = false }: { node: TurnNode; big?: boolean }) {
+  const a = liveActivity(node);
+  if (!a) return null;
+  const k = `${a.verb}|${a.what ?? ''}`;
+  return (
+    <span key={k} className={`live-line ${big ? 'big' : ''} ${a.waiting ? 'waiting' : ''}`}>
+      <b>{a.verb}</b>
+      {a.what && <code>{a.what}</code>}
+      {!a.waiting && <i className="live-caret" />}
+    </span>
+  );
+}
+
 export const money = (n?: number) => (n == null ? '' : n < 0.01 ? '<$0.01' : `$${n.toFixed(2)}`);
 
 /**
@@ -336,7 +406,7 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
         <Handle type="target" position={Position.Top} />
         <div className="far-status">
           <StatusDot status={node.status} />
-          {STATUS_LABEL[node.status]}
+          {isLive(node) ? <LiveLine node={node} big /> : STATUS_LABEL[node.status]}
           {lessons.length > 0 && (
             <span className="far-concepts">
               <span className="mentor-orb small" /> {lessons.length}
@@ -354,10 +424,9 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
     {root && <ThreadDone node={node} cover={data.cover} />}
     <div className={`turn status-${node.status} ${isTarget ? 'target' : ''} ${isFresh(node.createdAt) ? 'fresh' : ''} ${dim}`} style={{ ['--branch' as any]: color }}>
       <Handle type="target" position={Position.Top} />
-      {live && <div className="turn-progress" />}
       <div className="turn-head">
         {!node.completed && <StatusDot status={node.status} />}
-        <span className="status-label">{node.completed ? 'Completed' : STATUS_LABEL[node.status]}</span>
+        {live ? <LiveLine node={node} /> : <span className="status-label">{node.completed ? 'Completed' : STATUS_LABEL[node.status]}</span>}
         <span className="spacer" />
         {node.imported ? (
           <span className="branch-tag" title="Brought in from Claude Code">

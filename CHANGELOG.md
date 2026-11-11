@@ -3,6 +3,13 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.18.0
+
+- Working cards say what they're doing, live: "Editing math.ts", "Running npm test", "Needs your OK". It replaces the plain "Running" label
+- A thin light circles a working card's edge (amber when it needs you), in place of the thick glow
+- Zoomed far out, working cards wear a readable tag. Off screen, the tag waits at the edge of the view and points the way; click it to fly there
+- Little lights travel down the line into a working card
+
 ## 0.17.0
 
 - Working cards glow and pulse in their branch colour, and stay easy to spot at any zoom; they blink on the minimap too

@@ -12,6 +12,7 @@ import {
   type NodeChange,
 } from '@xyflow/react';
 import { startComment } from './Comments.tsx';
+import { Beacons } from './Beacons.tsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Board, NoteNode, TurnNode } from '../shared/types.ts';
 import { composerFocus } from './Composer.tsx';
@@ -640,6 +641,14 @@ export function Canvas({
         onInit={(inst) => (document.querySelector('.pane.on .canvas') as HTMLElement | null)?.style.setProperty('--inv-zoom', String(1 / inst.getZoom()))}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1.3} />
+        <Beacons
+          live={items.filter((n): n is TurnNode => isTurn(n) && isLive(n))}
+          onGo={(id) => {
+            const n = store.nodes[id];
+            if (isTurn(n)) setTargetId(n.sessionId ? id : targetId);
+            centerOn(id);
+          }}
+        />
         {!mobile && <Controls showInteractive={false} position="bottom-left" onFitView={() => fitVisible(400)} />}
         {!mobile && (
           <MiniMap

@@ -7552,50 +7552,6 @@ input.thread-title.editing {
   max-height: 180px;
 }
 
-/* ---------- working cards stand out, even zoomed far out ---------- */
-.turn.status-running {
-  border-color: color-mix(in srgb, var(--branch) 75%, transparent);
-  animation: run-glow 2.4s ease-in-out infinite;
-}
-@keyframes run-glow {
-  0%,
-  100% {
-    box-shadow:
-      0 0 0 2px color-mix(in srgb, var(--branch) 40%, transparent),
-      0 0 26px -4px color-mix(in srgb, var(--branch) 55%, transparent),
-      var(--shadow);
-  }
-  50% {
-    box-shadow:
-      0 0 0 5px color-mix(in srgb, var(--branch) 26%, transparent),
-      0 0 48px 2px color-mix(in srgb, var(--branch) 45%, transparent),
-      var(--shadow);
-  }
-}
-/* zoomed out the card is drawn small, so its glow is drawn bigger */
-.turn.far.status-running {
-  border-width: 3px;
-  animation-name: run-glow-far;
-}
-@keyframes run-glow-far {
-  0%,
-  100% {
-    box-shadow:
-      0 0 0 calc(3px * var(--inv-zoom, 2)) color-mix(in srgb, var(--branch) 70%, transparent),
-      0 0 calc(30px * var(--inv-zoom, 2)) calc(6px * var(--inv-zoom, 2)) color-mix(in srgb, var(--branch) 55%, transparent);
-  }
-  50% {
-    box-shadow:
-      0 0 0 calc(6px * var(--inv-zoom, 2)) color-mix(in srgb, var(--branch) 45%, transparent),
-      0 0 calc(48px * var(--inv-zoom, 2)) calc(12px * var(--inv-zoom, 2)) color-mix(in srgb, var(--branch) 45%, transparent);
-  }
-}
-.turn.far.status-waiting {
-  border-width: 3px;
-  box-shadow:
-    0 0 0 calc(5px * var(--inv-zoom, 2)) color-mix(in srgb, var(--warn) 60%, transparent),
-    0 0 calc(40px * var(--inv-zoom, 2)) calc(8px * var(--inv-zoom, 2)) color-mix(in srgb, var(--warn) 40%, transparent);
-}
 .react-flow__minimap-node.mm-live {
   animation: mm-blink 1.4s ease-in-out infinite;
   stroke: var(--text);
@@ -7687,13 +7643,207 @@ input.thread-title.editing {
 .lib-grid > *:nth-child(n + 4) {
   animation-delay: 90ms;
 }
-.turn.fresh.status-running {
-  animation:
-    card-in 0.45s var(--ease),
-    run-glow 2.4s ease-in-out 0.45s infinite;
+
+/* ---------- a working card: a light circles its edge, and it says what it's doing ---------- */
+@property --orbit {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
 }
-.turn.far.fresh.status-running {
-  animation:
-    card-in 0.45s var(--ease),
-    run-glow-far 2.4s ease-in-out 0.45s infinite;
+.turn.status-running::before,
+.turn.status-waiting::before {
+  opacity: 0;
+}
+.turn.status-running::after,
+.turn.status-waiting::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 4;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--orbit),
+    transparent 0deg 230deg,
+    color-mix(in srgb, var(--orbit-c, var(--branch)) 35%, transparent) 290deg,
+    var(--orbit-c, var(--branch)) 340deg,
+    #fff 354deg,
+    transparent 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: orbit 2.8s linear infinite;
+}
+.turn.status-waiting {
+  --orbit-c: var(--warn);
+}
+.turn.status-waiting::after {
+  animation-duration: 1.5s;
+}
+/* zoomed out, the light stays a readable width on screen */
+.turn.far.status-running::after,
+.turn.far.status-waiting::after {
+  padding: clamp(2px, calc(2px * var(--inv-zoom, 1)), 16px);
+}
+@keyframes orbit {
+  to {
+    --orbit: 360deg;
+  }
+}
+
+.live-line {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--text-2);
+  animation: live-in 0.35s var(--ease);
+}
+.live-line b {
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+.live-line code {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: color-mix(in srgb, var(--branch, var(--accent)) 75%, var(--text));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.live-line.waiting b {
+  color: var(--warn);
+}
+.live-caret {
+  width: 6px;
+  height: 11px;
+  align-self: center;
+  border-radius: 1px;
+  background: var(--branch, var(--accent));
+  animation: caret 1s steps(2) infinite;
+}
+@keyframes caret {
+  50% {
+    opacity: 0;
+  }
+}
+@keyframes live-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+    filter: blur(2px);
+  }
+}
+.live-line.big {
+  font-size: inherit;
+}
+.live-line.big code {
+  font-size: 0.9em;
+}
+.live-line.big .live-caret {
+  width: 0.4em;
+  height: 0.8em;
+}
+
+/* the line into a working card carries little lights down to it */
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke-dasharray: 0.5 11 !important;
+  stroke-linecap: round;
+  stroke-width: 3.5 !important;
+  stroke-opacity: 1 !important;
+  animation: flow-dots 0.7s linear infinite;
+}
+@keyframes flow-dots {
+  to {
+    stroke-dashoffset: -11.5;
+  }
+}
+
+/* ---------- beacons: tags on working cards when zoomed out, and at the edge when off screen ---------- */
+.beacons {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  overflow: hidden;
+}
+.beacon {
+  position: absolute;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 260px;
+  height: 30px;
+  padding: 0 12px 0 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--branch) 45%, var(--border-2));
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 10px 28px -12px rgba(0, 0, 0, 0.5);
+  color: var(--text);
+  cursor: pointer;
+  transform: translate(-50%, -100%);
+  transition:
+    left 0.12s linear,
+    top 0.12s linear,
+    box-shadow 0.2s;
+  animation: beacon-in 0.3s var(--ease);
+}
+.beacon.edge {
+  transform: translate(-50%, -50%);
+}
+.beacon:hover {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--branch) 22%, transparent),
+    0 10px 28px -12px rgba(0, 0, 0, 0.5);
+}
+.beacon.waiting {
+  border-color: color-mix(in srgb, var(--warn) 60%, var(--border-2));
+}
+.beacon .live-line {
+  font-size: 12px;
+}
+.beacon-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--branch);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--branch) 60%, transparent);
+  animation: beacon-ping 1.6s ease-out infinite;
+}
+.beacon.waiting .beacon-dot {
+  background: var(--warn);
+}
+.beacon-arrow {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-right: -4px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--branch) 20%, transparent);
+  color: var(--text);
+}
+@keyframes beacon-ping {
+  70%,
+  100% {
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+@keyframes beacon-in {
+  from {
+    opacity: 0;
+  }
 }
