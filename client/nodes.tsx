@@ -8,6 +8,7 @@ import type { NoteNode, PendingPermission, TurnEvent, TurnNode } from '../shared
 import { Icon } from './icons.tsx';
 import { send, useStore, toast } from './store.ts';
 import { currentActivity, isLive, lastText } from './tree.ts';
+import { useReady } from './review.ts';
 
 export const NOTE_COLORS = ['#fde68a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#e9d5ff', '#e5e7eb'];
 
@@ -394,6 +395,14 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
   const files = editedFiles(node, branch?.cwd);
   const lessons = (node.lessons ?? []).filter((l) => !l.reviewed);
   const summary = live ? '' : lastText(node);
+  // Finished while you weren't looking: marked until you click it or start the next step.
+  const ready = useReady().has(node.id) && !live && !node.completed;
+  const readyPill = ready && (
+    <span className={`ready-pill ${node.status}`}>
+      <Icon name={node.status === 'error' ? 'x' : 'check'} size={11} strokeWidth={3} />
+      {node.status === 'error' ? 'Failed, take a look' : 'Ready for review'}
+    </span>
+  );
 
   const root = !node.parentId;
   // A card that just appeared slides in; older ones don't replay it when the view changes.
@@ -402,11 +411,11 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
     return (
       <>
       {root && <ThreadDone node={node} cover={data.cover} />}
-      <div className={`turn far status-${node.status} ${isTarget ? 'target' : ''} ${dim} ${fresh ? 'fresh' : ''}`} style={{ ['--branch' as any]: color }}>
+      <div className={`turn far status-${node.status} ${isTarget ? 'target' : ''} ${dim} ${fresh ? 'fresh' : ''} ${ready ? 'is-ready' : ''}`} style={{ ['--branch' as any]: color }}>
         <Handle type="target" position={Position.Top} />
         <div className="far-status">
           <StatusDot status={node.status} />
-          {isLive(node) ? <LiveLine node={node} big /> : STATUS_LABEL[node.status]}
+          {isLive(node) ? <LiveLine node={node} big /> : readyPill || STATUS_LABEL[node.status]}
           {lessons.length > 0 && (
             <span className="far-concepts">
               <span className="mentor-orb small" /> {lessons.length}
@@ -422,11 +431,11 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
   return (
     <>
     {root && <ThreadDone node={node} cover={data.cover} />}
-    <div className={`turn status-${node.status} ${isTarget ? 'target' : ''} ${isFresh(node.createdAt) ? 'fresh' : ''} ${dim}`} style={{ ['--branch' as any]: color }}>
+    <div className={`turn status-${node.status} ${isTarget ? 'target' : ''} ${isFresh(node.createdAt) ? 'fresh' : ''} ${dim} ${ready ? 'is-ready' : ''}`} style={{ ['--branch' as any]: color }}>
       <Handle type="target" position={Position.Top} />
       <div className="turn-head">
         {!node.completed && <StatusDot status={node.status} />}
-        {live ? <LiveLine node={node} /> : <span className="status-label">{node.completed ? 'Completed' : STATUS_LABEL[node.status]}</span>}
+        {live ? <LiveLine node={node} /> : readyPill || <span className="status-label">{node.completed ? 'Completed' : STATUS_LABEL[node.status]}</span>}
         <span className="spacer" />
         {node.imported ? (
           <span className="branch-tag" title="Brought in from Claude Code">

@@ -13,6 +13,7 @@ import {
 } from '@xyflow/react';
 import { startComment } from './Comments.tsx';
 import { Beacons } from './Beacons.tsx';
+import { clearReady, useReady } from './review.ts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Board, NoteNode, TurnNode } from '../shared/types.ts';
 import { composerFocus } from './Composer.tsx';
@@ -169,6 +170,7 @@ export function Canvas({
   // Pan to a card when asked (new card sent, sidebar click, notification tap). A card you just
   // sent can take a moment to arrive and be measured, so keep trying briefly.
   // While it works, the view follows it as it grows, until you move the view yourself.
+  const readyIds = useReady();
   const following = useRef<{ id: string; at: number; h: number } | null>(null);
   const centerRef = useRef(centerOn);
   centerRef.current = centerOn;
@@ -627,6 +629,7 @@ export function Canvas({
         onNodeClick={(e, n) => {
           const node = store.nodes[n.id];
           if (!isTurn(node)) return; // notes: clicking is for typing, don't move the view
+          clearReady(n.id); // You looked at it: no longer waiting for review.
           // ⇧ or ⌘ click adds to the selection (to move several at once); nothing else happens.
           if (e.shiftKey || e.metaKey || e.ctrlKey) return;
           // Buttons, links, checkboxes and approvals inside the card do their own thing.
@@ -680,6 +683,8 @@ export function Canvas({
         <Background variant={BackgroundVariant.Dots} gap={24} size={1.3} />
         <Beacons
           live={items.filter((n): n is TurnNode => isTurn(n) && isLive(n))}
+          ready={items.filter((n): n is TurnNode => isTurn(n) && !isLive(n) && readyIds.has(n.id))}
+          notes={items.filter((n): n is NoteNode => n.kind === 'note')}
           onGo={(id) => {
             const n = store.nodes[id];
             if (isTurn(n)) setTargetId(n.sessionId ? id : targetId);

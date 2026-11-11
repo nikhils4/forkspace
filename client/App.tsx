@@ -29,6 +29,7 @@ import { Settings, settingsTab } from './Settings.tsx';
 import { request, send, toast, useStore } from './store.ts';
 import { branchColor, STATUS_LABEL } from './nodes.tsx';
 import { isLive, isTurn, latestLeaf, leaves } from './tree.ts';
+import { clearReady, useWatchFinishes } from './review.ts';
 import { Segmented, Sheet, useIsMobile } from './ui.tsx';
 
 type View = 'chat' | 'canvas' | 'code' | 'map';
@@ -119,6 +120,7 @@ function Shell() {
   // Views are mounted on first visit and then kept alive, so switching never loses your place.
   const [visited, setVisited] = useState<Record<string, View[]>>({});
   const { waiting, running } = useAgents();
+  useWatchFinishes(store.nodes, store.loaded);
 
   const board = store.boards.find((b) => b.id === boardId) ?? store.boards[0] ?? null;
   const view: View = (board && views[board.id]) || (mobile ? 'chat' : 'canvas');
@@ -131,6 +133,7 @@ function Shell() {
   const setOpenId = useCallback(
     (id: string | null) => {
       setOpenIdRaw(id);
+      clearReady(id);
       const n = id ? store.nodes[id] : undefined;
       if (n && isTurn(n) && !isLive(n) && n.boardId === board?.id && n.sessionId && n.id !== targetId) setTargets((x) => ({ ...x, [n.boardId]: n.id }));
     },

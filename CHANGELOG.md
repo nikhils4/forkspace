@@ -3,6 +3,12 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.27.0
+
+- Ready for review: when a card finishes while you're looking elsewhere, it says "Ready for review" (or "Failed, take a look"), on the card and on a tag at the edge of the view pointing to it. It clears once you click the card, open it, or start the next step from it
+- Notes off screen get small, faint pointers at the edge of the view. They darken on hover; click one to fly to the note
+- Tags at the edge of the view now always stay fully visible, instead of being cut off on the right next to the details panel
+
 ## 0.26.0
 
 - Save a flow: keep any walkthrough under a name ("Checkout"). Saved flows sit at the top of the map and in the side list, and never get pushed out by newer questions
