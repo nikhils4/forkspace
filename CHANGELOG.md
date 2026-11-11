@@ -3,6 +3,13 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.19.0
+
+- Changes show while a step is still working, and for steps that were stopped: the branch folder as it is right now, new files included, refreshing as the agent edits
+- A step cut off by a restart or update gets its checkpoint when Forkspace starts again, so its changes are never lost from view
+- Steps that change nothing no longer make empty commits, and say so plainly: "This step didn't change any files"
+- Steps that run in your own project folder show their changes too, using a hidden snapshot (your branch and staging area are never touched)
+
 ## 0.18.1
 
 - Attached images and files on a card line up with the rest of the card instead of touching its edge

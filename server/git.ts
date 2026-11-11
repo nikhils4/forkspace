@@ -99,6 +99,45 @@ export async function diff(dir: string, from: string, to: string) {
   return git(dir, 'diff', '--no-color', from, to);
 }
 
+/**
+ * Changes in a folder since `base`, as it is right now: edited, deleted and brand-new files
+ * (new files git doesn't know yet included). Nothing is staged or committed.
+ */
+export async function liveDiff(dir: string, base: string): Promise<string> {
+  const tracked = await git(dir, 'diff', '--no-color', base).catch(() => '');
+  const untracked = (await git(dir, '-c', 'core.quotepath=off', 'ls-files', '-o', '--exclude-standard').catch(() => '')).split('\n').filter(Boolean).slice(0, 60);
+  const parts = [tracked];
+  for (const f of untracked) {
+    try {
+      if (fs.statSync(path.join(dir, f)).size > 400_000) {
+        parts.push(`diff --git a/${f} b/${f}\nnew file mode 100644\n--- /dev/null\n+++ b/${f}\n@@ new file, too big to show @@`);
+        continue;
+      }
+      await run('git', ['diff', '--no-color', '--no-index', '--', '/dev/null', f], { cwd: dir, env: GIT_ENV, maxBuffer: 8 * 1024 * 1024 });
+    } catch (e: any) {
+      // git diff --no-index exits 1 when the files differ, which is always here.
+      if (e?.stdout) parts.push(String(e.stdout).trim());
+    }
+  }
+  return parts.filter(Boolean).join('\n');
+}
+
+/** Counts for liveDiff: files, lines added and removed. */
+export async function liveStat(dir: string, base: string) {
+  const out = await git(dir, 'diff', '--shortstat', base).catch(() => '');
+  const num = (re: RegExp) => Number(out.match(re)?.[1] ?? 0);
+  const stat = { files: num(/(\d+) files? changed/), insertions: num(/(\d+) insertions?/), deletions: num(/(\d+) deletions?/) };
+  const untracked = (await git(dir, '-c', 'core.quotepath=off', 'ls-files', '-o', '--exclude-standard').catch(() => '')).split('\n').filter(Boolean);
+  for (const f of untracked.slice(0, 200)) {
+    stat.files++;
+    try {
+      const st = fs.statSync(path.join(dir, f));
+      if (st.size < 400_000) stat.insertions += fs.readFileSync(path.join(dir, f), 'utf8').split('\n').length;
+    } catch {}
+  }
+  return stat;
+}
+
 /** File contents at a commit, as raw bytes (null when the file did not exist there). */
 export async function showFile(cwd: string, ref: string, repoPath: string, maxBuffer: number): Promise<Buffer | null> {
   try {

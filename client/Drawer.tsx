@@ -44,6 +44,13 @@ export function Drawer({ node, onClose, onReply, composer }: { node: TurnNode; o
     setDiff(null);
     if (tab === 'changes') request<string>({ type: 'diff', nodeId: node.id }).then(setDiff, (e) => setDiff(`Could not load changes: ${e.message}`));
   }, [tab, node.id, node.commit]);
+  // While the agent works, the changes refresh as it edits and runs things.
+  const toolsDone = node.events.filter((e) => e.t === 'tool' && e.result != null).length;
+  useEffect(() => {
+    if (tab !== 'changes' || node.commit) return;
+    const t = setTimeout(() => request<string>({ type: 'diff', nodeId: node.id }).then(setDiff, () => {}), 600);
+    return () => clearTimeout(t);
+  }, [toolsDone, node.status]);
 
   useEffect(() => {
     // Esc closes the panel, but not while you're typing in it (the first Esc just leaves the box).
@@ -202,13 +209,15 @@ export function Drawer({ node, onClose, onReply, composer }: { node: TurnNode; o
           )}
 
           {tab === 'changes' &&
-            (!node.commit ? (
-              <div className="faint">Changes appear once the step finishes{branch?.worktree ? '' : ' (and only for boards that use a separate copy per branch)'}.</div>
+            (!node.baseCommit ? (
+              <div className="faint">{node.imported ? 'This step ran in Claude Code before it came into Forkspace, so its changes were not recorded.' : 'Changes are shown for projects in git. This folder is not one.'}</div>
             ) : diff == null ? (
               <div className="faint">Loading…</div>
             ) : diff === '' ? (
-              <div className="faint">No file changes in this step.</div>
+              <div className="faint">{live ? 'No files changed yet. They show up here as the agent edits.' : "This step didn't change any files. It only read code or ran commands."}</div>
             ) : (
+              <>
+              {!node.commit && <div className="faint small diff-live">{live ? 'Live: updates as the agent works.' : 'Not saved as a checkpoint yet. This is the folder as it is now.'}</div>}
               <pre className="diff">
                 {diff.split('\n').map((l, i) => (
                   <div
@@ -231,6 +240,7 @@ export function Drawer({ node, onClose, onReply, composer }: { node: TurnNode; o
                   </div>
                 ))}
               </pre>
+              </>
             ))}
         </div>
       </div>

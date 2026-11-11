@@ -121,11 +121,53 @@ export async function startTurn(boardId: string, parentId: string | null, prompt
   return node;
 }
 
+/**
+ * Record what a step changed. Separate copy per branch: a commit, as you, with a real message
+ * (skipped when nothing changed). Your own folder: a hidden snapshot, so nothing lands on your branch.
+ */
+export async function saveCheckpoint(board: Board, branch: Branch, node: TurnNode) {
+  try {
+    if (branch.worktree) {
+      const staged = await g.stageAll(branch.worktree);
+      if (!staged.stat.trim()) {
+        // Nothing changed: no empty commit, the step ends where it began.
+        node.commit = await g.git(branch.worktree, 'rev-parse', 'HEAD');
+        node.diffStat = { files: 0, insertions: 0, deletions: 0 };
+        return;
+      }
+      const history: string[] = [];
+      for (let p = node.parentId ? getTurn(node.parentId) : undefined; p && history.length < 6; p = p.parentId ? getTurn(p.parentId) : undefined) history.push(p.prompt);
+      const userBranch = board.repoRoot ? await g.git(board.repoRoot, 'rev-parse', '--abbrev-ref', 'HEAD').catch(() => '') : '';
+      const msg = await commitMessage({
+        prompt: node.prompt,
+        history,
+        summary: lastAgentText(node),
+        stat: staged.stat,
+        patch: staged.patch,
+        recent: await g.recentSubjects(branch.worktree),
+        branchName: userBranch,
+        cwd: branch.worktree,
+      });
+      node.commit = await g.checkpoint(branch.worktree, msg.subject, msg.body);
+      node.commitMessage = msg.subject;
+      if (node.baseCommit) node.diffStat = await g.diffStat(branch.worktree, node.baseCommit, node.commit);
+    } else if (board.repoRoot && node.baseCommit) {
+      node.commit = await g.snapshot(branch.cwd);
+      node.diffStat = await g.diffStat(branch.cwd, node.baseCommit, node.commit);
+    }
+  } catch (err: any) {
+    node.error = (node.error ? node.error + '\n' : '') + `Checkpoint failed: ${err?.message ?? err}`;
+  }
+}
+
 async function run(board: Board, branch: Branch, node: TurnNode, parent: TurnNode | null) {
   const r: Running = { abort: new AbortController(), queue: [], showNext: () => {} };
   running.set(node.id, r);
 
   if (branch.worktree) node.baseCommit = await g.git(branch.worktree, 'rev-parse', 'HEAD');
+  // Working in your own folder: remember how it looked (a hidden snapshot, your branch and index
+  // are untouched) so this step's changes can be shown.
+  else if (board.repoRoot) node.baseCommit = await g.snapshot(branch.cwd).catch(() => undefined);
 
   let promptText = node.prompt;
   if (parent?.sessionId) {
@@ -210,30 +252,7 @@ async function run(board: Board, branch: Branch, node: TurnNode, parent: TurnNod
     node.pending = undefined;
     node.events = node.events.filter((e) => !(e.t === 'text' && e.partial));
     node.finishedAt = Date.now();
-    if (branch.worktree) {
-      try {
-        // A real commit message, written from what changed, and authored as you.
-        const staged = await g.stageAll(branch.worktree);
-        const history: string[] = [];
-        for (let p = node.parentId ? getTurn(node.parentId) : undefined; p && history.length < 6; p = p.parentId ? getTurn(p.parentId) : undefined) history.push(p.prompt);
-        const userBranch = board.repoRoot ? await g.git(board.repoRoot, 'rev-parse', '--abbrev-ref', 'HEAD').catch(() => '') : '';
-        const msg = await commitMessage({
-          prompt: node.prompt,
-          history,
-          summary: lastAgentText(node),
-          stat: staged.stat,
-          patch: staged.patch,
-          recent: await g.recentSubjects(branch.worktree),
-          branchName: userBranch,
-          cwd: branch.worktree,
-        });
-        node.commit = await g.checkpoint(branch.worktree, msg.subject, msg.body);
-        node.commitMessage = msg.subject;
-        if (node.baseCommit) node.diffStat = await g.diffStat(branch.worktree, node.baseCommit, node.commit);
-      } catch (err: any) {
-        node.error = (node.error ? node.error + '\n' : '') + `Checkpoint failed: ${err?.message ?? err}`;
-      }
-    }
+    await saveCheckpoint(board, branch, node);
     touch(node);
     // The app changed: snap the preview so the step shows what it looks like now.
     const changedFiles = !!node.diffStat?.files || node.events.some((e) => e.t === 'tool' && ['Edit', 'Write', 'MultiEdit', 'NotebookEdit'].includes(e.name));

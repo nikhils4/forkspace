@@ -21,6 +21,7 @@ import { awayStatus, noteDevice, setAway } from './away.ts';
 import { capture, deleteShot, imageType, readShot, saveShot } from './shots.ts';
 import { attachTerminal, closeBoardTerminals, closeTerminal, listTerminals, openTerminal, resizeTerminal, setTerminalEmitter, setTerminalRemoteAllowed, terminalRemoteAllowed, terminalSupported, writeTerminal } from './terminal.ts';
 import { checkAttachments, deleteAttachment, saveAttachment } from './attachments.ts';
+import { saveCheckpoint } from './runner.ts';
 import { answer, isRunning, pruneBranches, setActivityHook, setEmitter, setNotifier, startTurn, stop, touch } from './runner.ts';
 import { explain, onActivity, organizeConcepts, readImageText, setTutorTouch, threadTitle, tidyDictation } from './tutor.ts';
 import { flush, getBoard, getBranch, getNode, getTurn, save, state, subtree } from './store.ts';
@@ -505,8 +506,15 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
     case 'diff': {
       const turn = getTurn(msg.nodeId);
       const board = turn && getBoard(turn.boardId);
-      if (!turn?.baseCommit || !turn.commit || !board?.repoRoot) return '';
-      return g.diff(board.repoRoot, turn.baseCommit, turn.commit);
+      const branch = turn && getBranch(turn.branchId);
+      if (!turn?.baseCommit || !board?.repoRoot || !branch) return '';
+      const dir = branch.worktree ?? branch.cwd;
+      if (turn.commit) return g.diff(dir, turn.baseCommit, turn.commit);
+      // Not saved yet (still working, or stopped before it could be): the step after it on this
+      // branch marks where it ended; if there is none, show the folder as it is right now.
+      const next = state.nodes.find((n): n is TurnNode => n.kind === 'turn' && n.parentId === turn.id && n.branchId === turn.branchId && !!n.baseCommit);
+      if (next?.baseCommit) return g.diff(dir, turn.baseCommit, next.baseCommit);
+      return g.liveDiff(dir, turn.baseCommit);
     }
     case 'listSessions': {
       const board = getBoard(msg.boardId);
@@ -751,6 +759,21 @@ server.on('error', (err: NodeJS.ErrnoException) => {
   console.error(err);
   process.exit(1);
 });
+// A step cut off by a restart (an update, a crash) never got its checkpoint: save it now, so
+// its changes show up and the next step starts from them.
+async function recoverCheckpoints() {
+  for (const n of state.nodes) {
+    if (n.kind !== 'turn' || n.status !== 'stopped' || n.commit || !n.baseCommit) continue;
+    const branch = getBranch(n.branchId);
+    const board = getBoard(n.boardId);
+    if (!branch?.worktree || !board || branch.headNodeId !== n.id || !fs.existsSync(branch.worktree)) continue;
+    await saveCheckpoint(board, branch, n);
+    broadcast({ type: 'node', node: n });
+  }
+  save();
+}
+setTimeout(() => void recoverCheckpoints().catch(() => {}), 3000);
+
 server.listen(PORT, HOST, () => {
   console.log(`\n  Forkspace → http://localhost:${PORT}\n`);
   // Check for updates in the background now and every few hours.
