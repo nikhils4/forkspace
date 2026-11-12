@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import type { Board, Branch, CanvasNode, ClientMsg, ServerMsg, UpdateInfo } from '../shared/types.ts';
+import type { Board, Branch, CanvasNode, ClientMsg, ConceptDoc, ServerMsg, UpdateInfo } from '../shared/types.ts';
 
 export type AuthState = 'checking' | 'pairing' | 'ok' | 'unreachable';
 
@@ -12,12 +12,14 @@ export interface Snapshot {
   boards: Board[];
   branches: Record<string, Branch>;
   nodes: Record<string, CanvasNode>;
+  /** Thread notes kept in Concepts. */
+  concepts: ConceptDoc[];
   toasts: { id: number; level: 'info' | 'error'; text: string }[];
   /** Live progress of an update started from this or another device. */
   update?: { stage: string; done?: boolean; error?: string };
 }
 
-let snap: Snapshot = { auth: 'checking', connected: false, loaded: false, home: '', boards: [], branches: {}, nodes: {}, toasts: [] };
+let snap: Snapshot = { auth: 'checking', connected: false, loaded: false, home: '', boards: [], branches: {}, nodes: {}, concepts: [], toasts: [] };
 const listeners = new Set<() => void>();
 const set = (patch: Partial<Snapshot>) => {
   snap = { ...snap, ...patch };
@@ -105,7 +107,11 @@ function onMessage(msg: ServerMsg) {
         boards: msg.state.boards,
         branches: Object.fromEntries(msg.state.branches.map((b) => [b.id, b])),
         nodes: Object.fromEntries(msg.state.nodes.map((n) => [n.id, n])),
+        concepts: msg.state.concepts ?? [],
       });
+      break;
+    case 'concepts':
+      set({ concepts: msg.concepts });
       break;
     case 'board': {
       const i = snap.boards.findIndex((b) => b.id === msg.board.id);

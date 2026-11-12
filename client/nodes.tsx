@@ -1,4 +1,5 @@
 import { Handle, NodeResizer, Position, useStore as useRFStore, type NodeProps } from '@xyflow/react';
+import { NoteTab, startsThread } from './ThreadNotes.tsx';
 import { CardComments, startComment } from './Comments.tsx';
 import { memo, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
@@ -315,6 +316,7 @@ function ThreadDone({ node, cover }: { node: TurnNode; cover?: { id: string; nod
         </>
       )}
       <ThreadTitle node={node} />
+      <NoteTab branchId={node.branchId} inline />
       <span className="thread-done-line short" />
     </div>
   );
@@ -381,7 +383,7 @@ function editedFiles(node: TurnNode, cwd?: string) {
 export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: TurnData }) {
   const { node, onOpen, onReply, isTarget, faded } = data;
   const dim = node.completed ? 'completed' : faded ? 'faded' : '';
-  const { branches } = useStore();
+  const { branches, nodes } = useStore();
   // Zoomed far out: show just the essentials so big boards stay readable.
   const far = useRFStore((st) => st.transform[2] < 0.55);
   const [steps, setSteps] = useState(false);
@@ -391,7 +393,6 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
   const isHead = branch?.headNodeId === node.id;
   const tools = node.events.filter((e): e is Extract<TurnEvent, { t: 'tool' }> => e.t === 'tool');
   const files = editedFiles(node, branch?.cwd);
-  const lessons = (node.lessons ?? []).filter((l) => !l.reviewed);
   const summary = live ? '' : lastText(node);
   // Finished while you weren't looking: marked until you click it or start the next step.
   const ready = useReady().has(node.id) && !live && !node.completed;
@@ -414,11 +415,6 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
         <div className="far-status">
           <StatusDot status={node.status} />
           {isLive(node) ? <LiveLine node={node} big /> : readyPill || STATUS_LABEL[node.status]}
-          {lessons.length > 0 && (
-            <span className="far-concepts">
-              <span className="mentor-orb small" /> {lessons.length}
-            </span>
-          )}
         </div>
         <div className="far-prompt">{node.prompt}</div>
         <Handle type="source" position={Position.Bottom} />
@@ -488,28 +484,6 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
         </div>
       )}
 
-      {(lessons.length > 0 || node.learning) && (
-        <div className="turn-concepts nodrag">
-          {lessons.slice(-2).map((l) => (
-            <button key={l.id} className="concept-chip" onClick={() => onOpen(node.id)} title={l.body}>
-              <span className="mentor-orb small" />
-              <span className="ellipsis">{l.title}</span>
-            </button>
-          ))}
-          {lessons.length > 2 && (
-            <button className="concept-chip more" onClick={() => onOpen(node.id)}>
-              +{lessons.length - 2}
-            </button>
-          )}
-          {node.learning && (
-            <span className="concept-chip pending">
-              <span className="mentor-orb small" />
-              <span className="shimmer-text">Finding a concept…</span>
-            </span>
-          )}
-        </div>
-      )}
-
       {tools.length > 0 && (
         <button className="steps-toggle nodrag" onClick={() => setSteps(!steps)}>
           <Icon name="chevronRight" size={12} className={steps ? 'open' : ''} />
@@ -546,6 +520,7 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
       </div>
       <Handle type="source" position={Position.Bottom} />
     </div>
+    {!root && startsThread(node, nodes) && <NoteTab branchId={node.branchId} />}
     <button className="cmt-plus nodrag" onClick={() => startComment(node.id)} title="Add a comment (only for you)" aria-label="Add a comment">
       <Icon name="plus" size={13} />
     </button>

@@ -3,7 +3,7 @@ import { Attachments } from './Shots.tsx';
 import type { TurnNode } from '../shared/types.ts';
 import { ContextMenu, type MenuItem } from './ContextMenu.tsx';
 import { Icon } from './icons.tsx';
-import { LessonCard } from './Learn.tsx';
+import { NoteBar, openThreadNote } from './ThreadNotes.tsx';
 import { LiveLine, Md, STATUS_LABEL, StatusDot, ToolLine, branchColor } from './nodes.tsx';
 import { isLocalPage, openTerminalFor, request, toast, useStore } from './store.ts';
 import { isLive, isTurn } from './tree.ts';
@@ -42,21 +42,6 @@ export function Drawer({ node, onClose, onReply, onGo, composer }: { node: TurnN
   const [diff, setDiff] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [long, setLong] = useState(false);
-  const concepts = useRef<HTMLDivElement>(null);
-
-  // New concepts never pull you away from what you're reading: they just appear, folded,
-  // at the end. Only one you asked for (Explain) brings the Summary tab forward.
-  const count = node.lessons?.length ?? 0;
-  const open = (node.lessons ?? []).filter((l) => !l.reviewed);
-  const seenCount = useRef(count);
-  useEffect(() => {
-    const newest = node.lessons?.[count - 1];
-    if (count > seenCount.current && newest?.asked) {
-      setTimeout(() => concepts.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
-    }
-    seenCount.current = count;
-  }, [count]);
-
   useEffect(() => {
     setDiff(null);
     request<string>({ type: 'diff', nodeId: node.id }).then(setDiff, () => setDiff(''));
@@ -93,18 +78,7 @@ export function Drawer({ node, onClose, onReply, onGo, composer }: { node: TurnN
     ...(branch?.gitBranch ? [{ label: 'Copy branch name', icon: 'branch' as const, onClick: () => copy(branch.gitBranch!, 'Branch name') }] : []),
     { label: 'Copy prompt', icon: 'copy', onClick: () => copy(node.prompt, 'Prompt') },
     'sep',
-    {
-      label: 'Explain this step',
-      icon: 'spark',
-      disabled: isLive(node),
-      onClick: () => {
-        toast('Explaining this step…');
-        request<{ title: string }>({ type: 'explain', nodeId: node.id }).then(
-          (l) => toast(`Explained: ${l.title}`),
-          (e) => toast(e.message, 'error'),
-        );
-      },
-    },
+    ...(branch?.note?.markdown || branch?.note?.busy ? [{ label: 'Thread notes', icon: 'note' as const, onClick: () => openThreadNote(node.branchId) }] : []),
     ...(branch
       ? [
           {
@@ -183,6 +157,9 @@ export function Drawer({ node, onClose, onReply, onGo, composer }: { node: TurnN
 
       <div className={`drawer-scroll ${slide ? `slide-${slide}` : ''}`} ref={scroller}>
         <StepPullHint pull={pull} dir="up" target={onGo && prev} step={path.length - 1} />
+        <div className="ds ds-note">
+          <NoteBar branchId={node.branchId} />
+        </div>
         <section className="ds">
           <div className="ds-label">You asked</div>
           <div className={`drawer-prompt ${long ? 'open' : ''}`} onClick={() => setLong(!long)} title={long ? '' : 'Show all'}>
@@ -246,17 +223,6 @@ export function Drawer({ node, onClose, onReply, onGo, composer }: { node: TurnN
             </div>
           )}
         </section>
-
-        {(open.length > 0 || node.learning) && (
-          <section className="ds" ref={concepts}>
-            <div className="ds-label">
-              <span className="mentor-orb small" /> Worth knowing
-            </div>
-            {open.map((l, i) => (
-              <LessonCard key={l.id} lesson={l} compact={i > 0} review />
-            ))}
-          </section>
-        )}
 
         {tools > 0 && (
           <details className="ds ds-fold">

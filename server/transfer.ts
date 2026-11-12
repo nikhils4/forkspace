@@ -314,7 +314,7 @@ export async function applyImport(id: string, folders: Record<string, string>): 
 
     const nodes = payload.nodes
       .filter((n) => n.boardId === old.id)
-      .map((n) => (n.kind === 'turn' && (n.status === 'running' || n.status === 'waiting') ? { ...n, status: 'stopped' as const, pending: undefined, learning: false } : n))
+      .map((n) => (n.kind === 'turn' && (n.status === 'running' || n.status === 'waiting') ? { ...n, status: 'stopped' as const, pending: undefined } : n))
       .filter((n) => !state.nodes.some((x) => x.id === n.id));
 
     // Conversations: put each transcript where Claude Code looks for it from its branch's folder.

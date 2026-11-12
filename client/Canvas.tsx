@@ -11,6 +11,7 @@ import {
   type Node,
   type NodeChange,
 } from '@xyflow/react';
+import { openThreadNote } from './ThreadNotes.tsx';
 import { startComment } from './Comments.tsx';
 import { Beacons } from './Beacons.tsx';
 import { clearReady, useReady } from './review.ts';
@@ -463,21 +464,7 @@ export function Canvas({
       { label: 'Terminal here', icon: 'terminal', hint: 'This card’s folder', onClick: () => openTerminalFor(node.branchId) },
       { label: 'Center', icon: 'canvas', onClick: () => centerOn(node.id) },
       'sep',
-      {
-        label: 'Explain this step',
-        icon: 'spark',
-        disabled: live,
-        onClick: () => {
-          toast('Explaining this step…');
-          request<{ title: string }>({ type: 'explain', nodeId: node.id }).then(
-            (l) => {
-              toast(`Explained: ${l.title}`);
-              openDetails(node.id);
-            },
-            (e: Error) => toast(e.message, 'error'),
-          );
-        },
-      },
+      ...(store.branches[node.branchId]?.note?.markdown ? [{ label: 'Thread notes', icon: 'note' as const, onClick: () => openThreadNote(node.branchId) }] : []),
       { label: 'Copy prompt', icon: 'copy', onClick: () => copy(node.prompt, 'Prompt') },
       ...(board.previewUrl ? [{ label: 'Screenshot my app now', icon: 'external' as const, onClick: () => snapPreview(node.id) }] : []),
       { label: 'Add screenshot…', icon: 'file', hint: '⌘V', onClick: () => pickShot(node.id) },

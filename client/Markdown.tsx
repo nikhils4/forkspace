@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 
 // Markdown for agent replies, summaries and concepts: headings, lists (nested, numbered, tasks),
 // tables, quotes, rules, code, links. Built as React elements, never raw HTML, so nothing an
@@ -7,6 +7,28 @@ import type { ReactNode } from 'react';
 type CodeRender = (code: string, lang: string, key: number) => ReactNode;
 
 const SAFE_URL = /^(https?:|mailto:)/i;
+
+/** Where a `path:line` in the text should open. Without one, code stays plain. */
+export const CodeRefCtx = createContext<((path: string, line?: number) => void) | null>(null);
+const REF = /^([\w@~.\/-]*[\w-]\.[a-zA-Z0-9]{1,6})(?::(\d+)(?:-\d+)?)?$/;
+
+function Code({ text }: { text: string }) {
+  const open = useContext(CodeRefCtx);
+  const m = open ? text.match(REF) : null;
+  if (!open || !m || !m[1].includes('/') && !m[2]) return <code>{text}</code>;
+  return (
+    <code
+      className="code-ref"
+      role="link"
+      tabIndex={0}
+      title={`Open ${m[1]}${m[2] ? ` at line ${m[2]}` : ''}`}
+      onClick={(e) => (e.stopPropagation(), open(m[1], m[2] ? Number(m[2]) : undefined))}
+      onKeyDown={(e) => e.key === 'Enter' && open(m[1], m[2] ? Number(m[2]) : undefined)}
+    >
+      {text}
+    </code>
+  );
+}
 
 /** Inline: `code`, **bold**, *italic*, ~~strike~~, [links](url) and bare URLs. */
 export function inline(s: string, keyBase = 0): ReactNode[] {
@@ -18,7 +40,7 @@ export function inline(s: string, keyBase = 0): ReactNode[] {
   while ((m = re.exec(s))) {
     if (m.index > last) out.push(s.slice(last, m.index));
     const t = m[0];
-    if (m[1]) out.push(<code key={k++}>{t.slice(1, -1)}</code>);
+    if (m[1]) out.push(<Code key={k++} text={t.slice(1, -1)} />);
     else if (m[2]) out.push(<b key={k++}>{inline(t.slice(2, -2), k * 100)}</b>);
     else if (m[3]) out.push(<s key={k++}>{inline(t.slice(2, -2), k * 100)}</s>);
     else if (m[4]) {

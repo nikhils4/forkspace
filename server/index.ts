@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { nanoid } from 'nanoid';
 import { WebSocketServer, type WebSocket } from 'ws';
-import { EFFORT_LEVELS, conceptKey, type Board, type EffortLevel, type Branch, type ClientMsg, type ServerMsg, type TurnNode } from '../shared/types.ts';
+import { EFFORT_LEVELS, type Board, type EffortLevel, type Branch, type ClientMsg, type ServerMsg, type TurnNode } from '../shared/types.ts';
 import { openFolder } from './editor.ts';
 import { listFiles, readFile } from './files.ts';
 import { importSessions, listImportable } from './importer.ts';
@@ -25,7 +25,8 @@ import { checkAttachments, deleteAttachment, saveAttachment } from './attachment
 import { saveCheckpoint } from './runner.ts';
 import { askMap, buildMap, forgetAnswer, linkCheck, loadAnswers, loadMap, mapIsStale, saveFlow, zoomItem } from './codemap.ts';
 import { answer, isRunning, pruneBranches, queueMessage, runQueued, setActivityHook, setEmitter, setNotifier, startTurn, stop, touch } from './runner.ts';
-import { explain, onActivity, organizeConcepts, readImageText, setTutorTouch, threadTitle, tidyDictation } from './tutor.ts';
+import { readImageText, threadTitle, tidyDictation } from './tutor.ts';
+import { deleteConcept, keepNote, noteAfterStep, refreshNote, setNotesEmit } from './threadnotes.ts';
 import { flush, getBoard, getBranch, getNode, getTurn, save, state, subtree } from './store.ts';
 
 const PORT = Number(process.env.PORT || 4747);
@@ -284,8 +285,10 @@ function broadcast(msg: ServerMsg) {
   for (const c of clients) if (c.readyState === c.OPEN) c.send(data);
 }
 setEmitter(broadcast);
-setTutorTouch(touch);
-setActivityHook(onActivity);
+setNotesEmit(broadcast);
+setActivityHook((node, final) => {
+  if (final) noteAfterStep(node);
+});
 
 const send = (ws: WebSocket, msg: ServerMsg) => ws.send(JSON.stringify(msg));
 
@@ -597,8 +600,6 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
         },
       );
     }
-    case 'organizeConcepts':
-      return organizeConcepts(os.homedir());
     case 'tidyDictation': {
       const text = String(msg.text ?? '').slice(0, 6000);
       const board = getBoard(msg.boardId);
@@ -622,11 +623,16 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
         return { text };
       }
     }
-    case 'explain': {
-      const turn = getTurn(msg.nodeId);
-      if (!turn) throw new Error('Step not found');
-      return explain(turn, msg.path);
+    case 'refreshNote': {
+      if (!getBranch(msg.branchId)) throw new Error('Thread not found');
+      void refreshNote(msg.branchId);
+      return { ok: true };
     }
+    case 'keepNote':
+      return keepNote(msg.branchId);
+    case 'deleteConcept':
+      deleteConcept(String(msg.id));
+      return { ok: true };
     case 'files': {
       const { board, branch } = filesOf(msg.branchId);
       return listFiles(board, branch);
@@ -685,45 +691,6 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       deleteShot(msg.shotId);
       save();
       broadcast({ type: 'node', node: t });
-      return;
-    }
-    case 'practiceConcept': {
-      // Spaced practice: each time you know it, it comes back later (now, 1, 3, 7, 21 days).
-      const key = conceptKey(String(msg.key ?? ''));
-      if (!key) return;
-      const DAYS = [0, 1, 3, 7, 21];
-      let box = 0;
-      for (const n of state.nodes) if (n.kind === 'turn') for (const l of n.lessons ?? []) if ((l.key || conceptKey(l.title)) === key) box = Math.max(box, l.memory?.box ?? 0);
-      box = msg.knew ? Math.min(4, box + 1) : 0;
-      const memory = { box, due: Date.now() + DAYS[box] * 86_400_000 + (msg.knew ? 0 : 10 * 60_000) };
-      for (const n of state.nodes) {
-        if (n.kind !== 'turn' || !n.lessons?.length) continue;
-        let changed = false;
-        for (const l of n.lessons)
-          if ((l.key || conceptKey(l.title)) === key) {
-            l.memory = memory;
-            changed = true;
-          }
-        if (changed) broadcast({ type: 'node', node: n });
-      }
-      save();
-      return memory;
-    }
-    case 'reviewConcept': {
-      // A concept is one idea, so "Got it" applies to every lesson about it, on every step.
-      const key = conceptKey(String(msg.key ?? ''));
-      if (!key) return;
-      for (const n of state.nodes) {
-        if (n.kind !== 'turn' || !n.lessons?.length) continue;
-        let changed = false;
-        for (const l of n.lessons)
-          if ((l.key || conceptKey(l.title)) === key && !!l.reviewed !== !!msg.reviewed) {
-            l.reviewed = !!msg.reviewed || undefined;
-            changed = true;
-          }
-        if (changed) broadcast({ type: 'node', node: n });
-      }
-      save();
       return;
     }
     case 'setTitle': {

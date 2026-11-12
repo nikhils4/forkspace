@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Attachments } from './Shots.tsx';
-import { LessonCard, MentorWorking } from './Learn.tsx';
+import { NoteBar } from './ThreadNotes.tsx';
 import type { Board, TurnEvent, TurnNode } from '../shared/types.ts';
 import { composerFocus } from './Composer.tsx';
 import { Icon } from './icons.tsx';
@@ -55,17 +55,6 @@ function Turn({ t, isLast, forkHere, openDetails }: { t: TurnNode; isLast: boole
   const cwd = branches[t.branchId]?.cwd;
   const live = isLive(t);
   const groups = group(t.events);
-  const [explaining, setExplaining] = useState(false);
-  const lessons = (t.lessons ?? []).filter((l) => !l.reviewed);
-  const explainStep = async () => {
-    setExplaining(true);
-    try {
-      await request({ type: 'explain', nodeId: t.id });
-    } catch (e: any) {
-      toast(e.message, 'error');
-    }
-    setExplaining(false);
-  };
   return (
     <div className={`msg-pair ${isFresh(t.createdAt) ? 'fresh' : ''}`} style={{ ['--branch' as any]: branchColor(t.branchId) }}>
       <div className="bubble-user">
@@ -85,14 +74,6 @@ function Turn({ t, isLast, forkHere, openDetails }: { t: TurnNode; isLast: boole
           )}
           {t.error && <div className="error-box">{t.error}</div>}
           {t.pending && <Permission node={t} p={t.pending} />}
-          {(lessons.length > 0 || t.learning || explaining) && (
-            <div className="msg-lessons">
-              {lessons.map((l, i) => (
-                <LessonCard key={l.id} lesson={l} compact={i > 0} review />
-              ))}
-              {(t.learning || explaining) && <MentorWorking label={explaining ? 'Explaining…' : undefined} />}
-            </div>
-          )}
           <div className="msg-meta">
             <StatusDot status={t.status} />
             <span className="meta-status">{STATUS_LABEL[t.status]}</span>
@@ -109,11 +90,6 @@ function Turn({ t, isLast, forkHere, openDetails }: { t: TurnNode; isLast: boole
                   <Icon name="branch" size={12} /> Branch<span className="hide-sm">{' here'}</span>
                 </button>
               )
-            )}
-            {!live && t.events.length > 0 && (
-              <button className="btn ghost xs" onClick={explainStep} disabled={explaining} title="Learn the concept behind this step">
-                <Icon name="spark" size={12} /> Explain
-              </button>
             )}
             <button className="btn ghost xs" onClick={openDetails}>
               Details
@@ -250,6 +226,11 @@ export function Chat({
           const next = path[i + 1];
           return (
             <Fragment key={t.id}>
+              {(i === 0 || path[i - 1].branchId !== t.branchId) && (
+                <div className="chat-note">
+                  <NoteBar branchId={t.branchId} />
+                </div>
+              )}
               <Turn
                 t={t}
                 isLast={i === path.length - 1}

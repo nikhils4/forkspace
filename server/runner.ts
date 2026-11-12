@@ -6,6 +6,7 @@ import type { Attachment, Board, Branch, PendingPermission, Position, TurnEvent,
 import { INLINE_IMAGE_MAX, attachmentPath, imageBytes } from './attachments.ts';
 import * as g from './git.ts';
 import { commitMessage, threadTitle } from './tutor.ts';
+import { archiveNote } from './threadnotes.ts';
 import { capture } from './shots.ts';
 import { ensureSessionAt } from './sessions.ts';
 import { HOME, getBoard, getBranch, getTurn, save, state } from './store.ts';
@@ -430,6 +431,8 @@ async function prune() {
     if (used.has(b.id)) continue;
     const i = state.branches.indexOf(b);
     if (i < 0) continue;
+    // The thread is gone; its note moves to Concepts.
+    archiveNote(b);
     state.branches.splice(i, 1);
     const board = getBoard(b.boardId);
     if (b.worktree && board?.repoRoot) await g.removeWorktree(board.repoRoot, b.worktree, b.gitBranch).catch(() => {});

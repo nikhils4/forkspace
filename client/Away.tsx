@@ -185,14 +185,11 @@ export function AwayScreen({ onGoTo }: { onGoTo: (t: TurnNode) => void }) {
     const add: Line[] = [];
     for (const n of Object.values(store.nodes)) {
       if (!isTurn(n)) continue;
-      const lessons = n.lessons ?? [];
-      const sig = `${n.status}|${n.events.length}|${lessons.length}`;
+      const sig = `${n.status}|${n.events.length}`;
       const prev = last.current.get(n.id);
       last.current.set(n.id, sig);
       if (prev === undefined || prev === sig) continue;
       const where = boards[n.boardId] ?? 'Forkspace';
-      const newest = lessons[lessons.length - 1];
-      if (newest && !prev.endsWith(`|${lessons.length}`)) add.push({ id: `${n.id}-l${lessons.length}`, text: newest.title, sub: `Concept · ${where}`, tone: 'learn' });
       if (n.status === 'waiting' && !prev.startsWith('waiting')) add.push({ id: `${n.id}-w${n.events.length}`, text: `Needs you: ${n.pending?.toolName ?? 'a decision'}`, sub: where, tone: 'need' });
       else if (n.status === 'done' && !prev.startsWith('done')) add.push({ id: `${n.id}-d`, text: `Done: ${plain(n.prompt).slice(0, 70)}`, sub: where, tone: 'done' });
       else if (isLive(n)) add.push({ id: `${n.id}-${n.events.length}`, text: currentActivity(n).slice(0, 90), sub: where });
@@ -207,7 +204,7 @@ export function AwayScreen({ onGoTo }: { onGoTo: (t: TurnNode) => void }) {
   const needs = turns.filter((t) => t.status === 'waiting');
   const since = openedAt.current;
   const finished = turns.filter((t) => t.status === 'done' && (t.finishedAt ?? 0) > since).length;
-  const learned = turns.reduce((s, t) => s + (t.lessons ?? []).filter((l) => l.at > since).length, 0);
+  const learned = Object.values(store.branches).filter((b) => (b.note?.updatedAt ?? 0) > since).length;
   const phone = a.remoteConnected > 0;
   const mac = a.platform === 'darwin' ? 'Mac' : 'computer';
   const d = new Date(now);
@@ -220,7 +217,7 @@ export function AwayScreen({ onGoTo }: { onGoTo: (t: TurnNode) => void }) {
   const back = async () => {
     close();
     await setAway(false);
-    const bits = [finished && `${finished} step${finished === 1 ? '' : 's'} finished`, learned && `${learned} new concept${learned === 1 ? '' : 's'}`, needs.length && `${needs.length} waiting for you`].filter(Boolean);
+    const bits = [finished && `${finished} step${finished === 1 ? '' : 's'} finished`, learned && `${learned} thread note${learned === 1 ? '' : 's'} updated`, needs.length && `${needs.length} waiting for you`].filter(Boolean);
     toast(bits.length ? `Welcome back. ${bits.join(', ')}.` : 'Welcome back. All quiet while you were gone.');
   };
 
@@ -267,7 +264,7 @@ export function AwayScreen({ onGoTo }: { onGoTo: (t: TurnNode) => void }) {
             </span>
             {(finished > 0 || learned > 0) && (
               <span className="aw-chip">
-                <i /> {[finished && `${finished} done`, learned && `${learned} learned`].filter(Boolean).join(' · ')}
+                <i /> {[finished && `${finished} done`, learned && `${learned} notes updated`].filter(Boolean).join(' · ')}
               </span>
             )}
           </div>

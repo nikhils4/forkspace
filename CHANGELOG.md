@@ -5,6 +5,10 @@ To cut one: add a section below, then run `npm run release -- <version>`.
 
 ## 0.27.0
 
+- Thread notes: every thread gets one note at its top, kept up to date by Claude after each step. It says what the thread is for, every change made (with links to the code), how it works step by step with each if/else spelled out, what was decided, and what's still open. Click any `file:line` in it to open that spot in the Code view
+- Find a thread's notes on the tab above its first card, at the top of the details panel and the chat, or from the card's menu. Rewrite them from scratch any time
+- Concepts is now your threads, explained: when you delete a thread its note moves there (or keep one there any time; it stays in sync while the thread lives). Search across everything you've built
+- The old tech concepts (and Practice) are gone, cleared once on every device when it updates. "Learn concepts" in board settings is now "Thread notes"
 - Forgot something while an agent is working? Send it anyway: it waits on the card ("1 queued") and runs as the next step in the same thread as soon as the agent finishes, even with the page closed. Several become one step, in order. Drop any of them with × above the message box. If the agent was stopped or failed, they stay put until you press Send now
 - Choose a board's effort (how hard the model thinks) right under the model: Default, Low, Medium, High, Extra high or Max. Only the levels the chosen model takes are offered, each explained in a line
 - Pick a board's model at the top of Board settings: the newest Opus, Sonnet, Haiku, Fable and Mythos, with older versions folded under "More versions". The list comes from your Claude account, so new models show up on their own

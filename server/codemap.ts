@@ -145,11 +145,11 @@ async function facts(root: string) {
 }
 
 /** Run a read-only Claude session that ends in structured output, reporting what it reads. */
-async function readOnly<T>(prompt: string, system: string, schema: object, cwd: string, onProgress: Progress, maxTurns: number): Promise<T> {
+export async function readOnly<T>(prompt: string, system: string, schema: object, cwd: string, onProgress: Progress, maxTurns: number, model = MODEL): Promise<T> {
   const q = query({
     prompt,
     options: {
-      model: MODEL,
+      model,
       cwd,
       tools: READ_ONLY,
       allowedTools: READ_ONLY,

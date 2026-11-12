@@ -35,33 +35,6 @@ export interface LearnSettings {
   level: LearnLevel;
 }
 
-export type LessonKind = 'concept' | 'why' | 'pattern' | 'watch' | 'explain';
-
-export interface Lesson {
-  id: string;
-  kind: LessonKind;
-  title: string;
-  body: string;
-  /** File the lesson is about, relative to the branch folder. */
-  file?: string;
-  /** A few real lines from the change. */
-  snippet?: string;
-  check?: { question: string; options: string[]; answer: number; why?: string };
-  at: number;
-  /** Canonical name, lowercase ("memoization"). Two lessons with the same key are the same concept. */
-  key?: string;
-  /** Where in tech the concept belongs (one of CONCEPT_AREAS). */
-  area?: string;
-  /** Keys of other concepts this one connects to. */
-  related?: string[];
-  /** You asked for this one (Explain), rather than the mentor offering it. */
-  asked?: boolean;
-  /** You marked it "Got it": it leaves the step views and stays in Concepts. */
-  reviewed?: boolean;
-  /** Practice: how well you know it (0 new … 4 solid) and when to see it again. */
-  memory?: { box: number; due: number };
-}
-
 /** A user-drawn connection (note to node, node to node). */
 export interface Link {
   id: string;
@@ -81,6 +54,35 @@ export interface Branch {
   headNodeId?: string;
   /** Brought in from an existing Claude Code session; runs in the board's own folder. */
   imported?: boolean;
+  /** The thread's living note: what it's for, what changed, how it works. */
+  note?: ThreadNote;
+}
+
+/** A thread's note, rewritten by Claude after each step. */
+export interface ThreadNote {
+  title: string;
+  /** Markdown, with code referenced as `path:line`. */
+  markdown: string;
+  updatedAt: number;
+  /** Steps folded in so far. */
+  steps: number;
+  /** Being rewritten right now. */
+  busy?: boolean;
+  error?: string;
+}
+
+/** A thread's note kept after the thread is gone (or saved by hand): what Concepts shows. */
+export interface ConceptDoc {
+  id: string;
+  boardId: string;
+  boardName: string;
+  /** The branch it came from, so saving again updates it instead of adding another. */
+  branchId: string;
+  title: string;
+  markdown: string;
+  steps: number;
+  createdAt: number;
+  at: number;
 }
 
 export type TurnStatus = 'running' | 'waiting' | 'done' | 'error' | 'stopped';
@@ -233,12 +235,9 @@ export interface TurnNode {
   pending?: PendingPermission;
   /** Messages you sent while this step was working. They run as the next step once it finishes. */
   queued?: QueuedMessage[];
-  lessons?: Lesson[];
   /** Imported turns: resume the session at this message to continue from exactly here. */
   resumeAt?: string;
   imported?: boolean;
-  /** Mentor is writing a lesson right now. */
-  learning?: boolean;
   position: Position;
   createdAt: number;
   finishedAt?: number;
@@ -277,6 +276,10 @@ export interface State {
   boards: Board[];
   branches: Branch[];
   nodes: CanvasNode[];
+  /** Thread notes kept in Concepts. */
+  concepts?: ConceptDoc[];
+  /** Old-style tech concepts were cleared from this workspace (one time). */
+  conceptsV2?: boolean;
 }
 
 // ---- wire protocol ----
@@ -284,7 +287,11 @@ export interface State {
 export type ClientMsg =
   | { type: 'createBoard'; reqId: string; name: string; cwd: string; isolation: Isolation; permissionMode: PermissionMode }
   | { type: 'updateBoard'; id: string; patch: Partial<Pick<Board, 'name' | 'permissionMode' | 'model' | 'effort' | 'links' | 'learn' | 'previewUrl'>> }
-  | { type: 'explain'; reqId: string; nodeId: string; path?: string }
+  /** Rewrite a thread's note now. */
+  | { type: 'refreshNote'; reqId: string; branchId: string }
+  /** Keep a thread's note in Concepts (updates it if it's already there). */
+  | { type: 'keepNote'; reqId: string; branchId: string }
+  | { type: 'deleteConcept'; reqId: string; id: string }
   /** Fix what speech recognition misheard, using the board's file names and recent prompts. */
   | { type: 'tidyDictation'; reqId: string; boardId: string; text: string; before?: string }
   | { type: 'listSessions'; reqId: string; boardId: string }
@@ -316,7 +323,6 @@ export type ClientMsg =
   | { type: 'remoteInfo'; reqId: string }
   | { type: 'awayInfo'; reqId: string }
   | { type: 'ping'; reqId: string }
-  | { type: 'reviewConcept'; key: string; reviewed: boolean }
   | { type: 'captureShot'; reqId: string; nodeId: string }
   | { type: 'removeShot'; nodeId: string; shotId: string }
   | { type: 'setTitle'; nodeId: string; title: string }
@@ -328,7 +334,6 @@ export type ClientMsg =
   | { type: 'mapZoom'; reqId: string; boardId: string; itemId: string }
   | { type: 'mapForget'; reqId: string; boardId: string; at: number }
   /** Practice: you knew it (or not). Spaces out when you see it next. */
-  | { type: 'practiceConcept'; key: string; knew: boolean }
   | { type: 'setComments'; nodeId: string; comments: CardComment[] }
   | { type: 'termOpen'; reqId: string; boardId: string; branchId?: string; cols: number; rows: number }
   | { type: 'termList'; reqId: string; boardId: string }
@@ -338,7 +343,6 @@ export type ClientMsg =
   | { type: 'termClose'; id: string }
   | { type: 'termSettings'; reqId: string; remoteAllowed?: boolean }
   | { type: 'setCompleted'; nodeId: string; completed: boolean }
-  | { type: 'organizeConcepts'; reqId: string }
   | { type: 'setAway'; reqId: string; on: boolean; screen?: boolean }
   | { type: 'enableTailscale'; reqId: string }
   | { type: 'setPublicUrl'; reqId: string; url: string }
@@ -358,6 +362,7 @@ export interface RemoteInfo {
 }
 
 export type ServerMsg =
+  | { type: 'concepts'; concepts: ConceptDoc[] }
   /** What the map builder or a question is reading right now. */
   | { type: 'mapProgress'; boardId: string; text: string }
   | { type: 'state'; state: State; home: string; build: string; startCommand: string }
@@ -491,72 +496,6 @@ export interface AwayInfo {
   /** Devices that will get a notification when an agent needs you. */
   pushDevices: number;
 }
-
-/** Where a concept lives in tech. Used to group the concept map. */
-/**
- * Ten plain topics, sorted by the problem an idea solves (so nothing belongs in two places).
- * Caching that makes things faster is Speed; the HTTP rules behind it are Servers & APIs.
- */
-export const CONCEPT_AREAS = [
-  'Problem solving',
-  'The language',
-  'Code structure',
-  'Screens',
-  'Servers & APIs',
-  'Data',
-  'Speed',
-  'Safety',
-  'Testing & debugging',
-  'Tools & shipping',
-] as const;
-
-/** What each topic holds, in a few words (shown on the page and given to the model). */
-export const AREA_HINTS: Record<string, string> = {
-  'Problem solving': 'Algorithms, data structures, recursion: ways to work a problem out',
-  'The language': 'Features of the language itself: types, closures, async and await',
-  'Code structure': 'How code is split up and fits together: modules, components, patterns',
-  Screens: 'What people see and touch: rendering, state, styling, accessibility',
-  'Servers & APIs': 'How apps talk: requests, routes, HTTP, auth flows, real time',
-  Data: 'Keeping information: databases, schemas, queries, storage',
-  Speed: 'Making things fast: caching, memoizing, doing work at once',
-  Safety: 'Keeping things safe and correct: security, validation, error handling',
-  'Testing & debugging': 'Proving it works and finding out why it does not',
-  'Tools & shipping': 'Git, builds, packages, deploys and the machines it runs on',
-};
-
-/** Topics from older versions, mapped to today's. */
-const LEGACY_AREAS: Record<string, string> = {
-  Algorithms: 'Problem solving',
-  'Data structures': 'Problem solving',
-  'Language features': 'The language',
-  Performance: 'Speed',
-  Testing: 'Testing & debugging',
-  Debugging: 'Testing & debugging',
-  'Architecture and design': 'Code structure',
-  'Web and networking': 'Servers & APIs',
-  'Data and databases': 'Data',
-  Security: 'Safety',
-  'Concurrency and async': 'The language',
-  'UI and frontend': 'Screens',
-  'Tooling and build': 'Tools & shipping',
-  'DevOps and infrastructure': 'Tools & shipping',
-  'Version control': 'Tools & shipping',
-};
-
-/** Today's topic for any stored area (old names included), or undefined. */
-export function topicOf(area?: string): string | undefined {
-  if (!area) return undefined;
-  if ((CONCEPT_AREAS as readonly string[]).includes(area)) return area;
-  return LEGACY_AREAS[area];
-}
-
-/** Normalise a concept key so small differences ("Memoization!", "memoization ") match. */
-export const conceptKey = (s: string) =>
-  s
-    .toLowerCase()
-    .replace(/[^a-z0-9+#. ]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
 
 export interface TerminalInfo {
   id: string;

@@ -13,16 +13,24 @@ function load(): State {
     const s = JSON.parse(fs.readFileSync(FILE, 'utf8')) as State;
     // Anything that was mid-run when the server stopped can't be resumed mid-turn.
     for (const n of s.nodes) {
-      if (n.kind === 'turn') n.learning = false;
       if (n.kind === 'turn' && (n.status === 'running' || n.status === 'waiting')) {
         n.status = 'stopped';
         n.pending = undefined;
-        n.learning = false;
         n.events = n.events.filter((e) => !(e.t === 'text' && e.partial));
       }
     }
     if (!Array.isArray(s.boards) || !Array.isArray(s.branches) || !Array.isArray(s.nodes)) throw new Error('state file is missing data');
     for (const b of s.boards) if (!Array.isArray(b.links)) b.links = [];
+    // One time: the old tech concepts are gone. Thread notes replaced them.
+    if (!s.conceptsV2) {
+      for (const n of s.nodes as any[]) {
+        delete n.lessons;
+        delete n.learning;
+      }
+      s.conceptsV2 = true;
+    }
+    if (!Array.isArray(s.concepts)) s.concepts = [];
+    for (const b of s.branches) if (b.note?.busy) b.note.busy = false;
     return s;
   } catch (err: any) {
     if (err?.code !== 'ENOENT' && fs.existsSync(FILE)) {
@@ -33,7 +41,7 @@ function load(): State {
       } catch {}
       console.error(`\n  Forkspace could not read ${FILE} (${err?.message}). It was kept as ${keep}. Starting with an empty workspace.\n`);
     }
-    return { boards: [], branches: [], nodes: [] };
+    return { boards: [], branches: [], nodes: [], concepts: [], conceptsV2: true };
   }
 }
 

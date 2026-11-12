@@ -1,6 +1,7 @@
 import { ReactFlowProvider } from '@xyflow/react';
+import { NoteSheet, setCodeOpener } from './ThreadNotes.tsx';
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { conceptKey, type Attachment, type Board, type TurnNode } from '../shared/types.ts';
+import type { Attachment, Board, TurnNode } from '../shared/types.ts';
 import { BoardSettings, MODES, NewBoard } from './BoardForms.tsx';
 import { Canvas } from './Canvas.tsx';
 import { Chat } from './Chat.tsx';
@@ -282,18 +283,25 @@ function Shell() {
   };
 
   const setView = (v: View) => board && setViews((x) => ({ ...x, [board.id]: v }));
+  // A `path:line` in a thread note opens that file in the Code view, on the note's board.
+  useEffect(() => {
+    setCodeOpener((bid, path, line) => {
+      setBoardId(bid);
+      setPage('board');
+      setTab('board');
+      setOpenId(null);
+      setViews((x) => ({ ...x, [bid]: 'code' }));
+      setCodeOpen({ path, line, n: Date.now() });
+    });
+  }, []);
   useEffect(() => {
     if (board && !(visited[board.id] ?? []).includes(view)) setVisited((x) => ({ ...x, [board.id]: [...(x[board.id] ?? []), view] }));
   }, [board?.id, view]);
   const wasOpened = (v: View) => v === view || (board ? (visited[board.id] ?? []).includes(v) : false);
   const openNode = openId && isTurn(store.nodes[openId]) ? (store.nodes[openId] as TurnNode) : null;
 
-  // Unique concepts: the same idea seen in several steps counts once.
-  const lessonCount = useMemo(() => {
-    const keys = new Set<string>();
-    for (const x of Object.values(store.nodes)) if (isTurn(x)) for (const l of x.lessons ?? []) keys.add(l.key || conceptKey(l.title));
-    return keys.size;
-  }, [store.nodes]);
+  // Concepts: thread notes kept.
+  const lessonCount = store.concepts.length;
   const learnOn = board?.learn?.on !== false;
 
   // The details panel has its own message box, always for the step it shows.
@@ -419,7 +427,7 @@ function Shell() {
     paletteItems.push({ id: 'a-away', group: 'Actions', label: 'Away mode', hint: 'Keep this computer awake', icon: 'moon', run: goAway });
     paletteItems.push({ id: 'a-update', group: 'Actions', label: 'Check for updates', icon: 'refresh', run: () => (settingsTab('updates'), mobile ? setTab('devices') : setSheet('devices')) });
     paletteItems.push({ id: 'a-notes', group: 'Actions', label: 'Notes', hint: 'Notes kept for later', icon: 'folder', run: () => (mobile ? (setTab('learn'), setLearnPage('notes')) : setPage('notes')) });
-    paletteItems.push({ id: 'a-learn', group: 'Actions', label: 'Concepts I’ve learned', icon: 'spark', run: () => (mobile ? setTab('learn') : setPage('concepts')) });
+    paletteItems.push({ id: 'a-learn', group: 'Actions', label: 'Concepts: notes of past threads', icon: 'spark', run: () => (mobile ? setTab('learn') : setPage('concepts')) });
     for (const b of store.boards) paletteItems.push({ id: `b-${b.id}`, group: 'Boards', label: b.name, hint: b.cwd.replace(store.home, '~'), icon: 'grid', run: () => (setBoardId(b.id), setTab('board')) });
     if (board)
       for (const t of leaves(store.nodes, board.id))
@@ -599,6 +607,7 @@ function Shell() {
         {sheets}
       <AwayScreen onGoTo={goTo} />
       <ShotViewer />
+      <NoteSheet />
       </div>
     );
   }
@@ -824,6 +833,7 @@ function Shell() {
       {sheets}
       <AwayScreen onGoTo={goTo} />
       <ShotViewer />
+      <NoteSheet />
     </div>
   );
 }
@@ -997,7 +1007,7 @@ function BoardMenu({ board, home, learnOn, onSettings }: { board: Board; home: s
     'sep',
     { label: `Permissions: ${mode}`, icon: 'shield', onClick: onSettings },
     {
-      label: learnOn ? 'Learn concepts: on' : 'Learn concepts: off',
+      label: learnOn ? 'Thread notes: on' : 'Thread notes: off',
       icon: 'spark',
       hint: learnOn ? 'Turn off' : 'Turn on',
       onClick: () => send({ type: 'updateBoard', id: board.id, patch: { learn: { on: !learnOn, level: board.learn?.level ?? 'growing' } } }),
@@ -1016,7 +1026,7 @@ function BoardMenu({ board, home, learnOn, onSettings }: { board: Board; home: s
         }}
       >
         {board.name}
-        {learnOn && <span className="mentor-orb small" title="Learning concepts" />}
+        {learnOn && <span className="mentor-orb small" title="Writing thread notes" />}
         <Icon name="chevronDown" size={14} />
       </button>
       {menu && <ContextMenu x={menu.x} y={menu.y} items={items} onClose={() => setMenu(null)} />}

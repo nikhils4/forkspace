@@ -254,8 +254,8 @@ export function BoardSettings({ board, onClose }: { board: Board; onClose: () =>
         <div className="field learn-field">
           <div className="setting-row">
             <div className="setting-text">
-              <b>Learn concepts</b>
-              <span>As agents work, learn the concepts behind their code, in plain words.</span>
+              <b>Thread notes</b>
+              <span>After each step, Claude updates a note at the top of the thread: what changed, how it works with links to the code, and what was decided.</span>
             </div>
             <Switch on={learn.on} onChange={(on) => update({ learn: { ...learn, on } })} />
           </div>
