@@ -22,6 +22,7 @@ const P: Record<string, string> = {
   more: 'M5 12h.01M12 12h.01M19 12h.01',
   chevronDown: 'M6 9l6 6 6-6',
   chevronUp: 'M6 15l6-6 6 6',
+  alert: 'M12 3.5L21.5 20h-19zM12 10v4.5M12 17.4v.1',
   clock: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7.5V12l3 2',
   chevronRight: 'M9 6l6 6-6 6',
   chevronLeft: 'M15 6l-6 6 6 6',

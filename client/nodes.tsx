@@ -6,7 +6,7 @@ import { Markdown } from './Markdown.tsx';
 import { Attachments, ShotThumb, openShots, readImageText, stepShots, uploadNoteImage } from './Shots.tsx';
 import type { NoteNode, PendingPermission, TurnEvent, TurnNode } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
-import { send, useStore, toast } from './store.ts';
+import { goToStep, send, useStore, toast } from './store.ts';
 import { currentActivity, isLive, lastText } from './tree.ts';
 import { useReady } from './review.ts';
 
@@ -435,6 +435,7 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
         {!node.completed && <StatusDot status={node.status} />}
         {live ? <LiveLine node={node} /> : readyPill || <span className="status-label">{node.completed ? 'Completed' : STATUS_LABEL[node.status]}</span>}
         <span className="spacer" />
+        {(isHead || live) && !!branch?.overlaps?.length && <ClashPill overlaps={branch.overlaps} />}
         {!!node.queued?.length && (
           <span className="queued-pill" title={node.queued.map((q) => q.prompt).join('\n\n')}>
             <Icon name="clock" size={11} />
@@ -886,3 +887,25 @@ export const NoteCard = memo(function NoteCard({ data, selected }: NodeProps & {
     </div>
   );
 });
+
+/** Another thread changes the same files: amber tag, click to go to the other card. */
+function ClashPill({ overlaps }: { overlaps: NonNullable<import('../shared/types.ts').Branch['overlaps']> }) {
+  const { branches } = useStore();
+  const first = overlaps[0];
+  const files = [...new Set(overlaps.flatMap((o) => o.files))];
+  const label = files.length === 1 ? files[0].split('/').pop() : `${files.length} files`;
+  const head = branches[first.branchId]?.headNodeId;
+  return (
+    <button
+      className={`clash-pill ${overlaps.some((o) => o.kind === 'folder') ? 'hot' : ''}`}
+      title={`Another agent is changing the same files:\n${files.join('\n')}\n\nClick to go to it.`}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (head) goToStep(head);
+      }}
+    >
+      <Icon name="alert" size={11} strokeWidth={2.4} />
+      Overlaps · {label}
+    </button>
+  );
+}

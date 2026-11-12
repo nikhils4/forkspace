@@ -5,6 +5,7 @@ To cut one: add a section below, then run `npm run release -- <version>`.
 
 ## 0.27.0
 
+- Clash warning: when two agents change the same files, both cards get an amber "Overlaps" tag and a faint amber line joins them on the canvas, so you find out while they work, not when merging. Separate copies are compared from where their histories split (a branch never clashes with work it inherited); agents sharing one folder are compared by what they're editing right now. The details panel lists the shared files, with Go there and a ready-made note to tell the agent. Lockfiles are left out
 - Forgot something while an agent is working? Send it anyway: it waits on the card ("1 queued") and runs as the next step in the same thread as soon as the agent finishes, even with the page closed. Several become one step, in order. Drop any of them with × above the message box. If the agent was stopped or failed, they stay put until you press Send now
 - Choose a board's effort (how hard the model thinks) right under the model: Default, Low, Medium, High, Extra high or Max. Only the levels the chosen model takes are offered, each explained in a line
 - Pick a board's model at the top of Board settings: the newest Opus, Sonnet, Haiku, Fable and Mythos, with older versions folded under "More versions". The list comes from your Claude account, so new models show up on their own

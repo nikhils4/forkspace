@@ -81,6 +81,18 @@ export interface Branch {
   headNodeId?: string;
   /** Brought in from an existing Claude Code session; runs in the board's own folder. */
   imported?: boolean;
+  /** Other threads changing the same files as this one (kept up to date while agents work). */
+  overlaps?: Overlap[];
+}
+
+export interface Overlap {
+  /** The other thread. */
+  branchId: string;
+  /** Files both changed (up to 30), relative to the project. */
+  files: string[];
+  count: number;
+  /** copies: separate copies that will need merging. folder: two agents editing the same folder at once. */
+  kind: 'copies' | 'folder';
 }
 
 export type TurnStatus = 'running' | 'waiting' | 'done' | 'error' | 'stopped';

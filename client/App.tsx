@@ -92,6 +92,16 @@ function Shell() {
     addEventListener('forkspace:term-for', on);
     return () => removeEventListener('forkspace:term-for', on);
   }, []);
+  // "Go there" from a clash warning: open that step and bring it into view.
+  useEffect(() => {
+    const on = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      openRef.current(id);
+      setFocus({ id, n: Date.now() });
+    };
+    addEventListener('forkspace:go', on);
+    return () => removeEventListener('forkspace:go', on);
+  }, []);
   // Desktop: the sidebar can be hidden to give the canvas the whole window.
   const [sideOpen, setSideOpen] = useState(() => {
     try {
@@ -149,6 +159,8 @@ function Shell() {
     },
     [store.nodes, board?.id, targetId],
   );
+  const openRef = useRef(setOpenId);
+  openRef.current = setOpenId;
   // Also when the step only just arrived: a new thread's card can land a moment after you send.
   const targetLoaded = !!(targetId && store.nodes[targetId]);
   useEffect(() => {
