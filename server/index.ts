@@ -23,7 +23,6 @@ import { capture, deleteShot, imageType, readShot, saveShot } from './shots.ts';
 import { attachTerminal, closeBoardTerminals, closeTerminal, listTerminals, openTerminal, resizeTerminal, setTerminalEmitter, setTerminalRemoteAllowed, terminalRemoteAllowed, terminalSupported, writeTerminal } from './terminal.ts';
 import { checkAttachments, deleteAttachment, saveAttachment } from './attachments.ts';
 import { saveCheckpoint } from './runner.ts';
-import { setClashEmitter, startClashWatch } from './clash.ts';
 import { askMap, buildMap, forgetAnswer, linkCheck, loadAnswers, loadMap, mapIsStale, saveFlow, zoomItem } from './codemap.ts';
 import { answer, isRunning, pruneBranches, queueMessage, runQueued, setActivityHook, setEmitter, setNotifier, startTurn, stop, touch } from './runner.ts';
 import { explain, onActivity, organizeConcepts, readImageText, setTutorTouch, threadTitle, tidyDictation } from './tutor.ts';
@@ -287,8 +286,6 @@ function broadcast(msg: ServerMsg) {
 setEmitter(broadcast);
 setTutorTouch(touch);
 setActivityHook(onActivity);
-setClashEmitter((branch) => broadcast({ type: 'branch', branch }));
-startClashWatch();
 
 const send = (ws: WebSocket, msg: ServerMsg) => ws.send(JSON.stringify(msg));
 

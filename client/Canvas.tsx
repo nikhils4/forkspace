@@ -220,29 +220,9 @@ export function Canvas({
       });
     }
     const here = new Set(items.map((n) => n.id));
-    // Two threads changing the same files: a faint amber line between their latest cards.
-    for (const b of Object.values(store.branches))
-      for (const o of b.overlaps ?? []) {
-        const other = store.branches[o.branchId];
-        const a = b.headNodeId;
-        const z = other?.headNodeId;
-        if (b.id > o.branchId || !a || !z || !here.has(a) || !here.has(z)) continue;
-        out.push({
-          id: `clash-${b.id}-${o.branchId}`,
-          source: a,
-          target: z,
-          type: 'straight',
-          className: `clash-edge ${o.kind}`,
-          label: o.count === 1 ? `both change ${o.files[0].split('/').pop()}` : `${o.count} shared files`,
-          labelBgPadding: [6, 3],
-          labelBgBorderRadius: 6,
-          selectable: false,
-          focusable: false,
-        });
-      }
     for (const l of board.links) if (here.has(l.source) && here.has(l.target)) out.push({ id: l.id, source: l.source, target: l.target, className: 'link-edge' });
     return out;
-  }, [items, board.links, store.nodes, store.branches, targetId]);
+  }, [items, board.links, store.nodes, targetId]);
 
   // ---- undo / redo for moving things on the canvas (⌘Z, ⇧⌘Z) ----
   type Moves = { id: string; position: { x: number; y: number } }[];

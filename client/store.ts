@@ -312,6 +312,4 @@ export function request<T = unknown>(msg: DistributiveOmit<WithReq, 'reqId'>): P
 }
 
 /** Open a terminal in a card's own folder (its menu's "Terminal here"). The app shows the panel and opens it. */
-/** Fly to a step on the canvas and open its details. */
-export const goToStep = (id: string) => dispatchEvent(new CustomEvent('forkspace:go', { detail: id }));
 export const openTerminalFor = (branchId: string) => dispatchEvent(new CustomEvent('forkspace:term-for', { detail: branchId }));

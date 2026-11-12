@@ -8,7 +8,6 @@ import { LiveLine, Md, STATUS_LABEL, StatusDot, ToolLine, branchColor } from './
 import { isLocalPage, openTerminalFor, request, toast, useStore } from './store.ts';
 import { isLive, isTurn } from './tree.ts';
 import { StepPullHint, useStepPull } from './stepPull.tsx';
-import { OverlapSection } from './clash.tsx';
 import { timeAgo } from './ui.tsx';
 
 // A step's details, calm by default: what you asked, what came of it, and one obvious next move.
@@ -247,8 +246,6 @@ export function Drawer({ node, onClose, onReply, onGo, composer }: { node: TurnN
             </div>
           )}
         </section>
-
-        <OverlapSection branchId={node.branchId} />
 
         {(open.length > 0 || node.learning) && (
           <section className="ds" ref={concepts}>
