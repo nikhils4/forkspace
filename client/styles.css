@@ -11152,3 +11152,79 @@ code.code-ref:hover {
   text-overflow: ellipsis;
   min-width: 0;
 }
+
+/* ---------- sidebar + top bar, tidied ---------- */
+.sidebar .brand {
+  height: 54px;
+  padding: 0 10px 0 14px;
+  gap: 9px;
+}
+.brand-name {
+  white-space: nowrap;
+}
+.brand .conn {
+  flex: none;
+  margin-left: 0;
+}
+.brand .side-hide {
+  margin-left: 0;
+}
+.sidebar .side-scroll {
+  padding-top: 4px;
+}
+.side-foot {
+  gap: 4px;
+}
+.foot-links {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+}
+.foot-links .side-link {
+  height: 34px;
+  padding: 0 10px;
+  gap: 8px;
+  min-width: 0;
+}
+.foot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 4px 2px 6px;
+}
+.foot-row .credit {
+  padding: 0 4px;
+  font-size: 11.5px;
+}
+.theme-pick {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  border-radius: 9px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.theme-pick button {
+  width: 28px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.theme-pick button:hover {
+  color: var(--text);
+}
+.theme-pick button.on {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+:root[data-theme='terminal'] .theme-pick button.on {
+  background: var(--accent);
+  color: var(--accent-ink);
+}

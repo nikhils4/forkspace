@@ -3,6 +3,13 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.31.0
+
+- Tidier sidebar: the header is just the logo, name, connection dot and one collapse button (⌘\ still hides it fully). The Agents section only shows while something is running
+- Light, dark and terminal now sit together as a small switch at the bottom of the sidebar, next to Settings and Away. The terminal panel button in the top bar is no longer confused with terminal mode
+- Away uses a phone icon, so the moon only ever means dark mode
+- Concepts gets a plain bookmark icon, and the purple dot next to the board name (thread notes on) is gone from the top bar; it's still in the board menu
+
 ## 0.30.0
 
 - Terminal mode: the whole app as a shell. Everything in monospace, phosphor green on black, square corners, no blur or glow, buttons in [ brackets ], faint scanlines, working cards blink, comments in amber. The terminal panel and code view follow it too

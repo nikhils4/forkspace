@@ -115,7 +115,7 @@ export function AwayLink() {
   const on = !!info?.away.on;
   return (
     <button className={`side-link ${on ? 'away-on' : ''}`} onClick={goAway} title="Keep this computer awake and show the away screen">
-      <Icon name="moon" size={15} /> Away mode
+      <Icon name="phone" size={15} /> Away
       <span className="spacer" />
       {on && <span className="away-dot" title="On" />}
     </button>

@@ -672,7 +672,7 @@ function Shell() {
           )}
           <span className="spacer" />
           <button className="rail-btn" onClick={goAway} title="Away mode" aria-label="Away mode">
-            <Icon name="moon" size={16} />
+            <Icon name="phone" size={16} />
           </button>
           <button className="rail-btn" onClick={() => setSheet('devices')} title="Settings" aria-label="Settings">
             <Icon name="settings" size={16} />
@@ -687,20 +687,17 @@ function Shell() {
           <div className="app-mark">
             <Icon name="branch" size={15} strokeWidth={2.25} />
           </div>
-          <span>Forkspace</span>
+          <span className="brand-name">Forkspace</span>
           <ConnDot />
-          <ThemeToggle />
-          <button className="icon-btn sm side-hide" onClick={toggleMini} title="Shrink to icons" aria-label="Shrink sidebar">
-            <Icon name="chevronLeft" size={15} />
-          </button>
-          <button className="icon-btn sm side-hide" onClick={toggleSide} title="Hide sidebar (⌘\)" aria-label="Hide sidebar">
+          <span className="spacer" />
+          <button className="icon-btn sm side-hide" onClick={toggleMini} title="Shrink to icons (⌘\ hides it)" aria-label="Shrink sidebar">
             <Icon name="sidebar" size={15} />
           </button>
         </div>
 
         <div className="side-scroll">
           <button className={`side-link side-top ${page === 'concepts' ? 'on' : ''}`} onClick={() => setPage(page === 'concepts' ? 'board' : 'concepts')}>
-            <span className="mentor-orb small" /> Concepts
+            <Icon name="bookmark" size={15} /> Concepts
             <span className="spacer" />
             {lessonCount > 0 && <span className="count">{lessonCount}</span>}
           </button>
@@ -729,23 +726,33 @@ function Shell() {
             }}
           />
 
-          <div className="side-head">
-            <span>Agents</span>
-            {waiting.length > 0 && <span className="pill warn">{waiting.length} need you</span>}
-          </div>
-          <SidebarAgents onOpen={(t) => (setPage('board'), goTo(t))} />
+          {/* Only when something is running: an empty "No agents running" was just noise. */}
+          {(waiting.length > 0 || running.length > 0) && (
+            <>
+              <div className="side-head">
+                <span>Agents</span>
+                {waiting.length > 0 && <span className="pill warn">{waiting.length} need you</span>}
+              </div>
+              <SidebarAgents onOpen={(t) => (setPage('board'), goTo(t))} />
+            </>
+          )}
         </div>
 
         <div className="side-foot">
           <UpdatePill onOpen={() => (settingsTab('updates'), setSheet('devices'))} />
           <InstallButton />
-          <AwayLink />
-          <button className="side-link" onClick={() => setSheet('devices')}>
-            <Icon name="settings" size={15} /> Settings
-          </button>
-          <a className="credit" href="https://github.com/nikhils4" target="_blank" rel="noreferrer">
-            Built by <b>nikhils4</b>
-          </a>
+          <div className="foot-links">
+            <button className="side-link" onClick={() => setSheet('devices')}>
+              <Icon name="settings" size={15} /> Settings
+            </button>
+            <AwayLink />
+          </div>
+          <div className="foot-row">
+            <ThemeToggle />
+            <a className="credit" href="https://github.com/nikhils4" target="_blank" rel="noreferrer">
+              by <b>nikhils4</b>
+            </a>
+          </div>
         </div>
       </aside>
       )}
@@ -953,20 +960,24 @@ function Welcome({ onNew }: { onNew: () => void }) {
   );
 }
 
+/** Light, dark or terminal, one tap each. "System" lives in Settings. */
 function ThemeToggle() {
-  const t = useResolvedTheme();
-  const term = useTheme() === 'terminal';
+  const resolved = useResolvedTheme();
+  const t = useTheme();
+  const on = t === 'terminal' ? 'terminal' : resolved;
+  const opts = [
+    { v: 'light', icon: 'sun', label: 'Light' },
+    { v: 'dark', icon: 'moon', label: 'Dark' },
+    { v: 'terminal', icon: 'code', label: 'Terminal mode (⌥⌘T)' },
+  ] as const;
   return (
-    <>
-      {!term && (
-        <button className="icon-btn sm theme-toggle" onClick={() => setTheme(t === 'dark' ? 'light' : 'dark')} aria-label={t === 'dark' ? 'Switch to light' : 'Switch to dark'} title={t === 'dark' ? 'Light mode' : 'Dark mode'}>
-          <Icon name={t === 'dark' ? 'sun' : 'moon'} size={15} />
+    <div className="theme-pick" role="radiogroup" aria-label="Theme">
+      {opts.map((o) => (
+        <button key={o.v} role="radio" aria-checked={on === o.v} className={on === o.v ? 'on' : ''} title={o.label} aria-label={o.label} onClick={() => (o.v === 'terminal' ? on !== 'terminal' && toggleTerminal() : setTheme(o.v))}>
+          <Icon name={o.icon} size={14} />
         </button>
-      )}
-      <button className={`icon-btn sm theme-toggle ${term ? 'on' : ''}`} onClick={toggleTerminal} aria-label={term ? 'Leave terminal mode' : 'Terminal mode'} aria-pressed={term} title={term ? 'Leave terminal mode (⌥⌘T)' : 'Terminal mode: the whole app as a shell (⌥⌘T)'}>
-        <Icon name="terminal" size={15} />
-      </button>
-    </>
+      ))}
+    </div>
   );
 }
 
@@ -1040,7 +1051,6 @@ function BoardMenu({ board, home, learnOn, onSettings }: { board: Board; home: s
         }}
       >
         {board.name}
-        {learnOn && <span className="mentor-orb small" title="Writing thread notes" />}
         <Icon name="chevronDown" size={14} />
       </button>
       {menu && <ContextMenu x={menu.x} y={menu.y} items={items} onClose={() => setMenu(null)} />}
