@@ -40,18 +40,26 @@ function loadPty() {
   try {
     const require = createRequire(import.meta.url);
     ptyLib = require('node-pty');
-    // node-pty 1.1 ships its macOS helper without the execute bit; fix it once.
-    const dir = path.dirname(require.resolve('node-pty/package.json'));
-    for (const arch of ['darwin-arm64', 'darwin-x64']) {
-      const helper = path.join(dir, 'prebuilds', arch, 'spawn-helper');
-      try {
-        if (fs.existsSync(helper)) fs.chmodSync(helper, 0o755);
-      } catch {}
-    }
+    ptyDir = path.dirname(require.resolve('node-pty/package.json'));
+    fixHelper();
   } catch {
     ptyLib = null;
   }
   return ptyLib;
+}
+
+// node-pty 1.1 ships its macOS helper without the execute bit, and every npm install (each
+// update runs one) puts it back that way. Without it every new terminal fails with
+// "posix_spawnp failed", so check it before each spawn, not just once.
+let ptyDir = '';
+function fixHelper() {
+  if (process.platform !== 'darwin' || !ptyDir) return;
+  for (const arch of ['darwin-arm64', 'darwin-x64']) {
+    const helper = path.join(ptyDir, 'prebuilds', arch, 'spawn-helper');
+    try {
+      if (fs.existsSync(helper) && !(fs.statSync(helper).mode & 0o111)) fs.chmodSync(helper, 0o755);
+    } catch {}
+  }
 }
 
 export const terminalSupported = () => !!loadPty();
@@ -101,13 +109,19 @@ export function openTerminal(boardId: string, cwd: string, branchId: string | un
   if (terms.size >= MAX_TERMS) throw new Error(`Up to ${MAX_TERMS} terminals at once. Close one first.`);
   if (!fs.existsSync(cwd)) throw new Error('That folder no longer exists.');
   const { file, args } = shell();
-  const pty = lib.spawn(file, args, {
-    name: 'xterm-256color',
-    cols: Math.max(20, Math.min(400, cols || 100)),
-    rows: Math.max(5, Math.min(200, rows || 30)),
-    cwd,
-    env: { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor', FORKSPACE: '1' },
-  });
+  fixHelper();
+  let pty: Pty;
+  try {
+    pty = lib.spawn(file, args, {
+      name: 'xterm-256color',
+      cols: Math.max(20, Math.min(400, cols || 100)),
+      rows: Math.max(5, Math.min(200, rows || 30)),
+      cwd,
+      env: { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor', FORKSPACE: '1' },
+    });
+  } catch (e: any) {
+    throw new Error(`Could not start a shell (${file}): ${e?.message ?? e}`);
+  }
   const n = [...terms.values()].filter((t) => t.boardId === boardId).length + 1;
   const t: Term = { id: nanoid(8), boardId, branchId, cwd, title: `${path.basename(file)} ${n}`, createdAt: Date.now(), pty, buffer: '' };
   terms.set(t.id, t);

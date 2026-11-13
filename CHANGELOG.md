@@ -3,6 +3,10 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.32.2
+
+- Fix: the terminal failed to open after an update ("posix_spawnp failed"). Each update's install strips the run permission from node-pty's helper, so it's now checked before every new terminal, not once per start. Shell start errors now say what failed.
+
 ## 0.32.1
 
 - Settings and Away at the bottom of the sidebar sit centred in their buttons
