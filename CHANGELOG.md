@@ -3,6 +3,10 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.32.1
+
+- Settings and Away at the bottom of the sidebar sit centred in their buttons
+
 ## 0.32.0
 
 - Options Claude offered stay with the card: when an answer ends with choices ("1. Cache it 2. … Which one?", "Want me to add tests?"), they show as "3 options" on the card's left edge, open on the latest card. Use puts that choice in the message box aimed at that card, ready to send or edit. One you went with gets a tick. Also in the details panel and under the answer in the chat. A small model reads only answers that look like they offer choices; recent steps are read once after updating

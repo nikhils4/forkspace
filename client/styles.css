@@ -11185,6 +11185,11 @@ code.code-ref:hover {
   padding: 0 10px;
   gap: 8px;
   min-width: 0;
+  justify-content: center;
+}
+/* Away's own spacer would push its label off centre */
+.foot-links .side-link .spacer {
+  display: none;
 }
 .foot-row {
   display: flex;
