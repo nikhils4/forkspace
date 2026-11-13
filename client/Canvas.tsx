@@ -113,10 +113,11 @@ export function Canvas({
 
   /**
    * Glide a card to the middle of the part of the canvas you can see (above the floating composer).
-   * Zoomed far out, come back in so it is readable; a card taller than the view lines up its top instead.
+   * Zoomed far out, come back in so it is readable (unless `keepZoom`); a card taller than the view
+   * lines up its top instead.
    */
   const centerOn = useCallback(
-    (id: string) => {
+    (id: string, keepZoom = false) => {
       const internal = rf.getInternalNode(id);
       const n = store.nodes[id];
       if (!internal || !n) return;
@@ -131,7 +132,7 @@ export function Canvas({
       const shiftX = cr ? (cr.width - visibleW) / 2 : 0;
       const composer = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--composer-h')) || 120;
       const visibleH = Math.max(200, viewH - composer - 16);
-      const zoom = rf.getZoom() < 0.55 ? (mobile ? 0.75 : 0.9) : rf.getZoom();
+      const zoom = !keepZoom && rf.getZoom() < 0.55 ? (mobile ? 0.75 : 0.9) : rf.getZoom();
       const w = internal.measured?.width ?? CARD_W;
       // Zoomed far out the card is drawn short; use its remembered full-size height.
       const h = heights.get(id) ?? internal.measured?.height ?? 320;
@@ -639,10 +640,11 @@ export function Canvas({
             return;
           }
           // Anywhere else on the card: select it, open its details, and bring it to the middle of
-          // what's still visible (left of the panel, above the message box).
+          // what's still visible (left of the panel, above the message box). A tap never zooms:
+          // zoomed out, a stray tap on a small card used to pull the whole view in.
           if (!isLive(node) && node.sessionId) setTargetId(n.id);
           openDetails(n.id);
-          setTimeout(() => centerOn(n.id), 60);
+          setTimeout(() => centerOn(n.id, true), 60);
         }}
         onNodeDoubleClick={(_, n) => isTurn(store.nodes[n.id]) && openDetails(n.id)}
         onPaneClick={(e) => {

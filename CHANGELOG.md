@@ -3,6 +3,11 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.32.3
+
+- Tapping a card when zoomed far out no longer zooms the canvas in. It opens the card's details and slides it into view at the zoom you're at.
+- With the details panel open, the terminal fits the space beside it instead of hiding behind it, and goes back to full width when the panel closes.
+
 ## 0.32.2
 
 - Fix: the terminal failed to open after an update ("posix_spawnp failed"). Each update's install strips the run permission from node-pty's helper, so it's now checked before every new terminal, not once per start. Shell start errors now say what failed.

@@ -837,7 +837,7 @@ function Shell() {
         </div>
         {termOpen && board && page === 'board' && (
           <Suspense fallback={null}>
-            <TerminalPanel board={board} branchId={target?.branchId} openFor={termFor} onClose={() => setTermOpen(false)} />
+            <TerminalPanel board={board} branchId={target?.branchId} openFor={termFor} onClose={() => setTermOpen(false)} drawerOpen={!!openNode} />
           </Suspense>
         )}
       </main>

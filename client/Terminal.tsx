@@ -99,8 +99,44 @@ function TermView({ info, active }: { info: TerminalInfo; active: boolean }) {
   return <div className={`term-view ${active ? 'on' : ''}`} ref={host} />;
 }
 
-export function TerminalPanel({ board, branchId, openFor, onClose }: { board: Board; branchId?: string; openFor?: { branchId: string; n: number; type?: string } | null; onClose: () => void }) {
+/**
+ * The details panel floats over the right side. While it's open the terminal stops at its left
+ * edge (the middle space), and takes the full width again once it closes.
+ */
+function useDrawerCover(drawerOpen: boolean) {
+  const panel = useRef<HTMLDivElement>(null);
+  const [cover, setCover] = useState(0);
+  useEffect(() => {
+    if (!drawerOpen) return setCover(0);
+    const measure = () => {
+      const d = document.querySelector('.drawer') as HTMLElement | null;
+      const el = panel.current;
+      if (!d || !el) return setCover(0);
+      // The container's edges, not ours: our own right edge moves with the margin we set.
+      const r = (el.parentElement ?? el).getBoundingClientRect();
+      const dr = d.getBoundingClientRect();
+      // Only when it floats over us (on a phone it covers the whole screen; beside us it doesn't overlap).
+      setCover(dr.left > r.left + 200 && dr.left < r.right ? Math.round(r.right - dr.left + 10) : 0);
+    };
+    const raf = requestAnimationFrame(measure);
+    const settled = setTimeout(measure, 400); // after the panel's slide-in
+    const ro = new ResizeObserver(measure);
+    const d = document.querySelector('.drawer');
+    if (d) ro.observe(d);
+    addEventListener('resize', measure);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(settled);
+      ro.disconnect();
+      removeEventListener('resize', measure);
+    };
+  }, [drawerOpen]);
+  return { panel, cover };
+}
+
+export function TerminalPanel({ board, branchId, openFor, onClose, drawerOpen = false }: { board: Board; branchId?: string; openFor?: { branchId: string; n: number; type?: string } | null; onClose: () => void; drawerOpen?: boolean }) {
   const { connected, branches, nodes } = useStore();
+  const { panel, cover } = useDrawerCover(drawerOpen);
   const [list, setList] = useState<TerminalInfo[]>([]);
   const [active, setActive] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -228,7 +264,7 @@ export function TerminalPanel({ board, branchId, openFor, onClose }: { board: Bo
   };
 
   return (
-    <div className="term-panel" style={{ height }}>
+    <div className="term-panel" ref={panel} style={{ height, marginRight: cover || undefined }}>
       <div className="term-grip" onPointerDown={drag} title="Drag to resize" />
       <div className="term-bar">
         <Icon name="terminal" size={14} />
