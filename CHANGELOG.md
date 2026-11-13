@@ -3,6 +3,10 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.34.0
+
+- Removed the lists of options Claude offered: the chip on cards, the "3/4" line above prompts, the list in the details panel and under answers in the chat. Answers aren't read for options any more, so no extra model calls after each step
+
 ## 0.33.0
 
 - Work Claude lists, kept track of. When an answer lays out tickets, issues, problems found, next steps or approaches, the card keeps the list. Yes or no offers like "Want me to add tests?" no longer count

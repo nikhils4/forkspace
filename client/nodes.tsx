@@ -1,7 +1,6 @@
 import { Handle, NodeResizer, Position, useStore as useRFStore, type NodeProps } from '@xyflow/react';
 import { NoteTab, startsThread } from './ThreadNotes.tsx';
 import { editCounts } from './ToolDiff.tsx';
-import { OptionsChip, PickedLine } from './Options.tsx';
 import { CardComments, openCount, setCommentsPanel, startComment } from './Comments.tsx';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
@@ -476,13 +475,7 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
           <StatusDot status={node.status} />
           {isLive(node) ? <LiveLine node={node} big /> : readyPill || STATUS_LABEL[node.status]}
         </div>
-        <PickedLine node={node} onGo={onOpen} />
         <div className="far-prompt">{node.prompt}</div>
-        {!!node.options?.length && (
-          <span className="far-opt" title="Claude listed work to pick from here">
-            <Icon name="grid" size={20} /> {node.options.length}
-          </span>
-        )}
         {openCount(node) > 0 && (
           <button className="far-cmt nodrag" onClick={(e) => (e.stopPropagation(), setCommentsPanel(true))} title="Your comments on this step">
             <Icon name="comment" size={22} /> {openCount(node)}
@@ -521,7 +514,6 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
         )}
       </div>
 
-      <PickedLine node={node} onGo={onOpen} />
       <div className="turn-prompt">{node.prompt}</div>
       <Attachments list={node.attachments} label={node.prompt} />
       {!!node.shots?.length && (
@@ -576,7 +568,6 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
         <button className="btn ghost sm" onClick={() => onOpen(node.id)}>
           Details
         </button>
-        {!live && <OptionsChip node={node} onOpen={() => onOpen(node.id)} />}
 
         <span className="spacer" />
         {live ? (

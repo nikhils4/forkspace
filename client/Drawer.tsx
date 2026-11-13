@@ -1,6 +1,5 @@
 import { CardComments } from './Comments.tsx';
 import { ToolDiff, editsOf } from './ToolDiff.tsx';
-import { OptionsSection, PickedLine, pickOption } from './Options.tsx';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Attachments } from './Shots.tsx';
 import type { TurnNode } from '../shared/types.ts';
@@ -165,7 +164,6 @@ export function Drawer({ node, onClose, onReply, onGo, composer }: { node: TurnN
         </div>
         <section className="ds">
           <div className="ds-label">You asked</div>
-          <PickedLine node={node} onGo={onGo} />
           <div className={`drawer-prompt ${long ? 'open' : ''}`} onClick={() => setLong(!long)} title={long ? '' : 'Show all'}>
             {node.prompt}
           </div>
@@ -191,16 +189,6 @@ export function Drawer({ node, onClose, onReply, onGo, composer }: { node: TurnN
           )}
           {node.error && <div className="error-box">{node.error}</div>}
         </section>
-
-        {!!node.options?.length && (
-          <section className="ds" id="ds-options">
-            <div className="ds-label">
-              Work Claude listed
-              <span className="ds-meta">Use puts it in the message box</span>
-            </div>
-            <OptionsSection node={node} onPick={(o) => pickOption(() => onReply?.(node.id), o)} onGo={onGo} />
-          </section>
-        )}
 
         <section className="ds">
           <div className="ds-label">

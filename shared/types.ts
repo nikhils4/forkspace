@@ -119,16 +119,6 @@ export interface Attachment {
 }
 
 /** Your own comment on a card. Never sent to the agent unless you put it in a prompt. */
-/** A choice Claude offered in its answer ("Option 2: cache it", "Want me to add tests?"). */
-export interface StepOption {
-  /** A few words: what the choice is. */
-  label: string;
-  /** One short line on what it means or costs. */
-  detail?: string;
-  /** What you'd send to take it, ready for the message box. */
-  prompt: string;
-}
-
 export interface CardComment {
   id: string;
   text: string;
@@ -220,17 +210,6 @@ export interface TurnNode {
   kind: 'turn';
   /** Your comments on this card. */
   comments?: CardComment[];
-  /** The work Claude listed in this step's answer (tickets, tasks, next steps), kept so you can
-   * see later what was on the table and which one each step went with. */
-  options?: StepOption[];
-  /** The answer has been read for options (whether or not it had any). */
-  optionsChecked?: boolean;
-  /** Which reading of the answer: older readings are read again. */
-  optionsV?: number;
-  /** Which item from the step before's list this step works on. */
-  picked?: { index: number; label: string };
-  /** This step's prompt has been matched against the list before it. */
-  pickedChecked?: boolean;
   /** Images and files sent with the prompt. */
   attachments?: Attachment[];
   /** Screenshots attached to this step, oldest first. */
