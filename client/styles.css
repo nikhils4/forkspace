@@ -7628,7 +7628,7 @@ input.thread-title.editing {
   position: absolute;
   top: 0;
   left: calc(100% + 18px);
-  width: 230px;
+  width: 340px;
   margin: 0;
   z-index: 2;
 }
@@ -11227,4 +11227,14 @@ code.code-ref:hover {
 :root[data-theme='terminal'] .theme-pick button.on {
   background: var(--accent);
   color: var(--accent-ink);
+}
+
+/* the comment box: room to write */
+.card-comments .cmt-input {
+  min-height: 64px;
+  font-size: 13px;
+  padding: 9px 12px;
+}
+.card-comments.side .cmt-text {
+  font-size: 13px;
 }

@@ -3,6 +3,10 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.31.1
+
+- Comments beside a card are wider (340px) with a taller box to type in, so longer thoughts fit without wrapping every few words
+
 ## 0.31.0
 
 - Tidier sidebar: the header is just the logo, name, connection dot and one collapse button (⌘\ still hides it fully). The Agents section only shows while something is running
