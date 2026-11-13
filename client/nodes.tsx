@@ -1,7 +1,7 @@
 import { Handle, NodeResizer, Position, useStore as useRFStore, type NodeProps } from '@xyflow/react';
 import { NoteTab, startsThread } from './ThreadNotes.tsx';
 import { editCounts } from './ToolDiff.tsx';
-import { CardOptions, pickOption } from './Options.tsx';
+import { OptionsChip, PickedLine } from './Options.tsx';
 import { CardComments, openCount, setCommentsPanel, startComment } from './Comments.tsx';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
@@ -476,10 +476,11 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
           <StatusDot status={node.status} />
           {isLive(node) ? <LiveLine node={node} big /> : readyPill || STATUS_LABEL[node.status]}
         </div>
+        <PickedLine node={node} onGo={onOpen} />
         <div className="far-prompt">{node.prompt}</div>
         {!!node.options?.length && (
-          <span className="far-opt" title="Options Claude offered here">
-            <Icon name="spark" size={20} /> {node.options.length}
+          <span className="far-opt" title="Claude listed work to pick from here">
+            <Icon name="grid" size={20} /> {node.options.length}
           </span>
         )}
         {openCount(node) > 0 && (
@@ -520,6 +521,7 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
         )}
       </div>
 
+      <PickedLine node={node} onGo={onOpen} />
       <div className="turn-prompt">{node.prompt}</div>
       <Attachments list={node.attachments} label={node.prompt} />
       {!!node.shots?.length && (
@@ -574,6 +576,7 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
         <button className="btn ghost sm" onClick={() => onOpen(node.id)}>
           Details
         </button>
+        {!live && <OptionsChip node={node} onOpen={() => onOpen(node.id)} />}
 
         <span className="spacer" />
         {live ? (
@@ -594,7 +597,6 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
       <Icon name="plus" size={13} />
     </button>
     <CardComments node={node} />
-    {!live && <CardOptions node={node} isHead={isHead} onPick={(o) => pickOption(() => onReply(node.id), o)} />}
     </>
   );
 });

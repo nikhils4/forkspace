@@ -220,10 +220,17 @@ export interface TurnNode {
   kind: 'turn';
   /** Your comments on this card. */
   comments?: CardComment[];
-  /** The choices Claude offered in this step's answer, pulled out so they stay visible. */
+  /** The work Claude listed in this step's answer (tickets, tasks, next steps), kept so you can
+   * see later what was on the table and which one each step went with. */
   options?: StepOption[];
   /** The answer has been read for options (whether or not it had any). */
   optionsChecked?: boolean;
+  /** Which reading of the answer: older readings are read again. */
+  optionsV?: number;
+  /** Which item from the step before's list this step works on. */
+  picked?: { index: number; label: string };
+  /** This step's prompt has been matched against the list before it. */
+  pickedChecked?: boolean;
   /** Images and files sent with the prompt. */
   attachments?: Attachment[];
   /** Screenshots attached to this step, oldest first. */

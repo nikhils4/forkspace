@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Attachments } from './Shots.tsx';
 import { NoteBar } from './ThreadNotes.tsx';
-import { OptionsSection, pickOption } from './Options.tsx';
+import { OptionsSection, PickedLine, pickOption } from './Options.tsx';
 import type { Board, TurnEvent, TurnNode } from '../shared/types.ts';
 import { composerFocus } from './Composer.tsx';
 import { Icon } from './icons.tsx';
@@ -59,6 +59,7 @@ function Turn({ t, isLast, forkHere, openDetails }: { t: TurnNode; isLast: boole
   return (
     <div className={`msg-pair ${isFresh(t.createdAt) ? 'fresh' : ''}`} style={{ ['--branch' as any]: branchColor(t.branchId) }}>
       <div className="bubble-user">
+        <PickedLine node={t} />
         {t.prompt}
         <Attachments list={t.attachments} label={t.prompt} />
       </div>

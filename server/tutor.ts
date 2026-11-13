@@ -252,13 +252,13 @@ const OPTIONS_SCHEMA = {
   properties: {
     options: {
       type: 'array',
-      maxItems: 6,
+      maxItems: 12,
       items: {
         type: 'object',
         properties: {
-          label: { type: 'string', description: 'The choice in 2 to 6 plain words, like "Cache results in memory".' },
+          label: { type: 'string', description: 'The piece of work in 2 to 8 plain words, keeping any ticket id, like "PROJ-142: fix login redirect" or "Cache results in memory".' },
           detail: { type: 'string', description: 'One short line: what it means, or its trade-off. Empty if obvious.' },
-          prompt: { type: 'string', description: 'The message the developer would send to take this choice, written as them, specific and ready to send, like "Go with option 2: cache results in memory, and add a test for it."' },
+          prompt: { type: 'string', description: 'The message the developer would send to start this piece of work, written as them, specific and ready to send, like "Let\'s do PROJ-142: fix the login redirect."' },
         },
         required: ['label', 'prompt'],
       },
@@ -271,11 +271,27 @@ const OPTIONS_SCHEMA = {
 export async function findOptions(answer: string, asked: string, cwd: string): Promise<{ label: string; detail?: string; prompt: string }[]> {
   const res = await ask<{ options: { label: string; detail?: string; prompt: string }[] }>(
     `The developer asked:\n${clip(asked, 1500)}\n\nThe coding agent answered:\n${clip(answer, 8000)}\n\n` +
-      'List the choices this answer offers the developer to pick from next: named options, alternative approaches, or concrete offers like "Want me to add tests?". ' +
-      'Only choices actually offered in the answer, in its order. Not summaries of work already done, not generic advice. Return an empty list if it offers none.',
-    'You pull the choices out of a coding agent\'s answer so the developer can see and pick them later. Exact, short, no invention.',
+      'Does this answer lay out a list of separate pieces of work the developer could take on next? Like tickets, issues, bugs or problems found, tasks, ' +
+      'features, fixes, remaining items, next steps, or different approaches to pick between. A list of problems or findings counts: each one is work to fix. ' +
+      'If so, return each piece of work, in the answer\'s order. Keep ticket or issue ids and names exactly as written (like "PROJ-142" or "#88"). ' +
+      'Return an empty list only for: a single yes or no offer ("Want me to add tests?"), questions asked to the developer, lists of work already done in this answer, ' +
+      'bullet points explaining how something works, the steps of one single plan, and lists with fewer than 2 items.',
+    'You pull the list of candidate work out of a coding agent\'s answer, so the developer can keep track of which item each later step works on. Exact, short, no invention.',
     OPTIONS_SCHEMA,
     cwd,
   ).catch(() => null);
-  return (res?.options ?? []).filter((o) => o.label?.trim() && o.prompt?.trim()).slice(0, 6);
+  return (res?.options ?? []).filter((o) => o.label?.trim() && o.prompt?.trim()).slice(0, 12);
+}
+
+/** Which item of a list a new message goes with (-1 for none). */
+export async function matchPick(message: string, items: string[], cwd: string): Promise<number> {
+  const res = await ask<{ index: number }>(
+    `Earlier, the coding agent listed this work:\n${items.map((t, i) => `${i + 1}. ${t}`).join('\n')}\n\nThe developer then wrote:\n${clip(message, 1500)}\n\n` +
+      'Which one item from the list does this message start or continue working on? Return its number, or 0 if it is about none of them or several.',
+    'You match a developer\'s message to the item of a work list it is about. Answer only when it is clear.',
+    { type: 'object', properties: { index: { type: 'integer', minimum: 0 } }, required: ['index'], additionalProperties: false },
+    cwd,
+  ).catch(() => null);
+  const n = res?.index ?? 0;
+  return n >= 1 && n <= items.length ? n - 1 : -1;
 }

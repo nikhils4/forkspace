@@ -3,6 +3,13 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.33.0
+
+- Work Claude lists, kept track of. When an answer lays out tickets, issues, problems found, next steps or approaches, the card keeps the list. Yes or no offers like "Want me to add tests?" no longer count
+- Each step you take from that card is matched to the item it works on, even in your own words ("ok take CALC-3"). It shows above the step's prompt as "3/4 CALC-3: …", on the canvas, in the details panel and in the chat
+- No more panel hanging off the card's side. The card gets a small "4 listed · 1 picked" chip in its footer; it opens the list in the details panel, where each item shows whether it was picked and links to that step
+- Recent answers are read again the new way after updating
+
 ## 0.32.3
 
 - Tapping a card when zoomed far out no longer zooms the canvas in. It opens the card's details and slides it into view at the zoom you're at.

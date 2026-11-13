@@ -27,7 +27,7 @@ import { askMap, buildMap, forgetAnswer, linkCheck, loadAnswers, loadMap, mapIsS
 import { answer, isRunning, pruneBranches, queueMessage, runQueued, setActivityHook, setEmitter, setNotifier, startTurn, stop, touch } from './runner.ts';
 import { readImageText, threadTitle, tidyDictation } from './tutor.ts';
 import { deleteConcept, keepNote, noteAfterStep, refreshNote, setNotesEmit } from './threadnotes.ts';
-import { backfillOptions, optionsAfterStep } from './options.ts';
+import { backfillOptions, optionsAfterStep, pickAfterStart } from './options.ts';
 import { flush, getBoard, getBranch, getNode, getTurn, save, state, subtree } from './store.ts';
 
 const PORT = Number(process.env.PORT || 4747);
@@ -288,6 +288,8 @@ function broadcast(msg: ServerMsg) {
 setEmitter(broadcast);
 setNotesEmit(broadcast);
 setActivityHook((node, final) => {
+  // A step under a card with a list of work: note which item it's on (once, as it starts).
+  if (!node.pickedChecked) void pickAfterStart(node);
   if (!final) return;
   noteAfterStep(node);
   void optionsAfterStep(node);
