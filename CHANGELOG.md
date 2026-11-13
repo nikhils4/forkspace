@@ -3,6 +3,13 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.35.0
+
+- Thread notes (and Concepts) are laid out status first: **Now** and **Next** at the top in their own block, then a **Work** table of every piece of work with its state (done, in progress, planned, open, dropped, failed as coloured chips), then What changed, How it works as short bullets, Decided ("choice: why") and Open
+- Empty sections are left out instead of saying "Nothing", and notes no longer talk about themselves
+- Concepts cards show where each thread stands instead of its opening paragraph
+- Existing notes switch to the new layout the next time they update, or right away with Rewrite
+
 ## 0.34.0
 
 - Removed the lists of options Claude offered: the chip on cards, the "3/4" line above prompts, the list in the details panel and under answers in the chat. Answers aren't read for options any more, so no extra model calls after each step

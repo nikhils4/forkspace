@@ -67,6 +67,10 @@ export function inline(s: string, keyBase = 0): ReactNode[] {
   return out;
 }
 
+// A "State" or "Status" column (the thread notes' work table): known states show as chips.
+const STATES = new Set(['done', 'in progress', 'planned', 'open', 'dropped', 'failed']);
+const stateCol = (h: string) => /^(state|status)$/i.test(h.trim());
+
 const isTableSep = (l: string) => /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/.test(l) || /^\s*\|\s*:?-+:?\s*\|\s*$/.test(l);
 const cells = (l: string) =>
   l
@@ -157,7 +161,11 @@ export function Markdown({ text, code }: { text: string; code: CodeRender }) {
                 <tr key={ri}>
                   {head.map((_, c) => (
                     <td key={c} style={{ textAlign: align[c] as any }}>
-                      {inline(r[c] ?? '')}
+                      {stateCol(head[c]) && STATES.has((r[c] ?? '').trim().toLowerCase()) ? (
+                        <span className={`md-state st-${(r[c] ?? '').trim().toLowerCase().replace(/\s+/g, '-')}`}>{(r[c] ?? '').trim()}</span>
+                      ) : (
+                        inline(r[c] ?? '')
+                      )}
                     </td>
                   ))}
                 </tr>

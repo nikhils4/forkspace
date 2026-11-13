@@ -5,9 +5,10 @@ import * as g from './git.ts';
 import { getBoard, getBranch, save, state } from './store.ts';
 import { describe } from './tutor.ts';
 
-// Each thread keeps one living note: what it's for, what changed, how it works (with links to
-// the code and every decision spelled out), what was decided and what's still open. Claude
-// rewrites it after every step. When the thread is deleted, the note moves to Concepts.
+// Each thread keeps one living note, status first: where it stands and what's next, then a table
+// of the work and its state, what changed, how it works (with links to the code), what was decided
+// and what's open. Claude rewrites it after every step. When the thread is deleted, the note moves
+// to Concepts.
 
 const MODEL = process.env.FORKSPACE_NOTES_MODEL || 'sonnet';
 
@@ -157,23 +158,33 @@ async function write(branchId: string, force: boolean) {
     const prompt =
       (prev ? `The note so far:\n\n${prev}\n\n---\n\nFold in what happened since:\n\n` : `${context}Write the note for this thread from what happened:\n\n`) +
       steps.join('\n\n') +
-      `\n\nRead the code where you need to, to be exact about how it works. Then write the whole note, in this shape:\n` +
+      `\n\nRead the code where you need to, to be exact about how it works. Then write the whole note, in exactly this shape. ` +
+      `It's read by someone picking the thread back up: where things stand comes first, detail after.\n\n` +
       `# <the title>\n` +
-      `One or two sentences: what this thread is for (the feature, the bug, the change) and where it stands now.\n` +
+      `**Now:** one line: where the thread stands right now.\n` +
+      `**Next:** one line: the next concrete thing to do. Leave this line out when nothing is left.\n` +
+      `## Work\n` +
+      `A table of every piece of work in the thread (features, fixes, tickets, tries), one row each:\n` +
+      `| Item | What | State |\n|---|---|---|\n` +
+      `Item is a short name, keeping any ticket id. What is a few words. State is one of: done, in progress, planned, open, dropped, failed.` +
+      (branched ? ` Add the branch to What when the work happened on a branch.` : '') +
+      ` Skip this section when the thread is one single piece of work.\n` +
       `## What changed\n` +
-      `Every change made so far, grouped by area. For each: what and why, with \`path:line\` links.\n` +
+      `Bullets, grouped by area: what changed and why, with \`path:line\`. Skip this section when no code changed.\n` +
       `## How it works\n` +
-      `The flow in full detail, as numbered steps: what starts it, what calls what, where data goes and how it changes, with \`path:line\` for each step. ` +
-      `Spell out every decision on the way as its own line: "If …: …", including errors, limits and special cases. Use a short realistic example if it helps.\n` +
+      `Short bullets in the order things happen, each with its \`path:line\`. Special cases and errors as sub-bullets: "If …: …". ` +
+      `One short realistic example at the end if it helps. Keep it tight: the key steps, not every line.\n` +
       (branched
         ? `## Branches\n` +
-          `This thread split into branches (different tries from the same step). For each: what it tried, how it differs, and where it stands. Keep "What changed" and "How it works" about the main line unless a branch replaced it.\n`
+          `One bullet per branch: what it tried, and where it stands. Keep "What changed" and "How it works" about the main line unless a branch replaced it.\n`
         : '') +
-      `## Decisions and discussion\n` +
-      `What the developer asked for, what was decided and why, options turned down. Skip if nothing.\n` +
-      `## Still open\n` +
-      `Follow-ups, known gaps, risks. Skip if nothing.\n\n` +
-      (prev ? `Keep everything from the note that is still true, update what changed, and remove what was undone. ` : '') +
+      `## Decided\n` +
+      `Bullets as "Choice: why". Include options turned down. Skip if nothing.\n` +
+      `## Open\n` +
+      `Questions, risks, things to check. Skip if nothing.\n\n` +
+      `Rules: leave out any section with nothing in it (never write "Nothing" or "None"). Write about the work, not about yourself or these notes: ` +
+      `no "I", no "my record", no "cut off". Short bullets over paragraphs. ` +
+      (prev ? `Rewrite the note so far into this shape even if it used another one. Keep everything still true, update what changed, remove what was undone. ` : '') +
       `Leave out anything that didn't happen. Questions without code changes still count: note what was learned.`;
     const res = await readOnly<{ title: string; markdown: string }>(prompt, SYSTEM, SCHEMA, branch.cwd, () => {}, 14, MODEL);
     const ids = [...new Set([...(force ? [] : had), ...fresh.map((t) => t.id)])].filter((id) => turns.some((t) => t.id === id));

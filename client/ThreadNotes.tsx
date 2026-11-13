@@ -72,6 +72,24 @@ const copy = (text: string) =>
     () => toast('Could not copy', 'error'),
   );
 
+/** A note opens with "**Now:** …" and "**Next:** …": pulled out to show as a status block. */
+export function splitStatus(md: string) {
+  let now = '';
+  let next = '';
+  const rest = md
+    .split('\n')
+    .filter((l) => {
+      const m = l.match(/^\s*\*\*(Now|Next):\*\*\s*(.+)$/i);
+      if (!m) return true;
+      if (m[1].toLowerCase() === 'now') now = m[2].trim();
+      else next = m[2].trim();
+      return false;
+    })
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n');
+  return { now, next, rest };
+}
+
 /** The tab on a thread's first card. */
 export function NoteTab({ branchId, inline }: { branchId: string; inline?: boolean }) {
   const { branch, note: n, behind } = useThreadNote(branchId);
@@ -245,7 +263,32 @@ export function NoteSheet() {
         <div className="ns-body">
           {markdown ? (
             <CodeRefCtx.Provider value={openCode}>
-              <Md text={markdown.startsWith('# ') ? markdown : `# ${title}\n\n${markdown}`} />
+              {(() => {
+                const { now, next, rest } = splitStatus(markdown.startsWith('# ') ? markdown : `# ${title}\n\n${markdown}`);
+                const h1 = rest.match(/^# .*\n?/)?.[0] ?? '';
+                return (
+                  <>
+                    {h1 && <Md text={h1} />}
+                    {(now || next) && (
+                      <div className="ns-status">
+                        {now && (
+                          <div className="ns-st now">
+                            <span>Now</span>
+                            <Md text={now} />
+                          </div>
+                        )}
+                        {next && (
+                          <div className="ns-st next">
+                            <span>Next</span>
+                            <Md text={next} />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <Md text={rest.slice(h1.length)} />
+                  </>
+                );
+              })()}
             </CodeRefCtx.Provider>
           ) : (
             <div className="ns-empty">

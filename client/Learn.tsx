@@ -2,15 +2,17 @@ import { useMemo, useState } from 'react';
 import type { Branch, ConceptDoc, TurnNode } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
 import { useStore } from './store.ts';
-import { openConcept, openThreadNote } from './ThreadNotes.tsx';
+import { openConcept, openThreadNote, splitStatus } from './ThreadNotes.tsx';
 import { timeAgo, useTick } from './ui.tsx';
 
 // Concepts: the notes of your threads, kept. Each one says what a piece of work was for, what
 // changed, how it works (with links to the code) and what was decided. A thread's note lands
 // here when the thread is deleted, or when you keep it by hand.
 
-/** The opening paragraph of a note (under its title), for the card. */
+/** Where the note says the thread stands, or else its opening paragraph, for the card. */
 function gist(md: string) {
+  const { now } = splitStatus(md);
+  if (now) return now.replace(/[`*_]/g, '');
   const lines = md.split('\n').map((l) => l.trim());
   const start = lines.findIndex((l) => l && !l.startsWith('#'));
   if (start < 0) return '';

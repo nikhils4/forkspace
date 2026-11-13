@@ -10463,6 +10463,74 @@ input.thread-title.editing {
 .ns-body .md-list li {
   margin: 4px 0;
 }
+/* Where the thread stands, above everything else */
+.ns-status {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0 18px;
+}
+.ns-st {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+}
+.ns-st > span {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.ns-st.now {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: color-mix(in srgb, var(--accent) 7%, var(--bg-2));
+}
+.ns-st.now > span {
+  color: var(--accent);
+}
+.ns-st .md-p,
+.ns-st p {
+  margin: 0;
+}
+.ns-body .md-table {
+  font-size: 13.5px;
+}
+/* States in the work table */
+.md-state {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--bg-3, rgba(127, 127, 127, 0.14));
+  color: var(--text-2);
+}
+.md-state.st-done {
+  background: color-mix(in srgb, var(--ok) 16%, transparent);
+  color: var(--ok);
+}
+.md-state.st-in-progress {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+}
+.md-state.st-planned {
+  background: color-mix(in srgb, var(--warn) 16%, transparent);
+  color: var(--warn);
+}
+.md-state.st-failed {
+  background: var(--err-soft);
+  color: var(--err);
+}
+.md-state.st-dropped {
+  text-decoration: line-through;
+  color: var(--text-3);
+}
 .ns-empty {
   display: flex;
   align-items: center;
