@@ -318,4 +318,5 @@ export function request<T = unknown>(msg: DistributiveOmit<WithReq, 'reqId'>): P
 }
 
 /** Open a terminal in a card's own folder (its menu's "Terminal here"). The app shows the panel and opens it. */
-export const openTerminalFor = (branchId: string) => dispatchEvent(new CustomEvent('forkspace:term-for', { detail: branchId }));
+/** Open (or show) a terminal in a card's folder; with `type`, that text waits typed at the prompt, not run. */
+export const openTerminalFor = (branchId: string, type?: string) => dispatchEvent(new CustomEvent('forkspace:term-for', { detail: { branchId, type } }));

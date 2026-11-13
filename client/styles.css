@@ -1239,6 +1239,33 @@ pre.code,
   padding: 8px 10px;
   border-radius: var(--r-sm);
 }
+.perm-explain {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text);
+}
+.perm-explain .pe-k {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 1px;
+}
+.perm-explain .pe-wait {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-3);
+}
+.perm-foot {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
 .perm-actions,
 .perm-opts {
   display: flex;
@@ -7913,21 +7940,17 @@ input.thread-title.editing {
   padding: 0 12px 0 10px;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--branch) 45%, var(--border-2));
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  /* Placed with transform (set inline) and no blur or glide: they move every frame while you pan,
+     and trailing behind or re-blurring made the canvas feel laggy when zoomed out. */
+  left: 0;
+  top: 0;
+  will-change: transform;
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
   box-shadow: 0 10px 28px -12px rgba(0, 0, 0, 0.5);
   color: var(--text);
   cursor: pointer;
-  transform: translate(-50%, -100%);
-  transition:
-    left 0.12s linear,
-    top 0.12s linear,
-    box-shadow 0.2s;
+  transition: box-shadow 0.2s;
   animation: beacon-in 0.3s var(--ease);
-}
-.beacon.edge {
-  transform: translate(-50%, -50%);
 }
 .beacon:hover {
   box-shadow:
@@ -7998,8 +8021,6 @@ input.thread-title.editing {
   color: var(--text-2, var(--text));
   opacity: 0.4;
   transition:
-    left 0.12s linear,
-    top 0.12s linear,
     opacity 0.15s,
     background 0.15s;
 }
@@ -10783,4 +10804,57 @@ code.code-ref:hover {
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.5);
+}
+
+/* an agent's file edit as a coloured diff (details panel → How it got there) */
+.tool-diff {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.td-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text-2);
+  min-width: 0;
+}
+.td-head .ellipsis {
+  flex: 1;
+  min-width: 0;
+}
+.tool-diff .diff {
+  max-height: 420px;
+  overflow: auto;
+}
+.tool-diff .diff div {
+  word-break: normal;
+  overflow-wrap: anywhere;
+  padding-left: calc(12px + 1.4em);
+  text-indent: -1.4em;
+}
+.diff .dm {
+  display: inline-block;
+  width: 1.4em;
+  text-indent: 0;
+  opacity: 0.75;
+  user-select: none;
+}
+.diff .gap {
+  color: var(--text-3);
+  background: var(--bg-2);
+  font-family: var(--font);
+  font-size: 11px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+.tool-counts {
+  flex: none;
+  margin-left: auto;
+  padding-left: 8px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }

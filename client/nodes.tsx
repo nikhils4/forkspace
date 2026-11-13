@@ -1,13 +1,14 @@
 import { Handle, NodeResizer, Position, useStore as useRFStore, type NodeProps } from '@xyflow/react';
 import { NoteTab, startsThread } from './ThreadNotes.tsx';
+import { editCounts } from './ToolDiff.tsx';
 import { CardComments, openCount, setCommentsPanel, startComment } from './Comments.tsx';
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Markdown } from './Markdown.tsx';
 import { Attachments, ShotThumb, openShots, readImageText, stepShots, uploadNoteImage } from './Shots.tsx';
 import type { NoteNode, PendingPermission, TurnEvent, TurnNode } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
-import { send, useStore, toast } from './store.ts';
+import { openTerminalFor, send, useStore, toast } from './store.ts';
 import { currentActivity, isLive, lastText } from './tree.ts';
 import { useReady } from './review.ts';
 
@@ -180,6 +181,7 @@ export function Md({ text, partial }: { text: string; partial?: boolean }) {
 export function ToolLine({ e, cwd }: { e: Extract<TurnEvent, { t: 'tool' }>; cwd?: string }) {
   const state = e.result == null ? 'pending' : e.isError ? 'err' : 'ok';
   const arg = toolSummary(e.name, e.input);
+  const counts = useMemo(() => editCounts(e), [e.name, e.input]);
   return (
     <div className={`tool-line ${state}`}>
       <span className="tool-mark">{state === 'pending' ? <span className="spinner" /> : <Icon name={state === 'err' ? 'x' : 'check'} size={12} />}</span>
@@ -187,6 +189,11 @@ export function ToolLine({ e, cwd }: { e: Extract<TurnEvent, { t: 'tool' }>; cwd
       <span className="tool-arg" title={arg}>
         {cwd ? arg.split(cwd + '/').join('').split(cwd).join('.') : arg}
       </span>
+      {counts && (
+        <span className="tool-counts">
+          <span className="add-text">+{counts.add}</span> <span className="del-text">−{counts.del}</span>
+        </span>
+      )}
     </div>
   );
 }
@@ -195,8 +202,16 @@ export function Permission({ node, p }: { node: TurnNode; p: PendingPermission }
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const cwd = useStore().branches[node.branchId]?.cwd;
   const short = (s: string) => (cwd ? s.split(cwd + '/').join('').split(cwd).join('.') : s);
-  const reply = (decision: 'allow' | 'always' | 'deny', extra?: object) =>
+  const reply = (decision: 'allow' | 'always' | 'deny' | 'skip' | 'self', extra?: object) =>
     send({ type: 'permission', nodeId: node.id, requestId: p.requestId, decision, ...extra });
+  const command = p.toolName === 'Bash' ? String((p.input as any).command ?? '') : '';
+  // You run it: the command waits typed in a terminal in this card's folder (not run), and the agent carries on.
+  const runMyself = () => {
+    openTerminalFor(node.branchId, command);
+    navigator.clipboard?.writeText(command).catch(() => {});
+    reply('self');
+    toast('Typed into a terminal in this card’s folder. Press Enter there to run it.');
+  };
 
   const questions = p.toolName === 'AskUserQuestion' && Array.isArray((p.input as any).questions) ? ((p.input as any).questions as any[]) : null;
   if (questions)
@@ -240,29 +255,73 @@ export function Permission({ node, p }: { node: TurnNode; p: PendingPermission }
       </div>
     );
 
+  const why = p.safety?.replace(/^Safety rule:\s*/, '').replace(/\s*(Allow( it| reading it)? this time\?|Allow\?|Allow this commit\?)$/, '');
+  const said = typeof (p.input as any).description === 'string' ? ((p.input as any).description as string) : '';
   return (
     <div className={`perm nodrag ${p.safety ? 'perm-safety' : ''}`}>
       <div className="perm-label">
         <Icon name="shield" size={13} />
-        <span>{p.safety ? p.safety : <>Allow <b>{p.toolName}</b>?</>}</span>
+        {p.safety ? (
+          <span>
+            <b>Paused by a safety rule.</b> {why && `${why[0].toUpperCase()}${why.slice(1).replace(/\.$/, '')}.`}
+          </span>
+        ) : (
+          <span>
+            Allow <b>{p.toolName}</b>?
+          </span>
+        )}
       </div>
       <OwnScroll as="pre" className="perm-input">
         {short(toolSummary(p.toolName, p.input) || JSON.stringify(p.input, null, 2))}
       </OwnScroll>
+      {p.safety && (
+        <div className="perm-explain">
+          {p.explain ? (
+            <>
+              <div>
+                <span className="pe-k">What it does</span>
+                {p.explain.does}
+              </div>
+              <div>
+                <span className="pe-k">Risk</span>
+                {p.explain.risk}
+              </div>
+            </>
+          ) : (
+            <>
+              {said && (
+                <div>
+                  <span className="pe-k">The agent says</span>
+                  {said}
+                </div>
+              )}
+              <div className="pe-wait">
+                <span className="spinner" /> Working out what this does…
+              </div>
+            </>
+          )}
+        </div>
+      )}
       <div className="perm-actions">
-        <button className="btn primary" onClick={() => reply('allow')}>
-          Allow
+        <button className="btn primary" onClick={() => reply('allow')} title="Let the agent run it this once">
+          {p.safety ? 'Allow once' : 'Allow'}
         </button>
         {p.canAlways && (
           <button className="btn subtle" onClick={() => reply('always')} title="Allow this kind of call for the rest of the session">
             Always
           </button>
         )}
+        {command && (
+          <button className="btn subtle" onClick={runMyself} title="Type it into a terminal in this card’s folder for you to check and run. The agent carries on without it">
+            <Icon name="terminal" size={13} /> Run it myself
+          </button>
+        )}
         <span className="spacer" />
-        <button className="btn danger-ghost" onClick={() => reply('deny')}>
-          Deny
+        <button className="btn danger-ghost" onClick={() => reply('skip')} title="Don’t run it. The agent keeps going with the rest and lists what it skipped at the end">
+          Skip, keep going
         </button>
       </div>
+      <div className="perm-foot">Skipping doesn’t stop the work. To stop the whole step, use Stop.</div>
     </div>
   );
 }

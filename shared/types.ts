@@ -99,6 +99,8 @@ export interface PendingPermission {
   canAlways: boolean;
   /** Why it's asking, when one of Forkspace's safety rules paused it (e.g. "this uses AWS"). */
   safety?: string;
+  /** For a safety pause: what the command would do and what could go wrong, in plain words. */
+  explain?: { does: string; risk: string };
 }
 
 export interface Position {
@@ -313,7 +315,7 @@ export type ClientMsg =
   | { type: 'unqueue'; reqId: string; nodeId: string; id: string }
   /** Run a step's waiting messages now (it stopped or failed, so they didn't go on their own). */
   | { type: 'sendQueued'; reqId: string; nodeId: string }
-  | { type: 'permission'; nodeId: string; requestId: string; decision: 'allow' | 'always' | 'deny'; answers?: Record<string, string>; message?: string }
+  | { type: 'permission'; nodeId: string; requestId: string; decision: 'allow' | 'always' | 'deny' | 'skip' | 'self'; answers?: Record<string, string>; message?: string }
   | { type: 'upsertNote'; note: NoteNode }
   | { type: 'move'; moves: { id: string; position: Position; width?: number; height?: number }[] }
   | { type: 'deleteNodes'; ids: string[] }

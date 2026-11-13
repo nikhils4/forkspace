@@ -25,6 +25,14 @@ const noteText = (n: NoteNode) => {
 // Notes off screen get faint little pointers too, so they're one click away without shouting.
 
 const PAD = 14;
+
+// The message box's height, read at most a few times a second (reading styles mid-pan is costly).
+let composerCache = { at: 0, h: 120 };
+const composerH = () => {
+  const now = performance.now();
+  if (now - composerCache.at > 400) composerCache = { at: now, h: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--composer-h')) || 120 };
+  return composerCache.h;
+};
 const MAX_NOTES = 6;
 
 type Item = { kind: 'turn'; n: TurnNode } | { kind: 'note'; n: NoteNode };
@@ -39,6 +47,9 @@ export function Beacons({ live, ready, notes, onGo }: { live: TurnNode[]; ready:
   const widths = useRef(new Map<string, number>());
   const box = useRef<HTMLDivElement>(null);
   const [, remeasured] = useState(0);
+  // Measure only when the tags themselves change (which ones, what they say), not on every pan frame:
+  // reading sizes right after moving them forced a full layout each frame.
+  const tagsKey = [...live, ...ready].map((n) => `${n.id}:${liveText(n)}`).join('|') + '#' + notes.map((n) => `${n.id}:${noteText(n)}`).join('|') + `#${zoom < 0.32}`;
   useLayoutEffect(() => {
     let changed = false;
     box.current?.querySelectorAll<HTMLElement>('[data-id]').forEach((el) => {
@@ -50,12 +61,12 @@ export function Beacons({ live, ready, notes, onGo }: { live: TurnNode[]; ready:
       }
     });
     if (changed) remeasured((x) => x + 1);
-  });
+  }, [tagsKey]);
 
   if ((!live.length && !ready.length && !notes.length) || !W) return null;
 
   // What you can actually see: above the message box, left of the details panel.
-  const composer = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--composer-h')) || 120;
+  const composer = composerH();
   const host = document.querySelector('.pane.on .react-flow')?.getBoundingClientRect();
   const drawer = (document.querySelector('.drawer') as HTMLElement | null)?.getBoundingClientRect();
   const right = host && drawer && drawer.left > host.left + 200 && drawer.left < host.right ? drawer.left - host.left - 8 : W;
@@ -128,6 +139,8 @@ export function Beacons({ live, ready, notes, onGo }: { live: TurnNode[]; ready:
     const pane = document.querySelector('.pane.on .react-flow__renderer');
     pane?.dispatchEvent(new WheelEvent('wheel', { deltaX: e.deltaX, deltaY: e.deltaY, deltaMode: e.deltaMode, clientX: e.clientX, clientY: e.clientY, ctrlKey: e.ctrlKey, metaKey: e.metaKey, shiftKey: e.shiftKey, bubbles: true, cancelable: true }));
   };
+  // Edge pins centre on their spot; tags over a card sit just above it.
+  const at = (left: number, top: number, edge: boolean) => `translate3d(${Math.round(left)}px, ${Math.round(top)}px, 0) translate(-50%, ${edge ? '-50%' : '-100%'})`;
   const arrow = (angle: number | null, size = 13) =>
     angle !== null && (
       <span className="beacon-arrow" style={{ transform: `rotate(${angle}deg)` }}>
@@ -140,7 +153,7 @@ export function Beacons({ live, ready, notes, onGo }: { live: TurnNode[]; ready:
       {notePins.map(({ n, left, top, angle }) => {
         const note = n as NoteNode;
         return (
-          <button key={note.id} data-id={note.id} className="beacon edge note-pin" style={{ left, top, ['--note' as any]: note.color }} onClick={() => onGo(note.id)} onWheel={passWheel} title={`Go to note: ${note.text.slice(0, 120)}`}>
+          <button key={note.id} data-id={note.id} className="beacon edge note-pin" style={{ transform: at(left, top, true), ['--note' as any]: note.color }} onClick={() => onGo(note.id)} onWheel={passWheel} title={`Go to note: ${note.text.slice(0, 120)}`}>
             <span className="note-pin-dot" />
             <span className="beacon-text">{noteText(note)}</span>
             {arrow(angle, 11)}
@@ -154,7 +167,7 @@ export function Beacons({ live, ready, notes, onGo }: { live: TurnNode[]; ready:
             key={n.id}
             data-id={n.id}
             className={`beacon ${angle === null ? 'tag' : 'edge'} ${n.status === 'waiting' ? 'waiting' : ''} ${isLive(n) ? '' : `ready ${n.status}`}`}
-            style={{ left, top, ['--branch' as any]: branchColor(n.branchId) }}
+            style={{ transform: at(left, top, angle !== null), ['--branch' as any]: branchColor(n.branchId) }}
             onClick={() => onGo(n.id)}
             onWheel={passWheel}
             title={n.prompt}

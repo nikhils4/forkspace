@@ -7,6 +7,7 @@ import {
   SelectionMode,
   applyNodeChanges,
   useReactFlow,
+  useStore as useRFStore,
   type Edge,
   type Node,
   type NodeChange,
@@ -53,6 +54,13 @@ export function Canvas({
   // Notes filed away in Notes stay off the canvas.
   const items = useMemo(() => Object.values(store.nodes).filter((n) => n.boardId === board.id && !(n.kind === 'note' && n.filed)), [store.nodes, board.id]);
 
+  const far = useRFStore((st) => st.transform[2] < 0.4);
+  const lastZoom = useRef(0);
+  const setInvZoom = (zoom: number) => {
+    if (Math.abs(zoom - lastZoom.current) < 0.002) return;
+    lastZoom.current = zoom;
+    (document.querySelector('.pane.on .canvas') as HTMLElement | null)?.style.setProperty('--inv-zoom', String(1 / zoom));
+  };
   const commentsOpen = useCommentsPanel();
   const openComments = useMemo(() => items.reduce((a, n) => a + (n.kind === 'turn' ? openCount(n) : 0), 0), [items]);
 
@@ -670,10 +678,12 @@ export function Canvas({
           if (e) following.current = null;
         }}
         // Lets a working card's glow stay the same size on screen at any zoom.
-        onMove={(_, vp) => (document.querySelector('.pane.on .canvas') as HTMLElement | null)?.style.setProperty('--inv-zoom', String(1 / vp.zoom))}
-        onInit={(inst) => (document.querySelector('.pane.on .canvas') as HTMLElement | null)?.style.setProperty('--inv-zoom', String(1 / inst.getZoom()))}
+        // Only when the zoom changes: setting it on every pan frame restyled every card, every frame.
+        onMove={(_, vp) => setInvZoom(vp.zoom)}
+        onInit={(inst) => setInvZoom(inst.getZoom())}
       >
-        <Background variant={BackgroundVariant.Dots} gap={24} size={1.3} />
+        {/* Zoomed far out the dots get so dense that repainting them on every pan frame was the costliest thing on screen. */}
+        {!far && <Background variant={BackgroundVariant.Dots} gap={24} size={1.3} />}
         <Beacons
           live={items.filter((n): n is TurnNode => isTurn(n) && isLive(n))}
           ready={items.filter((n): n is TurnNode => isTurn(n) && !isLive(n) && readyIds.has(n.id))}

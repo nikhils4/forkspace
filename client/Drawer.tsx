@@ -1,4 +1,5 @@
 import { CardComments } from './Comments.tsx';
+import { ToolDiff, editsOf } from './ToolDiff.tsx';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Attachments } from './Shots.tsx';
 import type { TurnNode } from '../shared/types.ts';
@@ -254,8 +255,17 @@ export function Drawer({ node, onClose, onReply, onGo, composer }: { node: TurnN
                     <summary>
                       <ToolLine e={e} cwd={branch?.cwd} />
                     </summary>
-                    <div className="block-label">Input</div>
-                    <pre className="pre">{JSON.stringify(e.input, null, 2)}</pre>
+                    {editsOf(e) ? (
+                      <>
+                        <div className="block-label">Change</div>
+                        <ToolDiff e={e} cwd={branch?.cwd} />
+                      </>
+                    ) : (
+                      <>
+                        <div className="block-label">Input</div>
+                        <pre className="pre">{JSON.stringify(e.input, null, 2)}</pre>
+                      </>
+                    )}
                     {e.result != null && (
                       <>
                         <div className="block-label">Result</div>

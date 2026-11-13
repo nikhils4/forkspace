@@ -222,3 +222,25 @@ export async function readImageText(bytes: Buffer, mediaType: string, cwd: strin
   }
   return text.replace(/^```\w*\n?|```$/g, '').trim();
 }
+
+// ---- what a paused command would do ----
+
+const EXPLAIN_SCHEMA = {
+  type: 'object',
+  properties: {
+    does: { type: 'string', description: 'What running this would actually do, in one or two short plain sentences. Name the real thing it touches (which bucket, which database, which branch, which file).' },
+    risk: { type: 'string', description: 'What could go wrong or what it changes for real, in one short sentence. Say "Read only, changes nothing." when that is true.' },
+  },
+  required: ['does', 'risk'],
+};
+
+/** A plain-words read of a command a safety rule paused, so you can decide with your eyes open. */
+export async function explainCommand(toolName: string, input: Record<string, unknown>, reason: string, cwd: string): Promise<{ does: string; risk: string } | null> {
+  const what = toolName === 'Bash' ? `Command:\n${clip(String(input.command ?? ''), 3000)}${input.description ? `\n\nThe agent says it is: ${clip(String(input.description), 300)}` : ''}` : `Tool: ${toolName}\nInput: ${clip(JSON.stringify(input), 2000)}`;
+  return ask<{ does: string; risk: string }>(
+    `A coding agent wants to run this, and a safety rule paused it (${reason}).\n\n${what}\n\nSay what it would do and what could go wrong.`,
+    'You explain shell commands and tool calls to a developer deciding whether to allow them. Plain words, short, exact, no filler. Never guess beyond what the command shows.',
+    EXPLAIN_SCHEMA,
+    cwd,
+  ).catch(() => null);
+}

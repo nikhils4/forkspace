@@ -3,6 +3,14 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.29.0
+
+- Safety pauses explain themselves: under the command, what it would actually do and what could go wrong, in plain words (written in a few seconds by a small model)
+- New choices on a safety pause: Allow once, Run it myself (types the command into a terminal in the card's folder for you to check and run; the agent carries on without it), or Skip, keep going (the agent skips just that command, finishes the rest, and lists what it skipped at the end). Saying no no longer stops the work
+- Ordinary permission prompts get Skip, keep going too
+- Smoother panning when zoomed out: the tags on working and ready cards no longer trail behind or re-blur every frame, the canvas no longer restyles every card on each move, and the dot grid hides when zoomed far out
+- File edits under "How it got there" show as a red and green diff (− removed, + added, unchanged lines folded) instead of raw JSON, and each edit line shows its +/− counts
+
 ## 0.28.0
 
 - Comments panel: the speech-bubble button on the canvas (with a count) lists every comment on the board, grouped by thread and step. Click a step to jump to its card

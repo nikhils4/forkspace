@@ -5,7 +5,7 @@ import path from 'node:path';
 import type { Attachment, Board, Branch, PendingPermission, Position, TurnEvent, TurnNode } from '../shared/types.ts';
 import { INLINE_IMAGE_MAX, attachmentPath, imageBytes } from './attachments.ts';
 import * as g from './git.ts';
-import { commitMessage, threadTitle } from './tutor.ts';
+import { commitMessage, explainCommand, threadTitle } from './tutor.ts';
 import { archiveNote } from './threadnotes.ts';
 import { capture } from './shots.ts';
 import { ensureSessionAt } from './sessions.ts';
@@ -210,7 +210,7 @@ async function run(board: Board, branch: Branch, node: TurnNode, parent: TurnNod
 
   r.showNext = () => {
     const next = r.queue[0];
-    node.pending = next ? { requestId: next.requestId, toolName: next.toolName, input: next.input, canAlways: next.canAlways, safety: next.safety } : undefined;
+    node.pending = next ? { requestId: next.requestId, toolName: next.toolName, input: next.input, canAlways: next.canAlways, safety: next.safety, explain: next.explain } : undefined;
     node.status = next ? 'waiting' : 'running';
     touch(node);
   };
@@ -222,6 +222,13 @@ async function run(board: Board, branch: Branch, node: TurnNode, parent: TurnNod
       const p: Pending = { requestId: nanoid(8), toolName, input, canAlways: !safety && !!suggestions?.length, suggestions, safety, resolve };
       r.queue.push(p);
       if (r.queue.length === 1) queueMicrotask(() => notifyFn(node, 'waiting'));
+      // Say in plain words what it would do, so you can decide (it fills in a moment later).
+      if (safety)
+        void explainCommand(toolName, input, safety, branch.cwd).then((x) => {
+          if (!x || !r.queue.includes(p)) return;
+          p.explain = x;
+          if (r.queue[0] === p) r.showNext();
+        });
       signal.addEventListener('abort', () => answer(node.id, p.requestId, 'deny'));
       r.showNext();
     });
@@ -393,13 +400,24 @@ function handle(node: TurnNode, msg: any) {
   }
 }
 
-export function answer(nodeId: string, requestId: string, decision: 'allow' | 'always' | 'deny', answers?: Record<string, string>, message?: string) {
+// When you say no, the agent keeps going with the rest of the work instead of stopping.
+const SKIPPED =
+  'The user said no to this one action. Do not run it, retry it, or get the same result another way. ' +
+  'Keep going with the rest of the task. At the end, list what was skipped with the exact command, so the user can run it later if they want.';
+const SELF = (cmd: string) =>
+  `The user will run this command themselves in their own terminal: ${cmd}\n` +
+  'Do not run it or retry it. Carry on with the rest of the task. If later steps depend on its result, do what you can without it, ' +
+  'then say what to check once they have run it.';
+
+export function answer(nodeId: string, requestId: string, decision: 'allow' | 'always' | 'deny' | 'skip' | 'self', answers?: Record<string, string>, message?: string) {
   const r = running.get(nodeId);
   if (!r) return;
   const i = r.queue.findIndex((p) => p.requestId === requestId);
   if (i < 0) return;
   const [p] = r.queue.splice(i, 1);
-  if (decision !== 'allow' && decision !== 'always') p.resolve({ behavior: 'deny', message: message || 'The user denied this action.' });
+  if (decision === 'skip') p.resolve({ behavior: 'deny', message: SKIPPED });
+  else if (decision === 'self') p.resolve({ behavior: 'deny', message: SELF(String(p.input.command ?? JSON.stringify(p.input))) });
+  else if (decision !== 'allow' && decision !== 'always') p.resolve({ behavior: 'deny', message: message || 'The user denied this action.' });
   else
     p.resolve({
       behavior: 'allow',

@@ -98,7 +98,7 @@ function TermView({ info, active }: { info: TerminalInfo; active: boolean }) {
   return <div className={`term-view ${active ? 'on' : ''}`} ref={host} />;
 }
 
-export function TerminalPanel({ board, branchId, openFor, onClose }: { board: Board; branchId?: string; openFor?: { branchId: string; n: number } | null; onClose: () => void }) {
+export function TerminalPanel({ board, branchId, openFor, onClose }: { board: Board; branchId?: string; openFor?: { branchId: string; n: number; type?: string } | null; onClose: () => void }) {
   const { connected, branches, nodes } = useStore();
   const [list, setList] = useState<TerminalInfo[]>([]);
   const [active, setActive] = useState<string | null>(null);
@@ -132,10 +132,13 @@ export function TerminalPanel({ board, branchId, openFor, onClose }: { board: Bo
       const t = await request<TerminalInfo>({ type: 'termOpen', boardId: board.id, branchId: inBranch, cols: 100, rows: 24 });
       setList((l) => [...l.filter((x) => x.id !== t.id), t]);
       setActive(t.id);
+      return t;
     } catch (e: any) {
       setError(e.message);
     }
   };
+  // Put a command at the prompt without running it (no Enter): you read it, then press Enter.
+  const typeInto = (id: string, text: string, wait: number) => setTimeout(() => send({ type: 'termInput', id, data: text.replace(/\r?\n/g, ' \\\r') }), wait);
 
   // First open on a board: start a terminal if there isn't one yet (unless a card asked for its own).
   const handled = useRef(0);
@@ -156,8 +159,16 @@ export function TerminalPanel({ board, branchId, openFor, onClose }: { board: Bo
     handled.current = openFor.n;
     opened.current = true;
     const mine = list.filter((t) => t.branchId === openFor.branchId && t.exited === undefined);
-    if (mine.length) setActive(mine[mine.length - 1].id);
-    else open(openFor.branchId);
+    const type = openFor.type;
+    if (mine.length) {
+      const id = mine[mine.length - 1].id;
+      setActive(id);
+      if (type) typeInto(id, type, 150);
+    } else
+      open(openFor.branchId).then((t) => {
+        // A new shell needs a moment to show its prompt before it takes typing.
+        if (t && type) typeInto(t.id, type, 900);
+      });
   }, [openFor?.n, connected]);
 
   useEffect(() => onTerminal((m) => m.type === 'termList' && m.boardId === board.id && void load()), [board.id]);
