@@ -40,7 +40,7 @@
 }
 
 @media (prefers-color-scheme: light) {
-  :root:not([data-theme='dark']) {
+  :root:not([data-theme='dark']):not([data-theme='terminal']) {
     --bg: #f6f6f8;
     --bg-2: #fbfbfc;
     --surface: #ffffff;
@@ -2698,7 +2698,7 @@ pre.code,
   --syn-def: #eeffff;
 }
 @media (prefers-color-scheme: light) {
-  :root:not([data-theme='dark']) {
+  :root:not([data-theme='dark']):not([data-theme='terminal']) {
     --syn-keyword: #8b3fd9;
     --syn-string: #18794e;
     --syn-number: #c4501b;
@@ -4664,7 +4664,8 @@ kbd {
     --syn-punct: #6b7080;
     --syn-def: #14151b;
 }
-:root[data-theme='dark'] {
+:root[data-theme='dark'],
+:root[data-theme='terminal'] {
   color-scheme: dark;
 }
 
@@ -10857,4 +10858,297 @@ code.code-ref:hover {
   padding-left: 8px;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
+}
+
+/* =========================================================
+   Terminal mode: the whole app as a shell. Mono everywhere,
+   phosphor green on black, square corners, no blur, no glow
+   gradients, buttons in [ brackets ], a > prompt.
+   Settings → Appearance → Terminal, the >_ by the logo, or ⌥⌘T.
+   ========================================================= */
+:root[data-theme='terminal'] {
+  --bg: #030603;
+  --bg-2: #050a05;
+  --surface: #071007;
+  --surface-2: #0b180b;
+  --surface-3: #102310;
+  --border: rgba(80, 255, 120, 0.16);
+  --border-2: rgba(80, 255, 120, 0.3);
+  --text: #b9f7b0;
+  --text-2: #6fd06a;
+  --text-3: #3f8a3d;
+  --accent: #39ff7a;
+  --accent-2: #39ff7a;
+  --accent-grad: #39ff7a;
+  --accent-soft: rgba(57, 255, 122, 0.1);
+  --accent-ink: #021202;
+  --ok: #39ff7a;
+  --warn: #ffb000;
+  --warn-soft: rgba(255, 176, 0, 0.1);
+  --err: #ff5f56;
+  --err-soft: rgba(255, 95, 86, 0.1);
+  --add: #39ff7a;
+  --del: #ff5f56;
+  --shadow-sm: none;
+  --shadow: none;
+  --shadow-lg: none;
+  --r-sm: 0px;
+  --r: 0px;
+  --r-lg: 0px;
+  --r-xl: 0px;
+  --font: 'SF Mono', ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace;
+  --syn-keyword: #39ff7a;
+  --syn-string: #ffd479;
+  --syn-number: #ffb000;
+  --syn-fn: #b9f7b0;
+  --syn-type: #7fe7ff;
+  --syn-prop: #8fdc8a;
+  --syn-comment: #3f8a3d;
+  --syn-punct: #6fd06a;
+  --syn-def: #b9f7b0;
+  --term-selection: rgba(57, 255, 122, 0.3);
+  --xy-background-pattern-dots-color-default: rgba(80, 255, 120, 0.18);
+  --xy-edge-stroke-default: rgba(80, 255, 120, 0.45);
+  --xy-minimap-background-color-default: #050a05;
+  color-scheme: dark;
+}
+:root[data-theme='terminal'] body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  letter-spacing: 0;
+  text-shadow: 0 0 6px rgba(57, 255, 122, 0.18);
+}
+/* faint CRT scanlines over everything, never in the way */
+:root[data-theme='terminal'] body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 0) 2px, rgba(0, 0, 0, 0.16) 3px) !important;
+}
+:root[data-theme='terminal'] ::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+  text-shadow: none;
+}
+:root[data-theme='terminal'] *,
+:root[data-theme='terminal'] *::before,
+:root[data-theme='terminal'] *::after {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  font-family: var(--font) !important;
+}
+:root[data-theme='terminal'] :is(input, textarea, button, select) {
+  font-family: var(--font);
+  caret-color: var(--accent);
+  caret-shape: block;
+}
+/* no gradients or glows: flat fills only */
+:root[data-theme='terminal'] :is(.composer-box, .app-mark, .btn.primary, .fab, .turn, .drawer, .sheet, .ctx, .toast, .beacon)::before,
+:root[data-theme='terminal'] :is(.composer-box, .turn)::after {
+  display: none !important;
+}
+:root[data-theme='terminal'] :is(.btn.primary, .app-mark, .chip.on, .segmented button.on, .segmented [aria-selected='true']) {
+  background: var(--accent) !important;
+  color: var(--accent-ink) !important;
+  border-color: var(--accent) !important;
+  text-shadow: none;
+}
+:root[data-theme='terminal'] .app-mark svg {
+  color: var(--accent-ink);
+}
+
+/* buttons read as [ label ] */
+:root[data-theme='terminal'] .btn {
+  height: 28px;
+  padding: 0 8px;
+  background: transparent;
+  border: 1px solid var(--border-2);
+  color: var(--text);
+  font-weight: 500;
+  text-transform: lowercase;
+}
+:root[data-theme='terminal'] .btn::before {
+  content: '[';
+  color: var(--text-3);
+}
+:root[data-theme='terminal'] .btn::after {
+  content: ']';
+  color: var(--text-3);
+}
+:root[data-theme='terminal'] .btn.primary::before,
+:root[data-theme='terminal'] .btn.primary::after {
+  color: var(--accent-ink);
+  display: inline !important;
+}
+:root[data-theme='terminal'] .btn:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+:root[data-theme='terminal'] .btn:active:not(:disabled) {
+  transform: none;
+}
+:root[data-theme='terminal'] .btn.danger-ghost {
+  color: var(--err);
+  border-color: color-mix(in srgb, var(--err) 45%, transparent);
+}
+:root[data-theme='terminal'] .icon-btn:hover,
+:root[data-theme='terminal'] .fab:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+  transform: none;
+}
+:root[data-theme='terminal'] .theme-toggle.on {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* the sidebar and top bar: a prompt, not a brand */
+:root[data-theme='terminal'] .brand > span:first-of-type::before {
+  content: '~/';
+  color: var(--text-3);
+}
+
+:root[data-theme='terminal'] .brand > span:first-of-type {
+  white-space: nowrap;
+  text-transform: lowercase;
+  font-weight: 600;
+}
+:root[data-theme='terminal'] .sidebar {
+  background: var(--bg-2);
+  border-right: 1px solid var(--border);
+}
+:root[data-theme='terminal'] .topbar {
+  border-bottom: 1px dashed var(--border);
+}
+:root[data-theme='terminal'] :is(h1, h2, h3, .side-head, .ds-label, .block-label, .cc-shelf, .perm-explain .pe-k) {
+  letter-spacing: 0.04em;
+}
+:root[data-theme='terminal'] :is(.ds-label, .block-label)::before {
+  content: '# ';
+  color: var(--text-3);
+}
+
+/* panels and cards: plain boxes with a hairline */
+:root[data-theme='terminal'] :is(.turn, .drawer, .sheet, .ctx, .toast, .card-section, .cmt-panel, .note-sheet, .composer-box, .perm, .cdoc-card, .fab, .react-flow__minimap, .react-flow__controls) {
+  background: var(--surface) !important;
+  border: 1px solid var(--border-2) !important;
+}
+:root[data-theme='terminal'] .turn.target,
+:root[data-theme='terminal'] .react-flow__node.selected .turn {
+  border-color: var(--accent) !important;
+}
+:root[data-theme='terminal'] .turn.status-running,
+:root[data-theme='terminal'] .turn.status-waiting {
+  border-style: dashed !important;
+  border-color: var(--accent) !important;
+  animation: term-blink-border 1s steps(2) infinite;
+}
+:root[data-theme='terminal'] .turn.status-waiting {
+  border-color: var(--warn) !important;
+}
+@keyframes term-blink-border {
+  50% {
+    border-color: var(--border-2);
+  }
+}
+:root[data-theme='terminal'] .perm {
+  border-color: var(--warn) !important;
+}
+:root[data-theme='terminal'] .perm-safety {
+  border-color: var(--err) !important;
+}
+:root[data-theme='terminal'] :is(.cmt, .cmt-input) {
+  background: rgba(255, 176, 0, 0.06) !important;
+  border-color: rgba(255, 176, 0, 0.4) !important;
+  color: #ffd479;
+}
+:root[data-theme='terminal'] .fab-count,
+:root[data-theme='terminal'] .far-cmt {
+  background: var(--warn);
+  color: #120c00;
+  text-shadow: none;
+}
+:root[data-theme='terminal'] .dot {
+  border-radius: 0 !important;
+}
+
+/* the message box: a shell prompt with a block cursor */
+:root[data-theme='terminal'] .composer-box {
+  border-color: var(--accent) !important;
+}
+:root[data-theme='terminal'] .composer-box textarea {
+  color: var(--accent);
+}
+:root[data-theme='terminal'] .composer-box textarea::placeholder {
+  color: var(--text-3);
+}
+
+/* code and markdown */
+:root[data-theme='terminal'] :is(code, pre, .diff, .pre) {
+  background: var(--bg-2);
+  border-color: var(--border);
+}
+:root[data-theme='terminal'] a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+:root[data-theme='terminal'] .md :is(ul, ol) {
+  padding-left: 2.2ch;
+}
+:root[data-theme='terminal'] .md ul > li::marker {
+  content: '- ';
+  color: var(--text-3);
+}
+
+/* scrollbars: thin green rails */
+:root[data-theme='terminal'] * {
+  scrollbar-color: var(--border-2) transparent;
+  scrollbar-width: thin;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme='terminal'] .turn.status-running,
+  :root[data-theme='terminal'] .turn.status-waiting {
+    animation: none;
+  }
+}
+
+:root[data-theme='terminal'] .side-head {
+  text-transform: lowercase;
+}
+:root[data-theme='terminal'] .mentor-orb {
+  background: var(--accent) !important;
+  animation: term-blink-bg 1.2s steps(2) infinite;
+}
+@keyframes term-blink-bg {
+  50% {
+    opacity: 0.35;
+  }
+}
+:root[data-theme='terminal'] .react-flow__minimap-node {
+  fill: rgba(57, 255, 122, 0.4) !important;
+  stroke: none !important;
+}
+:root[data-theme='terminal'] .react-flow__minimap-mask {
+  fill: rgba(3, 6, 3, 0.7);
+}
+/* every branch reads in the same green: colour belongs to the shell */
+:root[data-theme='terminal'] [style*='--branch'] {
+  --branch: #39ff7a !important;
+}
+:root[data-theme='terminal'] .brand {
+  gap: 6px;
+  min-width: 0;
+}
+:root[data-theme='terminal'] .brand > span:first-of-type {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }

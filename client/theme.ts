@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 
-export type Theme = 'system' | 'light' | 'dark';
+/** 'terminal' is a dark look of its own: everything mono, phosphor green, square, like a shell. */
+export type Theme = 'system' | 'light' | 'dark' | 'terminal';
 const KEY = 'forkspace:theme';
 
 export function getTheme(): Theme {
   try {
     const t = localStorage.getItem(KEY);
-    return t === 'light' || t === 'dark' ? t : 'system';
+    return t === 'light' || t === 'dark' || t === 'terminal' ? t : 'system';
   } catch {
     return 'system';
   }
@@ -19,8 +20,8 @@ export function applyTheme(t: Theme = getTheme()) {
   const el = document.documentElement;
   if (t === 'system') delete el.dataset.theme;
   else el.dataset.theme = t;
-  const dark = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
-  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', dark ? '#0b0c10' : '#f6f6f8'));
+  const dark = t === 'dark' || t === 'terminal' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', t === 'terminal' ? '#030603' : dark ? '#0b0c10' : '#f6f6f8'));
 }
 
 export function setTheme(t: Theme) {
@@ -53,5 +54,23 @@ export function useResolvedTheme(): 'light' | 'dark' {
     mq.addEventListener('change', on);
     return () => mq.removeEventListener('change', on);
   }, []);
-  return t === 'system' ? (sysDark ? 'dark' : 'light') : t;
+  return t === 'system' ? (sysDark ? 'dark' : 'light') : t === 'terminal' ? 'dark' : t;
+}
+
+/** Switch terminal mode on or off; off goes back to the theme you had before. */
+export function toggleTerminal() {
+  const t = getTheme();
+  if (t === 'terminal') {
+    let back: Theme = 'system';
+    try {
+      const b = localStorage.getItem(KEY + '-before');
+      if (b === 'light' || b === 'dark') back = b;
+    } catch {}
+    setTheme(back);
+  } else {
+    try {
+      localStorage.setItem(KEY + '-before', t);
+    } catch {}
+    setTheme('terminal');
+  }
 }

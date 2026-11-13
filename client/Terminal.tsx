@@ -6,7 +6,7 @@ import type { Board, TerminalInfo } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
 import { onTerminal, request, send, useStore } from './store.ts';
 import { isTurn, pathTo } from './tree.ts';
-import { useResolvedTheme } from './theme.ts';
+import { useResolvedTheme, useTheme } from './theme.ts';
 
 // A real terminal at the bottom of the board, in the folder of the branch you're on.
 // Terminals keep running when the panel is closed; reopening shows what was on screen.
@@ -19,7 +19,7 @@ function themeFor(dark: boolean) {
     foreground: css('--text') || (dark ? '#ecedf2' : '#14151b'),
     cursor: css('--accent') || '#8b9cff',
     cursorAccent: css('--bg-2'),
-    selectionBackground: dark ? 'rgba(139,156,255,0.3)' : 'rgba(80,90,200,0.2)',
+    selectionBackground: css('--term-selection') || (dark ? 'rgba(139,156,255,0.3)' : 'rgba(80,90,200,0.2)'),
     black: dark ? '#1b1c25' : '#2e3040',
     brightBlack: dark ? '#6c6f82' : '#8a8d9e',
     red: '#ff6b6b',
@@ -38,6 +38,7 @@ function TermView({ info, active }: { info: TerminalInfo; active: boolean }) {
   const term = useRef<XTerm | null>(null);
   const fit = useRef<FitAddon | null>(null);
   const theme = useResolvedTheme();
+  const skin = useTheme();
 
   useEffect(() => {
     const t = new XTerm({
@@ -83,7 +84,7 @@ function TermView({ info, active }: { info: TerminalInfo; active: boolean }) {
 
   useEffect(() => {
     if (term.current) term.current.options.theme = themeFor(theme === 'dark');
-  }, [theme]);
+  }, [theme, skin]);
 
   useEffect(() => {
     if (!active) return;

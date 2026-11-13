@@ -234,7 +234,7 @@ function Appearance() {
       <div className="setting-row">
         <div className="setting-text">
           <b>Theme</b>
-          <span>System follows your Mac or phone.</span>
+          <span>System follows your Mac or phone. Terminal turns the whole app into a shell: mono, green on black.</span>
         </div>
         <Segmented<Theme>
           value={t}
@@ -243,6 +243,7 @@ function Appearance() {
             { value: 'system', label: 'System' },
             { value: 'light', label: 'Light' },
             { value: 'dark', label: 'Dark' },
+            { value: 'terminal', label: 'Terminal' },
           ]}
         />
       </div>

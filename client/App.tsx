@@ -22,7 +22,7 @@ import { ImportSessions } from './Import.tsx';
 import { LearnLibrary } from './Learn.tsx';
 import { NotesPage } from './Notes.tsx';
 import { UpdatePill } from './Updates.tsx';
-import { setTheme, useResolvedTheme } from './theme.ts';
+import { setTheme, toggleTerminal, useResolvedTheme, useTheme } from './theme.ts';
 import { placeFor } from './layout.ts';
 import { useInstall } from './pwa.ts';
 import { Palette, type PaletteItem } from './Palette.tsx';
@@ -242,6 +242,11 @@ function Shell() {
       if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
         e.preventDefault();
         toggleSide();
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.altKey && e.code === 'KeyT') {
+        e.preventDefault();
+        toggleTerminal();
         return;
       }
       if (e.ctrlKey && e.key === '`') {
@@ -950,10 +955,18 @@ function Welcome({ onNew }: { onNew: () => void }) {
 
 function ThemeToggle() {
   const t = useResolvedTheme();
+  const term = useTheme() === 'terminal';
   return (
-    <button className="icon-btn sm theme-toggle" onClick={() => setTheme(t === 'dark' ? 'light' : 'dark')} aria-label={t === 'dark' ? 'Switch to light' : 'Switch to dark'} title={t === 'dark' ? 'Light mode' : 'Dark mode'}>
-      <Icon name={t === 'dark' ? 'sun' : 'moon'} size={15} />
-    </button>
+    <>
+      {!term && (
+        <button className="icon-btn sm theme-toggle" onClick={() => setTheme(t === 'dark' ? 'light' : 'dark')} aria-label={t === 'dark' ? 'Switch to light' : 'Switch to dark'} title={t === 'dark' ? 'Light mode' : 'Dark mode'}>
+          <Icon name={t === 'dark' ? 'sun' : 'moon'} size={15} />
+        </button>
+      )}
+      <button className={`icon-btn sm theme-toggle ${term ? 'on' : ''}`} onClick={toggleTerminal} aria-label={term ? 'Leave terminal mode' : 'Terminal mode'} aria-pressed={term} title={term ? 'Leave terminal mode (⌥⌘T)' : 'Terminal mode: the whole app as a shell (⌥⌘T)'}>
+        <Icon name="terminal" size={15} />
+      </button>
+    </>
   );
 }
 

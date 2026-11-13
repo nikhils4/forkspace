@@ -3,6 +3,11 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.30.0
+
+- Terminal mode: the whole app as a shell. Everything in monospace, phosphor green on black, square corners, no blur or glow, buttons in [ brackets ], faint scanlines, working cards blink, comments in amber. The terminal panel and code view follow it too
+- Turn it on with the >_ button next to the logo, ⌥⌘T, or Settings → Appearance → Terminal. Turning it off goes back to the theme you had before
+
 ## 0.29.0
 
 - Safety pauses explain themselves: under the command, what it would actually do and what could go wrong, in plain words (written in a few seconds by a small model)
