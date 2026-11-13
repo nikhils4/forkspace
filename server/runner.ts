@@ -297,7 +297,8 @@ async function run(board: Board, branch: Branch, node: TurnNode, parent: TurnNod
     // (Stopped or failed: the messages stay on the card until you send or drop them.)
     const goesOn = node.status === 'done' && !!node.queued?.length;
     if ((node.status === 'done' && !goesOn) || node.status === 'error') notifyFn(node, 'finished');
-    if (node.status === 'done') activityFn(node, true);
+    // Every finished step counts for the thread's notes, stopped or failed ones too.
+    activityFn(node, true);
     if (goesOn) runQueued(node).catch(() => {});
   }
 }

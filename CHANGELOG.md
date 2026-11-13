@@ -3,6 +3,13 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.32.0
+
+- Options Claude offered stay with the card: when an answer ends with choices ("1. Cache it 2. … Which one?", "Want me to add tests?"), they show as "3 options" on the card's left edge, open on the latest card. Use puts that choice in the message box aimed at that card, ready to send or edit. One you went with gets a tick. Also in the details panel and under the answer in the chat. A small model reads only answers that look like they offer choices; recent steps are read once after updating
+- Thread notes are one note for the whole thread now, every branch included (with a Branches section when it split), instead of a separate note per branch that left the top note stale
+- Stopped and failed steps count too, so the note no longer skips them
+- The note says when it's behind ("2 new steps not in the notes yet") with a Sync button on the bar, the tab and the note itself. Opening a note that's behind syncs it on its own. Rewrite starts it over from every step
+
 ## 0.31.1
 
 - Comments beside a card are wider (340px) with a taller box to type in, so longer thoughts fit without wrapping every few words

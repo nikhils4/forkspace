@@ -244,3 +244,38 @@ export async function explainCommand(toolName: string, input: Record<string, unk
     cwd,
   ).catch(() => null);
 }
+
+// ---- choices offered in an answer ----
+
+const OPTIONS_SCHEMA = {
+  type: 'object',
+  properties: {
+    options: {
+      type: 'array',
+      maxItems: 6,
+      items: {
+        type: 'object',
+        properties: {
+          label: { type: 'string', description: 'The choice in 2 to 6 plain words, like "Cache results in memory".' },
+          detail: { type: 'string', description: 'One short line: what it means, or its trade-off. Empty if obvious.' },
+          prompt: { type: 'string', description: 'The message the developer would send to take this choice, written as them, specific and ready to send, like "Go with option 2: cache results in memory, and add a test for it."' },
+        },
+        required: ['label', 'prompt'],
+      },
+    },
+  },
+  required: ['options'],
+};
+
+/** The choices an answer offers the developer: options, alternatives, "want me to…" next steps. */
+export async function findOptions(answer: string, asked: string, cwd: string): Promise<{ label: string; detail?: string; prompt: string }[]> {
+  const res = await ask<{ options: { label: string; detail?: string; prompt: string }[] }>(
+    `The developer asked:\n${clip(asked, 1500)}\n\nThe coding agent answered:\n${clip(answer, 8000)}\n\n` +
+      'List the choices this answer offers the developer to pick from next: named options, alternative approaches, or concrete offers like "Want me to add tests?". ' +
+      'Only choices actually offered in the answer, in its order. Not summaries of work already done, not generic advice. Return an empty list if it offers none.',
+    'You pull the choices out of a coding agent\'s answer so the developer can see and pick them later. Exact, short, no invention.',
+    OPTIONS_SCHEMA,
+    cwd,
+  ).catch(() => null);
+  return (res?.options ?? []).filter((o) => o.label?.trim() && o.prompt?.trim()).slice(0, 6);
+}

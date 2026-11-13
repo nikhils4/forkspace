@@ -66,6 +66,8 @@ export interface ThreadNote {
   updatedAt: number;
   /** Steps folded in so far. */
   steps: number;
+  /** Exactly which steps (across every branch of the thread) are in the note, so it can say how far behind it is. */
+  stepIds?: string[];
   /** Being rewritten right now. */
   busy?: boolean;
   error?: string;
@@ -117,6 +119,16 @@ export interface Attachment {
 }
 
 /** Your own comment on a card. Never sent to the agent unless you put it in a prompt. */
+/** A choice Claude offered in its answer ("Option 2: cache it", "Want me to add tests?"). */
+export interface StepOption {
+  /** A few words: what the choice is. */
+  label: string;
+  /** One short line on what it means or costs. */
+  detail?: string;
+  /** What you'd send to take it, ready for the message box. */
+  prompt: string;
+}
+
 export interface CardComment {
   id: string;
   text: string;
@@ -208,6 +220,10 @@ export interface TurnNode {
   kind: 'turn';
   /** Your comments on this card. */
   comments?: CardComment[];
+  /** The choices Claude offered in this step's answer, pulled out so they stay visible. */
+  options?: StepOption[];
+  /** The answer has been read for options (whether or not it had any). */
+  optionsChecked?: boolean;
   /** Images and files sent with the prompt. */
   attachments?: Attachment[];
   /** Screenshots attached to this step, oldest first. */
@@ -292,7 +308,7 @@ export type ClientMsg =
   | { type: 'createBoard'; reqId: string; name: string; cwd: string; isolation: Isolation; permissionMode: PermissionMode }
   | { type: 'updateBoard'; id: string; patch: Partial<Pick<Board, 'name' | 'permissionMode' | 'model' | 'effort' | 'links' | 'learn' | 'previewUrl'>> }
   /** Rewrite a thread's note now. */
-  | { type: 'refreshNote'; reqId: string; branchId: string }
+  | { type: 'refreshNote'; reqId: string; branchId: string; mode?: 'sync' | 'rewrite' }
   /** Keep a thread's note in Concepts (updates it if it's already there). */
   | { type: 'keepNote'; reqId: string; branchId: string }
   | { type: 'deleteConcept'; reqId: string; id: string }

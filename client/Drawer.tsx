@@ -1,5 +1,6 @@
 import { CardComments } from './Comments.tsx';
 import { ToolDiff, editsOf } from './ToolDiff.tsx';
+import { OptionsSection, pickOption } from './Options.tsx';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Attachments } from './Shots.tsx';
 import type { TurnNode } from '../shared/types.ts';
@@ -189,6 +190,16 @@ export function Drawer({ node, onClose, onReply, onGo, composer }: { node: TurnN
           )}
           {node.error && <div className="error-box">{node.error}</div>}
         </section>
+
+        {!!node.options?.length && (
+          <section className="ds">
+            <div className="ds-label">
+              Options Claude offered
+              <span className="ds-meta">Use puts it in the message box</span>
+            </div>
+            <OptionsSection node={node} onPick={(o) => pickOption(() => onReply?.(node.id), o)} />
+          </section>
+        )}
 
         <section className="ds">
           <div className="ds-label">

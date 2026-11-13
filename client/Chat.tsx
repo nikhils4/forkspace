@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Attachments } from './Shots.tsx';
 import { NoteBar } from './ThreadNotes.tsx';
+import { OptionsSection, pickOption } from './Options.tsx';
 import type { Board, TurnEvent, TurnNode } from '../shared/types.ts';
 import { composerFocus } from './Composer.tsx';
 import { Icon } from './icons.tsx';
@@ -73,6 +74,7 @@ function Turn({ t, isLast, forkHere, openDetails }: { t: TurnNode; isLast: boole
             ),
           )}
           {t.error && <div className="error-box">{t.error}</div>}
+          {!live && <OptionsSection node={t} onPick={(o) => pickOption(forkHere, o)} />}
           {t.pending && <Permission node={t} p={t.pending} />}
           <div className="msg-meta">
             <StatusDot status={t.status} />
@@ -226,7 +228,7 @@ export function Chat({
           const next = path[i + 1];
           return (
             <Fragment key={t.id}>
-              {(i === 0 || path[i - 1].branchId !== t.branchId) && (
+              {i === 0 && (
                 <div className="chat-note">
                   <NoteBar branchId={t.branchId} />
                 </div>

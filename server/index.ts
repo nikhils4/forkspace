@@ -27,6 +27,7 @@ import { askMap, buildMap, forgetAnswer, linkCheck, loadAnswers, loadMap, mapIsS
 import { answer, isRunning, pruneBranches, queueMessage, runQueued, setActivityHook, setEmitter, setNotifier, startTurn, stop, touch } from './runner.ts';
 import { readImageText, threadTitle, tidyDictation } from './tutor.ts';
 import { deleteConcept, keepNote, noteAfterStep, refreshNote, setNotesEmit } from './threadnotes.ts';
+import { backfillOptions, optionsAfterStep } from './options.ts';
 import { flush, getBoard, getBranch, getNode, getTurn, save, state, subtree } from './store.ts';
 
 const PORT = Number(process.env.PORT || 4747);
@@ -287,8 +288,12 @@ function broadcast(msg: ServerMsg) {
 setEmitter(broadcast);
 setNotesEmit(broadcast);
 setActivityHook((node, final) => {
-  if (final) noteAfterStep(node);
+  if (!final) return;
+  noteAfterStep(node);
+  void optionsAfterStep(node);
 });
+// Steps finished before options were kept: read the recent ones, quietly, after start-up.
+setTimeout(() => void backfillOptions().catch(() => {}), 8000);
 
 const send = (ws: WebSocket, msg: ServerMsg) => ws.send(JSON.stringify(msg));
 
@@ -625,7 +630,7 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
     }
     case 'refreshNote': {
       if (!getBranch(msg.branchId)) throw new Error('Thread not found');
-      void refreshNote(msg.branchId);
+      void refreshNote(msg.branchId, msg.mode === 'sync' ? 'sync' : 'rewrite');
       return { ok: true };
     }
     case 'keepNote':

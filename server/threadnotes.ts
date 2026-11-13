@@ -43,6 +43,30 @@ const lastWords = (t: TurnNode) => {
   return '';
 };
 
+const turnById = (id?: string | null) => (id ? state.nodes.find((n): n is TurnNode => n.kind === 'turn' && n.id === id) : undefined);
+
+/** The thread a branch belongs to: its note lives on the branch of the thread's first card. */
+export function threadBranchId(branchId: string): string {
+  let t = turnsOf(branchId)[0];
+  for (let p = turnById(t?.parentId); p; p = turnById(p.parentId)) t = p;
+  return t?.branchId ?? branchId;
+}
+
+/** Every step in a thread, across all its branches, oldest first. */
+function threadTurns(rootBranchId: string): TurnNode[] {
+  const root = turnsOf(rootBranchId).find((t) => !turnById(t.parentId));
+  if (!root) return turnsOf(rootBranchId);
+  const kids = new Map<string, TurnNode[]>();
+  for (const n of state.nodes) if (n.kind === 'turn' && n.parentId) kids.set(n.parentId, [...(kids.get(n.parentId) ?? []), n as TurnNode]);
+  const out: TurnNode[] = [];
+  const walk = (t: TurnNode) => {
+    out.push(t);
+    for (const k of kids.get(t.id) ?? []) walk(k);
+  };
+  walk(root);
+  return out.sort((a, b) => a.createdAt - b.createdAt);
+}
+
 /** Steps before this branch started (a branch made from the middle of another thread). */
 function earlier(first: TurnNode | undefined) {
   const out: TurnNode[] = [];
@@ -64,16 +88,16 @@ async function stepDiff(cwd: string, t: TurnNode) {
 
 const running = new Map<string, { pending: boolean }>();
 
-/** A step finished: fold it into its thread's note. */
+/** A step finished (done, stopped or failed): fold it into its thread's note. */
 export function noteAfterStep(node: TurnNode) {
   const board = getBoard(node.boardId);
   if (!board || board.learn?.on === false) return;
-  void update(node.branchId, false);
+  void update(threadBranchId(node.branchId), false);
 }
 
-/** Rewrite a thread's note now, even if nothing new happened. */
-export function refreshNote(branchId: string) {
-  return update(branchId, true);
+/** Bring a thread's note up to date now: 'sync' folds in what's missing, 'rewrite' starts over. */
+export function refreshNote(branchId: string, mode: 'sync' | 'rewrite' = 'rewrite') {
+  return update(threadBranchId(branchId), mode === 'rewrite');
 }
 
 async function update(branchId: string, force: boolean): Promise<void> {
@@ -96,14 +120,24 @@ async function write(branchId: string, force: boolean) {
   const branch = getBranch(branchId);
   const board = branch && getBoard(branch.boardId);
   if (!branch || !board) return;
-  const turns = turnsOf(branchId).filter(isDone);
-  const folded = force ? 0 : (branch.note?.steps ?? 0);
-  const fresh = turns.slice(folded);
+  const turns = threadTurns(branchId).filter(isDone);
+  // Which steps are already in the note. Older notes only kept a count of this branch's steps.
+  const had = branch.note?.stepIds ?? turnsOf(branchId).filter(isDone).slice(0, branch.note?.steps ?? 0).map((t) => t.id);
+  const folded = new Set(force ? [] : had);
+  const fresh = turns.filter((t) => !folded.has(t.id));
   if (!turns.length || (!fresh.length && !force)) return;
 
   const before = earlier(turnsOf(branchId)[0]);
   const parentNote = before.length ? state.branches.find((b) => b.id === before.at(-1)!.branchId)?.note : undefined;
-  const prev = force ? undefined : (branch.note?.markdown ?? parentNote?.markdown);
+  const prev = force ? undefined : (branch.note?.markdown || parentNote?.markdown);
+  // Where each step sits: the main line, or a branch tried from an earlier step.
+  const where = (t: TurnNode) => {
+    if (t.branchId === branchId) return 'main line';
+    const first = turnsOf(t.branchId)[0];
+    const from = turnById(first?.parentId);
+    return `branch "${clip(first?.prompt ?? '', 60)}"${from ? `, tried from the step "${clip(from.prompt, 60)}"` : ''}`;
+  };
+  const branched = turns.some((t) => t.branchId !== branchId);
 
   branch.note = { ...(branch.note ?? { title: '', markdown: '', updatedAt: 0, steps: 0 }), busy: true, error: undefined };
   pushBranch(branch);
@@ -112,8 +146,10 @@ async function write(branchId: string, force: boolean) {
     const steps: string[] = [];
     let budget = 26_000;
     for (const t of fresh) {
-      const diff = await stepDiff(branch.cwd, t);
-      const part = [`### Step: "${clip(t.prompt, 1200)}"`, `What the agent did:\n${clip(describe(t.events, branch), 9000)}`, diff].filter(Boolean).join('\n\n');
+      const diff = await stepDiff((getBranch(t.branchId) ?? branch).cwd, t);
+      const stepBranch = getBranch(t.branchId) ?? branch;
+      const status = t.status === 'done' ? '' : ` (${t.status === 'error' ? 'failed' : t.status})`;
+      const part = [`### Step${status} on the ${where(t)}: "${clip(t.prompt, 1200)}"`, `What the agent did:\n${clip(describe(t.events, stepBranch), 9000)}`, diff].filter(Boolean).join('\n\n');
       steps.push(clip(part, Math.max(3000, budget)));
       budget -= part.length;
     }
@@ -129,6 +165,10 @@ async function write(branchId: string, force: boolean) {
       `## How it works\n` +
       `The flow in full detail, as numbered steps: what starts it, what calls what, where data goes and how it changes, with \`path:line\` for each step. ` +
       `Spell out every decision on the way as its own line: "If …: …", including errors, limits and special cases. Use a short realistic example if it helps.\n` +
+      (branched
+        ? `## Branches\n` +
+          `This thread split into branches (different tries from the same step). For each: what it tried, how it differs, and where it stands. Keep "What changed" and "How it works" about the main line unless a branch replaced it.\n`
+        : '') +
       `## Decisions and discussion\n` +
       `What the developer asked for, what was decided and why, options turned down. Skip if nothing.\n` +
       `## Still open\n` +
@@ -136,7 +176,8 @@ async function write(branchId: string, force: boolean) {
       (prev ? `Keep everything from the note that is still true, update what changed, and remove what was undone. ` : '') +
       `Leave out anything that didn't happen. Questions without code changes still count: note what was learned.`;
     const res = await readOnly<{ title: string; markdown: string }>(prompt, SYSTEM, SCHEMA, branch.cwd, () => {}, 14, MODEL);
-    const note: ThreadNote = { title: res.title.trim() || 'Thread notes', markdown: res.markdown.trim(), updatedAt: Date.now(), steps: turns.length };
+    const ids = [...new Set([...(force ? [] : had), ...fresh.map((t) => t.id)])].filter((id) => turns.some((t) => t.id === id));
+    const note: ThreadNote = { title: res.title.trim() || 'Thread notes', markdown: res.markdown.trim(), updatedAt: Date.now(), steps: ids.length, stepIds: ids };
     const now = getBranch(branchId);
     if (!now) {
       // Deleted while writing: the note still goes to Concepts.
@@ -173,7 +214,7 @@ function keepDoc(branch: Branch, boardName: string): ConceptDoc | null {
 
 /** Keep a thread's note in Concepts now (it stays in sync while the thread lives). */
 export function keepNote(branchId: string) {
-  const branch = getBranch(branchId);
+  const branch = getBranch(threadBranchId(branchId));
   if (!branch) throw new Error('Thread not found');
   if (!branch.note?.markdown) throw new Error('This thread has no notes yet.');
   return keepDoc(branch, getBoard(branch.boardId)?.name ?? '');

@@ -1,6 +1,7 @@
 import { Handle, NodeResizer, Position, useStore as useRFStore, type NodeProps } from '@xyflow/react';
 import { NoteTab, startsThread } from './ThreadNotes.tsx';
 import { editCounts } from './ToolDiff.tsx';
+import { CardOptions, pickOption } from './Options.tsx';
 import { CardComments, openCount, setCommentsPanel, startComment } from './Comments.tsx';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
@@ -476,6 +477,11 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
           {isLive(node) ? <LiveLine node={node} big /> : readyPill || STATUS_LABEL[node.status]}
         </div>
         <div className="far-prompt">{node.prompt}</div>
+        {!!node.options?.length && (
+          <span className="far-opt" title="Options Claude offered here">
+            <Icon name="spark" size={20} /> {node.options.length}
+          </span>
+        )}
         {openCount(node) > 0 && (
           <button className="far-cmt nodrag" onClick={(e) => (e.stopPropagation(), setCommentsPanel(true))} title="Your comments on this step">
             <Icon name="comment" size={22} /> {openCount(node)}
@@ -584,11 +590,11 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
       </div>
       <Handle type="source" position={Position.Bottom} />
     </div>
-    {!root && startsThread(node, nodes) && <NoteTab branchId={node.branchId} />}
     <button className="cmt-plus nodrag" onClick={() => startComment(node.id)} title="Add a comment (only for you)" aria-label="Add a comment">
       <Icon name="plus" size={13} />
     </button>
     <CardComments node={node} />
+    {!live && <CardOptions node={node} isHead={isHead} onPick={(o) => pickOption(() => onReply(node.id), o)} />}
     </>
   );
 });

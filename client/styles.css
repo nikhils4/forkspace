@@ -11238,3 +11238,192 @@ code.code-ref:hover {
 .card-comments.side .cmt-text {
   font-size: 13px;
 }
+
+/* thread notes: say when they're behind, and sync in one tap */
+.tnote-bar-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.tnote-bar > .btn {
+  flex: none;
+}
+.tnote-bar.behind {
+  border-color: color-mix(in srgb, var(--warn) 45%, var(--border-2));
+}
+.tnote-bar.behind .tnote-bar-text .faint {
+  color: var(--warn);
+}
+.tnote-tab .behind {
+  margin-left: 4px;
+  padding: 0 6px;
+  border-radius: 8px;
+  font-style: normal;
+  font-size: 10.5px;
+  background: color-mix(in srgb, var(--warn) 18%, transparent);
+  color: var(--warn);
+}
+.tnote-tab .behind.err {
+  background: var(--err-soft);
+  color: var(--err);
+}
+
+/* ---------- options Claude offered, kept beside the card ---------- */
+.card-options {
+  position: absolute;
+  top: 0;
+  right: calc(100% + 14px);
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  z-index: 2;
+  cursor: default;
+}
+.react-flow__node:has(.card-options.open) {
+  z-index: 900 !important;
+}
+.opt-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 13px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border-2));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  color: var(--accent);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 6px 16px -10px rgba(0, 0, 0, 0.5);
+}
+.opt-tab:hover {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+}
+.opt-box {
+  width: 100%;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border-2));
+  background: var(--surface);
+  box-shadow: 0 12px 30px -14px rgba(0, 0, 0, 0.55);
+}
+.opt-head {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-3);
+  margin: 0 2px 6px;
+}
+.opt-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.opt {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 8px 8px 8px 9px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+}
+.opt:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+.opt-n {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.opt.taken .opt-n {
+  background: var(--ok);
+  color: var(--bg);
+}
+.opt-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+.opt-text b {
+  color: var(--text);
+  font-weight: 600;
+}
+.opt-text span {
+  color: var(--text-2);
+  font-size: 12px;
+}
+.opt-text em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--ok);
+}
+.opt-use {
+  flex: none;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 7px;
+  border: 1px solid var(--border-2);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.opt-use:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.opt-list.compact .opt {
+  padding: 7px;
+}
+.opt-section {
+  margin: 4px 0 2px;
+}
+.msg-content .opt-section {
+  margin: 10px 0 4px;
+}
+.far-opt {
+  position: absolute;
+  top: 14px;
+  right: 92px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 20px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 20px;
+  font-weight: 700;
+}
+.turn.far:not(:has(.far-cmt)) .far-opt {
+  right: 14px;
+}
