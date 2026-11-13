@@ -707,7 +707,7 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       const list = Array.isArray(msg.comments) ? msg.comments.slice(0, 100) : [];
       const clean = list
         .filter((c) => c && typeof c.text === 'string' && c.text.trim())
-        .map((c) => ({ id: String(c.id ?? '').replace(/[^\w-]/g, '').slice(0, 24) || Math.random().toString(36).slice(2, 10), text: c.text.trim().slice(0, 4000), at: Number(c.at) || Date.now() }));
+        .map((c) => ({ id: String(c.id ?? '').replace(/[^\w-]/g, '').slice(0, 24) || Math.random().toString(36).slice(2, 10), text: c.text.trim().slice(0, 4000), at: Number(c.at) || Date.now(), ...(c.done ? { done: true } : {}) }));
       t.comments = clean.length ? clean : undefined;
       save();
       broadcast({ type: 'node', node: t });

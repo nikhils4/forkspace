@@ -12,7 +12,7 @@ import {
   type NodeChange,
 } from '@xyflow/react';
 import { openThreadNote } from './ThreadNotes.tsx';
-import { startComment } from './Comments.tsx';
+import { CommentsPanel, openCount, setCommentsPanel, startComment, useCommentsPanel } from './Comments.tsx';
 import { Beacons } from './Beacons.tsx';
 import { clearReady, useReady } from './review.ts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -52,6 +52,9 @@ export function Canvas({
   const theme = useResolvedTheme();
   // Notes filed away in Notes stay off the canvas.
   const items = useMemo(() => Object.values(store.nodes).filter((n) => n.boardId === board.id && !(n.kind === 'note' && n.filed)), [store.nodes, board.id]);
+
+  const commentsOpen = useCommentsPanel();
+  const openComments = useMemo(() => items.reduce((a, n) => a + (n.kind === 'turn' ? openCount(n) : 0), 0), [items]);
 
   const onReply = useCallback(
     (id: string | null) => {
@@ -113,7 +116,9 @@ export function Canvas({
       const viewH = el?.clientHeight ?? 700;
       // The details panel floats over the right side: centre in the part you can still see.
       const cr = el?.getBoundingClientRect();
-      const dr = (document.querySelector('.drawer') as HTMLElement | null)?.getBoundingClientRect();
+      // So does the Comments panel: whichever reaches further left sets the edge.
+      const over = [...document.querySelectorAll('.drawer, .pane.on .cmt-panel')].map((e) => e.getBoundingClientRect()).filter((r) => r.width);
+      const dr = over.sort((a, b) => a.left - b.left)[0];
       const visibleW = cr && dr && dr.left < cr.right && dr.left > cr.left + 200 ? dr.left - cr.left - 12 : (cr?.width ?? 0);
       const shiftX = cr ? (cr.width - visibleW) / 2 : 0;
       const composer = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--composer-h')) || 120;
@@ -704,7 +709,22 @@ export function Canvas({
 
       {menu && <ContextMenu key={`${menu.x},${menu.y}`} x={menu.x} y={menu.y} items={menuItems(menu.id)} onClose={() => setMenu(null)} />}
 
+      {commentsOpen && (
+        <CommentsPanel
+          boardId={board.id}
+          onClose={() => setCommentsPanel(false)}
+          onGo={(id) => {
+            setTargetId(id);
+            centerOn(id);
+          }}
+        />
+      )}
+
       <div className="canvas-tools">
+        <button className={`fab ${commentsOpen ? 'on' : ''}`} onClick={() => setCommentsPanel(!commentsOpen)} title="Comments: every comment on this board" aria-label="Comments" aria-pressed={commentsOpen}>
+          <Icon name="comment" size={18} />
+          {openComments > 0 && <span className="fab-count">{openComments > 99 ? '99+' : openComments}</span>}
+        </button>
         <button className="fab" onClick={() => addNote()} title="New note (N)" aria-label="New note">
           <Icon name="note" size={18} />
         </button>

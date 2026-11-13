@@ -1,6 +1,6 @@
 import { Handle, NodeResizer, Position, useStore as useRFStore, type NodeProps } from '@xyflow/react';
 import { NoteTab, startsThread } from './ThreadNotes.tsx';
-import { CardComments, startComment } from './Comments.tsx';
+import { CardComments, openCount, setCommentsPanel, startComment } from './Comments.tsx';
 import { memo, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Markdown } from './Markdown.tsx';
@@ -417,6 +417,11 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
           {isLive(node) ? <LiveLine node={node} big /> : readyPill || STATUS_LABEL[node.status]}
         </div>
         <div className="far-prompt">{node.prompt}</div>
+        {openCount(node) > 0 && (
+          <button className="far-cmt nodrag" onClick={(e) => (e.stopPropagation(), setCommentsPanel(true))} title="Your comments on this step">
+            <Icon name="comment" size={22} /> {openCount(node)}
+          </button>
+        )}
         <Handle type="source" position={Position.Bottom} />
       </div>
       </>

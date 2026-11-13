@@ -7436,7 +7436,50 @@ input.thread-title.editing {
   line-height: 1.45;
   color: var(--text);
 }
+.cmt-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.cmt-tick {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, #f5c542 55%, var(--text-3));
+  background: transparent;
+  color: var(--bg);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.cmt-tick:hover {
+  background: color-mix(in srgb, #f5c542 25%, transparent);
+}
+.cmt-tick.on {
+  background: var(--ok);
+  border-color: var(--ok);
+}
+.cmt.done {
+  background: var(--bg-2);
+  border-color: var(--border);
+}
+.cmt.done .cmt-text {
+  color: var(--text-3);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--text-3) 60%, transparent);
+}
+.cmt-when {
+  margin: 3px 0 0 23px;
+  font-size: 11px;
+  color: var(--text-3);
+}
 .cmt-text {
+  flex: 1;
+  min-width: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   user-select: text;
@@ -7520,8 +7563,12 @@ input.thread-title.editing {
 .react-flow__node .cmt-actions {
   display: none;
 }
-.react-flow__node .card-comments:hover .cmt-actions {
+.react-flow__node .card-comments:hover .cmt-actions,
+.react-flow__node .cmt-actions.always {
   display: flex;
+}
+.cmt-done-chip {
+  color: var(--text-3);
 }
 .cmt-add {
   display: inline-flex;
@@ -10516,4 +10563,224 @@ code.code-ref:hover {
 .thread-done .tnote-tab {
   pointer-events: auto;
   margin: 4px 0 0;
+}
+
+/* ---------- the Comments panel on the canvas ---------- */
+.fab {
+  position: relative;
+}
+.fab.on {
+  color: color-mix(in srgb, #f5c542 75%, var(--text));
+  border-color: color-mix(in srgb, #f5c542 45%, var(--border));
+  background: color-mix(in srgb, #f5c542 10%, var(--surface));
+}
+.fab-count {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #f5c542;
+  color: #1d1708;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--bg);
+}
+.cmt-panel {
+  position: absolute;
+  top: 14px;
+  right: 66px;
+  bottom: calc(var(--composer-h, 120px) + 28px);
+  width: min(360px, calc(100% - 96px));
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  z-index: 6;
+  overflow: hidden;
+  cursor: default;
+  animation: cmtp-in 0.18s ease-out;
+}
+@keyframes cmtp-in {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+}
+.cmtp-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 12px 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.cmtp-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+  color: var(--text);
+}
+.cmtp-title svg {
+  color: color-mix(in srgb, #f5c542 75%, var(--text));
+}
+.cmtp-tabs {
+  margin-left: auto;
+  display: flex;
+  padding: 2px;
+  gap: 2px;
+  border-radius: 9px;
+  background: var(--bg-2);
+}
+.cmtp-tabs button {
+  height: 26px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 12px;
+  cursor: pointer;
+}
+.cmtp-tabs button span {
+  margin-left: 3px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.cmtp-tabs button.on {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.cmtp-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 12px 14px;
+}
+.cmtp-thread {
+  padding: 10px 0 4px;
+}
+.cmtp-thread + .cmtp-thread {
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+}
+.cmtp-thread-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+  margin-bottom: 4px;
+}
+.cmtp-thread-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.cmtp-step {
+  margin: 4px 0 10px;
+}
+.cmtp-step-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  margin-bottom: 6px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.cmtp-step-head:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.cmtp-step-head > svg {
+  flex: none;
+  margin-left: auto;
+  color: var(--text-3);
+}
+.cmtp-n {
+  flex: none;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  font-size: 10.5px;
+  line-height: 16px;
+  text-align: center;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.cmt-panel .cmt:not(.done) {
+  background: color-mix(in srgb, #f5c542 7%, var(--bg-2));
+  border-color: color-mix(in srgb, #f5c542 18%, var(--border));
+}
+.cmtp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 14px;
+  margin-left: 15px;
+  border-left: 1.5px solid color-mix(in srgb, #f5c542 30%, var(--border));
+}
+.cmtp-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  padding: 48px 18px;
+  color: var(--text-3);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.cmtp-empty svg {
+  color: color-mix(in srgb, #f5c542 60%, var(--text-3));
+}
+.cmtp-empty b {
+  color: var(--text);
+  font-size: 13.5px;
+}
+.cmtp-empty p {
+  margin: 0;
+  max-width: 260px;
+}
+.mobile .cmt-panel {
+  top: calc(64px + var(--sat, 0px));
+  left: 12px;
+  right: 12px;
+  width: auto;
+  bottom: calc(var(--composer-h, 120px) + 70px);
+}
+/* zoomed far out: how many comments a card has */
+.far-cmt {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 20px;
+  border: 0;
+  background: #f5c542;
+  color: #1d1708;
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.5);
 }

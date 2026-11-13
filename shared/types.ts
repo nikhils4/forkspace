@@ -119,6 +119,8 @@ export interface CardComment {
   id: string;
   text: string;
   at: number;
+  /** Ticked off: dealt with, kept for the record. */
+  done?: boolean;
 }
 
 /** A map of a project: its big parts, the pieces worth knowing, and what uses what. */

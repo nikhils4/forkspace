@@ -1,3 +1,4 @@
+import { CardComments } from './Comments.tsx';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Attachments } from './Shots.tsx';
 import type { TurnNode } from '../shared/types.ts';
@@ -167,6 +168,16 @@ export function Drawer({ node, onClose, onReply, onGo, composer }: { node: TurnN
           </div>
           <Attachments list={node.attachments} label={node.prompt} />
         </section>
+
+        {!!node.comments?.length && (
+          <section className="ds">
+            <div className="ds-label">
+              Your comments
+              <span className="ds-meta">only you see these</span>
+            </div>
+            <CardComments node={node} roomy />
+          </section>
+        )}
 
         <section className="ds">
           <div className="ds-label">Answer</div>

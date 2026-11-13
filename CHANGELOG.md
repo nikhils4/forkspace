@@ -3,6 +3,14 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.28.0
+
+- Comments panel: the speech-bubble button on the canvas (with a count) lists every comment on the board, grouped by thread and step. Click a step to jump to its card
+- Tick a comment off when it's dealt with. Done ones leave the card and sit under Done in the panel, where you can untick them
+- Send one comment, or a thread's open comments all at once, to your next prompt from the panel
+- The details panel shows a step's comments under what you asked, with when you wrote them
+- Zoomed far out, cards with comments show a yellow count instead of hiding them
+
 ## 0.27.0
 
 - Thread notes: every thread gets one note at its top, kept up to date by Claude after each step. It says what the thread is for, every change made (with links to the code), how it works step by step with each if/else spelled out, what was decided, and what's still open. Click any `file:line` in it to open that spot in the Code view
