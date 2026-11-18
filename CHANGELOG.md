@@ -3,6 +3,10 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.36.1
+
+- Update notes in Settings show **bold** and `code` properly instead of raw asterisks and backticks
+
 ## 0.36.0
 
 - **Threads in the sidebar.** Every thread on the board with its branches nested under it, each with where it stands and its pull request. Click one to go straight to its latest card

@@ -11524,3 +11524,16 @@ code.code-ref:hover {
 .canvas-moving .react-flow__edge.animated .react-flow__edge-path {
   animation-play-state: paused !important;
 }
+
+/* release notes: bold lead-ins and code read as such */
+.release li { line-height: 1.5; }
+.release ul { gap: 6px; }
+.release li b { color: var(--text); font-weight: 600; }
+.release li code {
+  font-family: var(--mono);
+  font-size: 0.92em;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--surface-3);
+  color: var(--text);
+}

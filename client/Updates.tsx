@@ -125,7 +125,7 @@ export function UpdateSection() {
               {r.notes.length > 0 && (
                 <ul>
                   {r.notes.map((n, i) => (
-                    <li key={i}>{n}</li>
+                    <li key={i}>{inline(n)}</li>
                   ))}
                 </ul>
               )}
@@ -168,5 +168,18 @@ export function UpdatePill({ onOpen }: { onOpen: () => void }) {
     <button className="side-link update-pill" onClick={onOpen}>
       <span className="update-dot" /> {info.releases.length ? `Update to ${info.releases[0].version}` : 'Restart to update'}
     </button>
+  );
+}
+
+/** Release notes are one line each: show **bold** and `code` as such, not as raw markers. */
+function inline(text: string) {
+  return text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).map((part, i) =>
+    part.startsWith('**') && part.endsWith('**') && part.length > 4 ? (
+      <b key={i}>{part.slice(2, -2)}</b>
+    ) : part.startsWith('`') && part.endsWith('`') && part.length > 2 ? (
+      <code key={i}>{part.slice(1, -1)}</code>
+    ) : (
+      part
+    ),
   );
 }
