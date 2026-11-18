@@ -6,6 +6,7 @@ To cut one: add a section below, then run `npm run release -- <version>`.
 ## 0.36.1
 
 - Update notes in Settings show **bold** and `code` properly instead of raw asterisks and backticks
+- A new branch lands right beside its own thread. Threads to its right slide over to make room, instead of the branch going past every other thread on the board
 
 ## 0.36.0
 

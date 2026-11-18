@@ -25,7 +25,7 @@ import { LearnLibrary } from './Learn.tsx';
 import { NotesPage } from './Notes.tsx';
 import { UpdatePill } from './Updates.tsx';
 import { setTheme, toggleTerminal, useResolvedTheme, useTheme } from './theme.ts';
-import { placeFor } from './layout.ts';
+import { placeFor, placement } from './layout.ts';
 import { useInstall } from './pwa.ts';
 import { Palette, type PaletteItem } from './Palette.tsx';
 import { Settings, settingsTab } from './Settings.tsx';
@@ -291,8 +291,9 @@ function Shell() {
 
   const submit = async (prompt: string, attachments: Attachment[] = [], parentId: string | null = targetId) => {
     if (!board) return false;
-    const position = placeFor(store.nodes, board.id, parentId, { x: 0, y: 0 });
+    const { position, moves } = placement(store.nodes, board.id, parentId, { x: 0, y: 0 });
     try {
+      if (moves.length) send({ type: 'move', moves });
       const { id, queued } = await request<{ id: string; queued?: boolean }>({ type: 'send', boardId: board.id, parentId, prompt, position, attachments });
       // Sent to a step that's still working: it waits on that card and runs next.
       if (queued) return toast('Queued. It runs as the next step when this one finishes.'), true;

@@ -1,6 +1,6 @@
 import type { Board, Branch, CanvasNode, PrInfo, TurnNode } from '../shared/types.ts';
-import { placeFor } from './layout.ts';
-import { request, toast } from './store.ts';
+import { placement } from './layout.ts';
+import { request, send, toast } from './store.ts';
 import { isLive, isTurn, lastText, currentActivity } from './tree.ts';
 
 // One status for every branch and thread, so the sidebar, the Work page, the details panel and
@@ -151,8 +151,9 @@ export function fixPrompt(pr: PrInfo) {
 
 /** Send "Fix these" as the next step on the branch. */
 export async function sendFix(nodes: Record<string, CanvasNode>, last: TurnNode, pr: PrInfo) {
-  const position = placeFor(nodes, last.boardId, last.id, { x: last.position.x, y: last.position.y + 320 });
+  const { position, moves } = placement(nodes, last.boardId, last.id, { x: last.position.x, y: last.position.y + 320 });
   try {
+    if (moves.length) send({ type: 'move', moves });
     const r = await request<{ id: string; queued?: boolean }>({ type: 'send', boardId: last.boardId, parentId: last.id, prompt: fixPrompt(pr), position });
     toast(r.queued ? 'Queued: the agent works on the PR items next.' : 'Sent the PR items to the agent.');
     return r;
