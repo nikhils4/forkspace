@@ -3,6 +3,14 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.36.0
+
+- **Threads in the sidebar.** Every thread on the board with its branches nested under it, each with where it stands and its pull request. Click one to go straight to its latest card
+- **Work page.** Every branch on every board, grouped by stage: needs you, failed, checks failing, has comments, working, ready to merge, ready for review, idle. The count beside Work is what needs you
+- **Pull requests tracked.** When an agent opens or views a PR, or a worktree's branch has an open one, it's linked to that branch (or paste a link in the details panel). Forkspace reads it every 2 minutes with your `gh` login: failing checks, bug reports from review bots, comments from people, merge conflicts. With nothing open it says **Ready to merge**. **Fix these** sends everything open to the agent as the next step
+- **Agent questions can always be answered.** The question now sits above the reply box in the details panel (it used to show nowhere when the card was zoomed out). Picks survive zooming and switching views, there's an **Other** box for your own answer, options with commas work, and it says how many questions are left
+- **Smoother canvas.** Cards no longer redraw on every word an agent streams, and the frosted glass and moving lights pause while you pan or zoom
+
 ## 0.35.0
 
 - Thread notes (and Concepts) are laid out status first: **Now** and **Next** at the top in their own block, then a **Work** table of every piece of work with its state (done, in progress, planned, open, dropped, failed as coloured chips), then What changed, How it works as short bullets, Decided ("choice: why") and Open
