@@ -32,6 +32,16 @@ export const useStore = () =>
     () => snap,
   );
 export const getSnapshot = () => snap;
+/**
+ * Just one piece of the state: the component re-renders only when that piece changes, not on
+ * every streamed word from every agent. The selector must return something stable (an object
+ * from the state, a string, a number), never a fresh array or object.
+ */
+export const useSelect = <T,>(sel: (s: Snapshot) => T): T =>
+  useSyncExternalStore(
+    (l) => (listeners.add(l), () => listeners.delete(l)),
+    () => sel(snap),
+  );
 
 // ---- access key ----
 const KEY = 'forkspace:token';

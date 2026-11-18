@@ -56,6 +56,39 @@ export interface Branch {
   imported?: boolean;
   /** The thread's living note: what it's for, what changed, how it works. */
   note?: ThreadNote;
+  /** The GitHub pull request this branch's work went into, and how it stands. */
+  pr?: PrInfo;
+}
+
+/** Something on a pull request that still needs doing. */
+export interface PrItem {
+  kind: 'check' | 'bug' | 'comment' | 'conflict' | 'changes';
+  title: string;
+  body?: string;
+  path?: string;
+  line?: number;
+  url?: string;
+  who?: string;
+}
+
+/** A linked pull request, as last read from GitHub. */
+export interface PrInfo {
+  url: string;
+  number: number;
+  title?: string;
+  state?: 'OPEN' | 'MERGED' | 'CLOSED';
+  draft?: boolean;
+  checks?: { failing: number; pending: number; passing: number };
+  /** Open review threads from bots (bug finders like Bugbot, CodeRabbit, Copilot). */
+  bugs?: number;
+  /** Open review threads and new comments from people. */
+  comments?: number;
+  conflicts?: boolean;
+  changesRequested?: boolean;
+  /** Everything still open, for "Fix these". */
+  items?: PrItem[];
+  checkedAt?: number;
+  error?: string;
 }
 
 /** A thread's note, rewritten by Claude after each step. */
@@ -332,6 +365,9 @@ export type ClientMsg =
   | { type: 'captureShot'; reqId: string; nodeId: string }
   | { type: 'removeShot'; nodeId: string; shotId: string }
   | { type: 'setTitle'; nodeId: string; title: string }
+  /** Link a pull request to a branch (null unlinks), or read it again from GitHub now. */
+  | { type: 'linkPr'; reqId: string; branchId: string; url: string | null }
+  | { type: 'refreshPr'; reqId: string; branchId: string }
   | { type: 'mapGet'; reqId: string; boardId: string }
   | { type: 'mapBuild'; reqId: string; boardId: string }
   | { type: 'mapAsk'; reqId: string; boardId: string; question: string; replace?: number }

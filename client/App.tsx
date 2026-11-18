@@ -18,6 +18,8 @@ import { Drawer } from './Drawer.tsx';
 import { PairScreen, Splash, StartCommand, UnreachableScreen } from './Gate.tsx';
 import { Icon } from './icons.tsx';
 import { Inbox, SidebarAgents, useAgents } from './Inbox.tsx';
+import { SidebarThreads, WorkPage } from './Threads.tsx';
+import { threadsOf } from './status.ts';
 import { ImportSessions } from './Import.tsx';
 import { LearnLibrary } from './Learn.tsx';
 import { NotesPage } from './Notes.tsx';
@@ -30,7 +32,7 @@ import { Settings, settingsTab } from './Settings.tsx';
 import { request, send, toast, useStore } from './store.ts';
 import { branchColor, STATUS_LABEL } from './nodes.tsx';
 import { isLive, isTurn, latestLeaf, leaves } from './tree.ts';
-import { clearReady, useWatchFinishes } from './review.ts';
+import { clearReady, useReady, useWatchFinishes } from './review.ts';
 import { Segmented, Sheet, useIsMobile } from './ui.tsx';
 
 type View = 'chat' | 'canvas' | 'code' | 'map';
@@ -79,7 +81,7 @@ function Shell() {
   const [focus, setFocus] = useState<{ id: string; n: number } | null>(null);
   const [sheet, setSheet] = useState<null | 'new' | 'board' | 'devices' | 'boards' | 'learn' | 'import'>(null);
   // Desktop: the main area shows a board, or the Concepts page.
-  const [page, setPage] = useState<'board' | 'concepts' | 'notes'>('board');
+  const [page, setPage] = useState<'board' | 'concepts' | 'notes' | 'work'>('board');
   const [learnPage, setLearnPage] = useState<'concepts' | 'notes'>('concepts');
   const filedCount = Object.values(store.nodes).filter((n) => n.kind === 'note' && n.filed).length;
   const [termOpen, setTermOpen] = useState(false);
@@ -132,6 +134,12 @@ function Shell() {
   // Views are mounted on first visit and then kept alive, so switching never loses your place.
   const [visited, setVisited] = useState<Record<string, View[]>>({});
   const { waiting, running } = useAgents();
+  // Branches that need you: a question, a failure, failing checks or open PR comments.
+  const readySet = useReady();
+  const workCount = useMemo(
+    () => threadsOf(store.nodes, store.branches, store.boards, readySet).reduce((a, t) => a + t.branches.filter((b) => ['needs', 'error', 'failing', 'feedback'].includes(b.stage)).length, 0),
+    [store.nodes, store.branches, store.boards, readySet],
+  );
   useWatchFinishes(store.nodes, store.loaded);
 
   const board = store.boards.find((b) => b.id === boardId) ?? store.boards[0] ?? null;
@@ -204,6 +212,15 @@ function Shell() {
     },
     [store.nodes],
   );
+
+  /** Go to exactly this card (a branch's latest step), without following newer forks. */
+  const goExact = useCallback((t: TurnNode) => {
+    setBoardId(t.boardId);
+    setPage('board');
+    setTargets((x) => ({ ...x, [t.boardId]: isLive(t) || t.sessionId ? t.id : x[t.boardId] ?? null }));
+    setTab('board');
+    setFocus({ id: t.id, n: Date.now() });
+  }, []);
 
   // Deep links: ?board=…&node=… (notification taps).
   const openUrl = useCallback(
@@ -636,6 +653,10 @@ function Shell() {
             <Icon name="folder" size={17} />
             {filedCount > 0 && <span className="rail-badge">{filedCount}</span>}
           </button>
+          <button className={`rail-btn ${page === 'work' ? 'on' : ''}`} onClick={() => setPage(page === 'work' ? 'board' : 'work')} title="Work: every thread and where it stands" aria-label="Work">
+            <Icon name="inbox" size={17} />
+            {workCount > 0 && <span className="rail-badge">{workCount}</span>}
+          </button>
           <span className="rail-sep" />
           {store.boards.map((b) => {
             const live = Object.values(store.nodes).filter((n): n is TurnNode => isTurn(n) && n.boardId === b.id && isLive(n));
@@ -706,6 +727,11 @@ function Shell() {
             <span className="spacer" />
             {filedCount > 0 && <span className="count">{filedCount}</span>}
           </button>
+          <button className={`side-link side-top ${page === 'work' ? 'on' : ''}`} onClick={() => setPage(page === 'work' ? 'board' : 'work')}>
+            <Icon name="inbox" size={15} /> Work
+            <span className="spacer" />
+            {workCount > 0 && <span className="count warn">{workCount}</span>}
+          </button>
           <div className="side-head">
             <span>Boards</span>
             <button className="icon-btn sm" onClick={() => setSheet('new')} aria-label="New board" title="New board">
@@ -725,6 +751,18 @@ function Shell() {
               setSheet('board');
             }}
           />
+
+          {board && (
+            <>
+              <div className="side-head">
+                <span>Threads</span>
+                <button className="icon-btn sm" onClick={() => (setPage('board'), setTargetId(null), setTimeout(() => composerFocus.current?.focus(), 0))} aria-label="New thread" title="New thread">
+                  <Icon name="plus" size={15} />
+                </button>
+              </div>
+              <SidebarThreads boardId={board.id} current={page === 'board' ? targetId : null} onGo={goExact} />
+            </>
+          )}
 
           {/* Only when something is running: an empty "No agents running" was just noise. */}
           {(waiting.length > 0 || running.length > 0) && (
@@ -781,6 +819,26 @@ function Shell() {
                     setView('chat');
                   }}
                 />
+              </div>
+            </div>
+          </div>
+        )}
+        {page === 'work' && (
+          <div className="concepts-page page-enter">
+            <header className="topbar">
+              <div className="concepts-title">
+                <Icon name="inbox" size={17} /> Work
+              </div>
+              <span className="spacer" />
+              {board && (
+                <button className="btn sm ghost" onClick={() => setPage('board')}>
+                  <Icon name="chevronLeft" size={14} /> Back to {board.name}
+                </button>
+              )}
+            </header>
+            <div className="page">
+              <div className="page-inner">
+                <WorkPage onGo={goExact} />
               </div>
             </div>
           </div>

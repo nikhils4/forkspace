@@ -6,11 +6,13 @@ import type { TurnNode } from '../shared/types.ts';
 import { ContextMenu, type MenuItem } from './ContextMenu.tsx';
 import { Icon } from './icons.tsx';
 import { NoteBar, openThreadNote } from './ThreadNotes.tsx';
-import { LiveLine, Md, STATUS_LABEL, StatusDot, ToolLine, branchColor } from './nodes.tsx';
+import { LiveLine, Md, Permission, STATUS_LABEL, StatusDot, ToolLine, branchColor } from './nodes.tsx';
 import { isLocalPage, openTerminalFor, request, toast, useStore } from './store.ts';
 import { isLive, isTurn } from './tree.ts';
 import { StepPullHint, useStepPull } from './stepPull.tsx';
 import { timeAgo } from './ui.tsx';
+import { PrSection } from './Threads.tsx';
+import { turnsOfBranch } from './status.ts';
 
 // A step's details, calm by default: what you asked, what came of it, and one obvious next move.
 // Everything technical (branch, folder, checkpoint, terminal command) sits behind ⋯ or a fold.
@@ -162,6 +164,8 @@ export function Drawer({ node, onClose, onReply, onGo, composer }: { node: TurnN
         <div className="ds ds-note">
           <NoteBar branchId={node.branchId} />
         </div>
+        {branch?.pr && <PrSection branch={branch} last={turnsOfBranch(nodes, node.branchId).slice(-1)[0] ?? node} />}
+
         <section className="ds">
           <div className="ds-label">You asked</div>
           <div className={`drawer-prompt ${long ? 'open' : ''}`} onClick={() => setLong(!long)} title={long ? '' : 'Show all'}>
@@ -236,6 +240,8 @@ export function Drawer({ node, onClose, onReply, onGo, composer }: { node: TurnN
           )}
         </section>
 
+        {branch && !branch.pr && !working && <PrSection branch={branch} last={turnsOfBranch(nodes, node.branchId).slice(-1)[0] ?? node} />}
+
         {tools > 0 && (
           <details className="ds ds-fold">
             <summary>
@@ -280,6 +286,12 @@ export function Drawer({ node, onClose, onReply, onGo, composer }: { node: TurnN
         )}
         <StepPullHint pull={pull} dir="down" target={onGo && next} step={path.length + 1} />
       </div>
+      {/* A question or approval stays in view above the reply box, never buried in the scroll. */}
+      {node.pending && (
+        <div className="drawer-ask">
+          <Permission node={node} p={node.pending} />
+        </div>
+      )}
       {composer && <div className="drawer-composer">{composer}</div>}
     </aside>
   );

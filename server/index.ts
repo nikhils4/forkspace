@@ -27,6 +27,7 @@ import { askMap, buildMap, forgetAnswer, linkCheck, loadAnswers, loadMap, mapIsS
 import { answer, isRunning, pruneBranches, queueMessage, runQueued, setActivityHook, setEmitter, setNotifier, startTurn, stop, touch } from './runner.ts';
 import { readImageText, threadTitle, tidyDictation } from './tutor.ts';
 import { deleteConcept, keepNote, noteAfterStep, refreshNote, setNotesEmit } from './threadnotes.ts';
+import { linkPr, prAfterStep, refreshPr, setPrEmit, startPrWatch } from './github.ts';
 import { flush, getBoard, getBranch, getNode, getTurn, save, state, subtree } from './store.ts';
 
 const PORT = Number(process.env.PORT || 4747);
@@ -286,9 +287,12 @@ function broadcast(msg: ServerMsg) {
 }
 setEmitter(broadcast);
 setNotesEmit(broadcast);
+setPrEmit(broadcast);
+startPrWatch();
 setActivityHook((node, final) => {
   if (!final) return;
   noteAfterStep(node);
+  prAfterStep(node);
 });
 
 const send = (ws: WebSocket, msg: ServerMsg) => ws.send(JSON.stringify(msg));
@@ -694,6 +698,10 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       broadcast({ type: 'node', node: t });
       return;
     }
+    case 'linkPr':
+      return (await linkPr(msg.branchId, msg.url)) ?? null;
+    case 'refreshPr':
+      return (await refreshPr(msg.branchId)) ?? null;
     case 'setTitle': {
       const t = getTurn(msg.nodeId);
       if (!t) throw new Error('Step not found');

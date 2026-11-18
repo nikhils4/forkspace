@@ -2,13 +2,13 @@ import { Handle, NodeResizer, Position, useStore as useRFStore, type NodeProps }
 import { NoteTab, startsThread } from './ThreadNotes.tsx';
 import { editCounts } from './ToolDiff.tsx';
 import { CardComments, openCount, setCommentsPanel, startComment } from './Comments.tsx';
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { flushSync } from 'react-dom';
 import { Markdown } from './Markdown.tsx';
 import { Attachments, ShotThumb, openShots, readImageText, stepShots, uploadNoteImage } from './Shots.tsx';
 import type { NoteNode, PendingPermission, TurnEvent, TurnNode } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
-import { openTerminalFor, send, useStore, toast } from './store.ts';
+import { openTerminalFor, send, useSelect, useStore, toast } from './store.ts';
 import { currentActivity, isLive, lastText } from './tree.ts';
 import { useReady } from './review.ts';
 
@@ -198,9 +198,27 @@ export function ToolLine({ e, cwd }: { e: Extract<TurnEvent, { t: 'tool' }>; cwd
   );
 }
 
+// Answers picked for an agent's question, kept per request so every copy of the card agrees.
+type Pick = { labels: string[]; other: string };
+const picks = new Map<string, Record<number, Pick>>();
+const pickListeners = new Set<() => void>();
+let pickVersion = 0;
+const picksFor = (requestId: string) => {
+  let q = picks.get(requestId);
+  if (!q) picks.set(requestId, (q = {}));
+  return q;
+};
+const picksChanged = () => {
+  pickVersion++;
+  pickListeners.forEach((l) => l());
+};
+
 export function Permission({ node, p }: { node: TurnNode; p: PendingPermission }) {
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const cwd = useStore().branches[node.branchId]?.cwd;
+  useSyncExternalStore(
+    (l) => (pickListeners.add(l), () => pickListeners.delete(l)),
+    () => pickVersion,
+  );
+  const cwd = useSelect((s) => s.branches[node.branchId]?.cwd);
   const short = (s: string) => (cwd ? s.split(cwd + '/').join('').split(cwd).join('.') : s);
   const reply = (decision: 'allow' | 'always' | 'deny' | 'skip' | 'self', extra?: object) =>
     send({ type: 'permission', nodeId: node.id, requestId: p.requestId, decision, ...extra });
@@ -214,46 +232,85 @@ export function Permission({ node, p }: { node: TurnNode; p: PendingPermission }
   };
 
   const questions = p.toolName === 'AskUserQuestion' && Array.isArray((p.input as any).questions) ? ((p.input as any).questions as any[]) : null;
-  if (questions)
+  if (questions) {
+    // Picks live outside the component (keyed by request), so zooming, switching views or the
+    // card re-drawing never throws them away, and the card and details panel stay in step.
+    const qa = picksFor(p.requestId);
+    const blank: Pick = { labels: [], other: '' };
+    const setPick = (i: number, patch: Partial<Pick>) => {
+      qa[i] = { ...(qa[i] ?? blank), ...patch };
+      picksChanged();
+    };
+    const answerOf = (i: number) => {
+      const a = qa[i];
+      return a ? [...a.labels, ...(a.other.trim() ? [a.other.trim()] : [])].join(', ') : '';
+    };
+    const left = questions.filter((_, i) => !answerOf(i)).length;
+    const sendAnswer = () => reply('allow', { answers: Object.fromEntries(questions.map((q, i) => [q.question, answerOf(i)])) });
     return (
       <div className="perm nodrag">
         <div className="perm-label">
           <Icon name="chat" size={13} /> The agent has a question
         </div>
-        {questions.map((q) => (
-          <div key={q.question} className="perm-q">
-            <div className="perm-title">{q.question}</div>
-            <div className="perm-opts">
-              {q.options?.map((o: any) => {
-                const picked = (answers[q.question] ?? '').split(', ').includes(o.label);
-                return (
-                  <button
-                    key={o.label}
-                    className={`chip ${picked ? 'on' : ''}`}
-                    title={o.description}
-                    onClick={() => {
-                      const cur = (answers[q.question] ?? '').split(', ').filter(Boolean);
-                      const next = q.multiSelect ? (picked ? cur.filter((l) => l !== o.label) : [...cur, o.label]) : [o.label];
-                      setAnswers({ ...answers, [q.question]: next.join(', ') });
-                    }}
-                  >
-                    {o.label}
-                  </button>
-                );
-              })}
+        {questions.map((q, i) => {
+          const a = qa[i] ?? blank;
+          return (
+            <div key={i} className="perm-q">
+              <div className="perm-title">
+                {q.question}
+                {q.multiSelect && <span className="perm-multi"> · pick any</span>}
+              </div>
+              <div className="perm-opts">
+                {(q.options ?? []).map((o: any, j: number) => {
+                  const picked = a.labels.includes(o.label);
+                  return (
+                    <button
+                      key={j}
+                      type="button"
+                      className={`chip ${picked ? 'on' : ''}`}
+                      title={o.description}
+                      aria-pressed={picked}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const labels = q.multiSelect ? (picked ? a.labels.filter((l) => l !== o.label) : [...a.labels, o.label]) : picked ? [] : [o.label];
+                        // One choice: picking an option clears anything typed in Other.
+                        setPick(i, q.multiSelect ? { labels } : { labels, other: '' });
+                      }}
+                    >
+                      {o.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <input
+                className="perm-other"
+                placeholder={q.options?.length ? 'Other: type your own answer' : 'Type your answer'}
+                value={a.other}
+                onChange={(e) => setPick(i, q.multiSelect || !e.target.value.trim() ? { other: e.target.value } : { other: e.target.value, labels: [] })}
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                  if (e.key === 'Enter' && !left) sendAnswer();
+                }}
+              />
             </div>
-          </div>
-        ))}
+          );
+        })}
         <div className="perm-actions">
-          <button className="btn primary" disabled={questions.some((q) => !answers[q.question])} onClick={() => reply('allow', { answers })}>
+          <button className="btn primary" disabled={left > 0} onClick={sendAnswer}>
             Send answer
           </button>
           <button className="btn subtle" onClick={() => reply('deny', { message: 'The user skipped the question.' })}>
             Skip
           </button>
+          {left > 0 && questions.length > 1 && (
+            <span className="perm-left">
+              {left} of {questions.length} still to answer
+            </span>
+          )}
         </div>
       </div>
     );
+  }
 
   const why = p.safety?.replace(/^Safety rule:\s*/, '').replace(/\s*(Allow( it| reading it)? this time\?|Allow\?|Allow this commit\?)$/, '');
   const said = typeof (p.input as any).description === 'string' ? ((p.input as any).description as string) : '';
@@ -442,11 +499,10 @@ function editedFiles(node: TurnNode, cwd?: string) {
 export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: TurnData }) {
   const { node, onOpen, onReply, isTarget, faded } = data;
   const dim = node.completed ? 'completed' : faded ? 'faded' : '';
-  const { branches, nodes } = useStore();
+  const branch = useSelect((s) => s.branches[node.branchId]);
   // Zoomed far out: show just the essentials so big boards stay readable.
   const far = useRFStore((st) => st.transform[2] < 0.55);
   const [steps, setSteps] = useState(false);
-  const branch = branches[node.branchId];
   const color = branchColor(node.branchId);
   const live = isLive(node);
   const isHead = branch?.headNodeId === node.id;

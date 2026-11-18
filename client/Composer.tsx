@@ -256,7 +256,7 @@ export function Composer({
             value={text}
             rows={1}
             enterKeyHint={mobile ? 'enter' : 'send'}
-            placeholder={targetBusy ? 'Agent is working. Send anything you forgot: it goes next…' : target ? 'What next?' : 'Describe a task for a new agent…'}
+            placeholder={target?.status === 'waiting' ? 'The agent is waiting on you: answer above, or queue a message…' : targetBusy ? 'Agent is working. Send anything you forgot: it goes next…' : target ? 'What next?' : 'Describe a task for a new agent…'}
             onChange={(e) => setText(e.target.value)}
             onPaste={(e) => {
               const files = [...e.clipboardData.files];

@@ -30,6 +30,15 @@ import { useIsMobile } from './ui.tsx';
 import { useResolvedTheme } from './theme.ts';
 
 const nodeTypes = { turn: TurnCard, note: NoteCard };
+// While the view moves, the frosted glass and moving lights pause: re-blurring the canvas under
+// the message box on every frame is what made panning stutter (Safari most of all).
+let movingTimer: ReturnType<typeof setTimeout> | undefined;
+const moving = (on: boolean) => {
+  clearTimeout(movingTimer);
+  if (on) document.documentElement.classList.add('canvas-moving');
+  else movingTimer = setTimeout(() => document.documentElement.classList.remove('canvas-moving'), 120);
+};
+const sameCover = (a?: { id: string }[], b?: { id: string }[]) => a === b || (!!a && !!b && a.length === b.length && a.every((x, i) => x.id === b[i].id));
 const uid = () => Math.random().toString(36).slice(2, 12);
 
 export function Canvas({
@@ -104,9 +113,16 @@ export function Canvas({
           const w = n.width ?? 220;
           const h = n.height ?? 160;
           // Notes always sit above cards, so a new one never hides behind them.
+          if (o && (o.data as any)?.node === n && o.position === base.position) return o;
           return { ...base, data: { node: n }, width: w, height: h, style: { width: w, height: h }, zIndex: 1000 };
         }
-        return { ...base, data: { node: n, onOpen: openDetails, onReply, isTarget: n.id === targetId, faded: belowCompleted(n), cover: n.parentId ? undefined : threadShots(n.id) }, width: CARD_W };
+        const data = { node: n, onOpen: openDetails, onReply, isTarget: n.id === targetId, faded: belowCompleted(n), cover: n.parentId ? undefined : threadShots(n.id) };
+        // Nothing about this card changed: hand React Flow the same object so the card isn't redrawn.
+        // (Every streamed word from any agent used to redraw every card on the board.)
+        const od = o?.data as typeof data | undefined;
+        if (o && od && od.node === n && od.onOpen === openDetails && od.onReply === onReply && od.isTarget === data.isTarget && od.faded === data.faded && sameCover(od.cover, data.cover) && o.position === base.position)
+          return o;
+        return { ...base, data, width: CARD_W };
       });
     });
   }, [items, targetId, openDetails, onReply]);
@@ -678,7 +694,9 @@ export function Canvas({
         // You moved the view yourself: stop following the working card.
         onMoveStart={(e) => {
           if (e) following.current = null;
+          moving(true);
         }}
+        onMoveEnd={() => moving(false)}
         // Lets a working card's glow stay the same size on screen at any zoom.
         // Only when the zoom changes: setting it on every pan frame restyled every card, every frame.
         onMove={(_, vp) => setInvZoom(vp.zoom)}
