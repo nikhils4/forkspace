@@ -160,6 +160,21 @@ export interface CardComment {
   done?: boolean;
 }
 
+/** A quick side question about part of a card's answer: answered beside it, never added to the thread. */
+export interface Aside {
+  id: string;
+  /** The text you selected. */
+  quote: string;
+  question: string;
+  answer: string;
+  at: number;
+  /** Still being answered. */
+  busy?: boolean;
+  /** What it's doing right now while it reads. */
+  doing?: string;
+  error?: string;
+}
+
 /** A map of a project: its big parts, the pieces worth knowing, and what uses what. */
 export interface CodeMap {
   summary: string;
@@ -243,6 +258,8 @@ export interface TurnNode {
   kind: 'turn';
   /** Your comments on this card. */
   comments?: CardComment[];
+  /** Quick side questions about this card's answer. */
+  asides?: Aside[];
   /** Images and files sent with the prompt. */
   attachments?: Attachment[];
   /** Screenshots attached to this step, oldest first. */
@@ -344,7 +361,7 @@ export type ClientMsg =
   | { type: 'deleteBoard'; id: string }
   /** Start fresh: remove every step, note and worktree but keep the board and its settings. */
   | { type: 'clearBoard'; id: string }
-  | { type: 'send'; reqId: string; boardId: string; parentId: string | null; prompt: string; position: Position; attachments?: Attachment[] }
+  | { type: 'send'; reqId: string; boardId: string; parentId: string | null; prompt: string; position: Position; attachments?: Attachment[]; /** Start a new branch even from the latest step. */ fork?: boolean }
   | { type: 'stop'; nodeId: string }
   /** Drop one message waiting on a working step. */
   | { type: 'unqueue'; reqId: string; nodeId: string; id: string }
@@ -360,7 +377,6 @@ export type ClientMsg =
   | { type: 'listModels'; reqId: string }
   | { type: 'presence'; visible: boolean }
   | { type: 'remoteInfo'; reqId: string }
-  | { type: 'awayInfo'; reqId: string }
   | { type: 'ping'; reqId: string }
   | { type: 'captureShot'; reqId: string; nodeId: string }
   | { type: 'removeShot'; nodeId: string; shotId: string }
@@ -377,6 +393,8 @@ export type ClientMsg =
   | { type: 'mapForget'; reqId: string; boardId: string; at: number }
   /** Practice: you knew it (or not). Spaces out when you see it next. */
   | { type: 'setComments'; nodeId: string; comments: CardComment[] }
+  | { type: 'askAside'; reqId: string; nodeId: string; quote: string; question: string }
+  | { type: 'dropAside'; nodeId: string; id: string }
   | { type: 'termOpen'; reqId: string; boardId: string; branchId?: string; cols: number; rows: number }
   | { type: 'termList'; reqId: string; boardId: string }
   | { type: 'termAttach'; reqId: string; id: string }
@@ -385,7 +403,6 @@ export type ClientMsg =
   | { type: 'termClose'; id: string }
   | { type: 'termSettings'; reqId: string; remoteAllowed?: boolean }
   | { type: 'setCompleted'; nodeId: string; completed: boolean }
-  | { type: 'setAway'; reqId: string; on: boolean; screen?: boolean }
   | { type: 'enableTailscale'; reqId: string }
   | { type: 'setPublicUrl'; reqId: string; url: string }
   | { type: 'rotateToken'; reqId: string }
@@ -510,33 +527,6 @@ export interface ImportResult {
   name: string;
   ok: boolean;
   note: string;
-}
-
-export interface AwayStatus {
-  on: boolean;
-  /** Keep the screen on too, not just the computer. */
-  screen: boolean;
-  since?: number;
-  supported: boolean;
-  method?: string;
-  /** The keep-awake helper is running right now. */
-  active: boolean;
-  error?: string;
-  onBattery?: boolean;
-  platform: string;
-  /** Devices connected from outside this machine right now (phones over Tailscale). */
-  remoteConnected: number;
-  remoteSeen?: { at: number; device: string };
-}
-
-/** Everything the away mode setup checks, in one answer. */
-export interface AwayInfo {
-  away: AwayStatus;
-  tailscale: RemoteInfo['tailscale'];
-  publicUrl?: string;
-  service: { supported: boolean; installed: boolean; reason?: string };
-  /** Devices that will get a notification when an agent needs you. */
-  pushDevices: number;
 }
 
 export interface TerminalInfo {

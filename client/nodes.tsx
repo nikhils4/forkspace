@@ -1,4 +1,5 @@
 import { Handle, NodeResizer, Position, useStore as useRFStore, type NodeProps } from '@xyflow/react';
+import { wantFork } from './Composer.tsx';
 import { NoteTab, startsThread } from './ThreadNotes.tsx';
 import { editCounts } from './ToolDiff.tsx';
 import { CardComments, openCount, setCommentsPanel, startComment } from './Comments.tsx';
@@ -632,9 +633,16 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
           </button>
         ) : (
           node.sessionId && (
-            <button className="btn sm" onClick={() => onReply(node.id)} title={isHead ? 'Continue this branch' : 'Start a new branch from here'}>
-              <Icon name={isHead ? 'chat' : 'branch'} size={13} /> {isHead ? 'Reply' : 'Branch'}
-            </button>
+            <>
+              {isHead && (
+                <button className="btn ghost sm icon-only" onClick={() => (wantFork(node.id), onReply(node.id))} title="Branch: start a new path from here" aria-label="Branch from here">
+                  <Icon name="branch" size={13} />
+                </button>
+              )}
+              <button className="btn sm" onClick={() => (isHead && wantFork(null), onReply(node.id))} title={isHead ? 'Continue this thread' : 'Start a new branch from here'}>
+                <Icon name={isHead ? 'chat' : 'branch'} size={13} /> {isHead ? 'Reply' : 'Branch'}
+              </button>
+            </>
           )
         )}
       </div>

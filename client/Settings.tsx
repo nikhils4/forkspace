@@ -11,7 +11,6 @@ import { setTheme, useTheme, type Theme } from './theme.ts';
 import { bugReportUrl, ideaUrl, questionUrl } from './feedback.ts';
 import { Segmented } from './ui.tsx';
 import { MoveSection } from './Transfer.tsx';
-import { AwaySection } from './Away.tsx';
 import { TerminalSettings } from './TerminalSettings.tsx';
 
 export function Step({ n, done, title, children }: { n: number; done?: boolean; title: string; children?: React.ReactNode }) {
@@ -302,18 +301,18 @@ function AlwaysOn() {
   );
 }
 
-type Tab = 'general' | 'phone' | 'away' | 'updates' | 'help';
+type Tab = 'general' | 'phone' | 'updates' | 'help';
 const TABS: { value: Tab; label: string }[] = [
   { value: 'general', label: 'General' },
   { value: 'phone', label: 'Phone' },
-  { value: 'away', label: 'Away' },
   { value: 'updates', label: 'Updates' },
   { value: 'help', label: 'Help' },
 ];
 
 let current: Tab = (() => {
   try {
-    return (localStorage.getItem('forkspace:settings-tab') as Tab) || 'general';
+    const t = localStorage.getItem('forkspace:settings-tab') as Tab;
+    return TABS.some((x) => x.value === t) ? t : 'general';
   } catch {
     return 'general';
   }
@@ -353,6 +352,7 @@ export function Settings() {
             <Notifications />
             <Install />
           </section>
+          <AlwaysOn />
         </>
       )}
 
@@ -368,12 +368,6 @@ export function Settings() {
         </section>
       )}
 
-      {tab === 'away' && (
-        <>
-          <AwaySection />
-          <AlwaysOn />
-        </>
-      )}
 
       {tab === 'updates' && (
         <>

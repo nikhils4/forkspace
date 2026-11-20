@@ -1,7 +1,6 @@
 import {
   Background,
   BackgroundVariant,
-  Controls,
   MiniMap,
   ReactFlow,
   SelectionMode,
@@ -18,7 +17,7 @@ import { Beacons } from './Beacons.tsx';
 import { clearReady, useReady } from './review.ts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Board, NoteNode, TurnNode } from '../shared/types.ts';
-import { composerFocus } from './Composer.tsx';
+import { composerFocus, wantFork } from './Composer.tsx';
 import { ContextMenu, type MenuItem } from './ContextMenu.tsx';
 import { pickShot, snapPreview, uploadShot } from './Shots.tsx';
 import { Icon } from './icons.tsx';
@@ -58,6 +57,21 @@ export function Canvas({
 }) {
   const store = useStore();
   const rf = useReactFlow();
+  // The small overview map: off unless you want it.
+  const [showMap, setShowMap] = useState(() => {
+    try {
+      return localStorage.getItem('forkspace:minimap') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleMap = () =>
+    setShowMap((v) => {
+      try {
+        localStorage.setItem('forkspace:minimap', v ? '0' : '1');
+      } catch {}
+      return !v;
+    });
   const mobile = useIsMobile();
   const theme = useResolvedTheme();
   // Notes filed away in Notes stay off the canvas.
@@ -243,11 +257,6 @@ export function Canvas({
         type: 'default',
         className: onPath.has(n.id) ? 'on-path' : onPath.size ? 'off-path' : undefined,
         style: { stroke: c, strokeWidth: onPath.has(n.id) ? 2.5 : 1.5, strokeOpacity: onPath.has(n.id) ? 1 : onPath.size ? 0.4 : 0.7, strokeDasharray: forked ? '5 5' : undefined },
-        label: forked ? 'fork' : undefined,
-        labelStyle: { fill: c, fontSize: 11, fontWeight: 600 },
-        labelBgStyle: { fill: 'var(--bg)' },
-        labelBgPadding: [6, 3],
-        labelBgBorderRadius: 6,
       });
     }
     const here = new Set(items.map((n) => n.id));
@@ -487,7 +496,10 @@ export function Canvas({
     const out: MenuItem[] = [];
     if (!node.parentId) out.push({ label: node.completed ? 'Reopen thread' : 'Mark thread complete', icon: 'check', onClick: () => send({ type: 'setCompleted', nodeId: node.id, completed: !node.completed }) });
     if (live) out.push({ label: 'Stop', icon: 'stop', onClick: () => send({ type: 'stop', nodeId: node.id }) });
-    else if (node.sessionId) out.push({ label: isHead ? 'Reply' : 'Branch from here', icon: isHead ? 'chat' : 'branch', hint: 'R', onClick: () => onReply(node.id) });
+    else if (node.sessionId) {
+      if (isHead) out.push({ label: 'Reply', icon: 'chat', hint: 'R', onClick: () => (wantFork(null), onReply(node.id)) });
+      out.push({ label: 'Branch from here', icon: 'branch', hint: isHead ? 'B' : 'R', onClick: () => (isHead && wantFork(node.id), onReply(node.id)) });
+    }
     out.push(
       { label: 'Add comment', icon: 'comment', onClick: () => startComment(node.id) },
       { label: 'Open details', icon: 'external', onClick: () => openDetails(node.id) },
@@ -714,8 +726,7 @@ export function Canvas({
             centerOn(id);
           }}
         />
-        {!mobile && <Controls showInteractive={false} position="bottom-left" onFitView={() => fitVisible(400)} />}
-        {!mobile && (
+        {!mobile && showMap && (
           <MiniMap
             pannable
             zoomable
@@ -750,21 +761,43 @@ export function Canvas({
         />
       )}
 
-      <div className="canvas-tools">
-        <button className={`fab ${commentsOpen ? 'on' : ''}`} onClick={() => setCommentsPanel(!commentsOpen)} title="Comments: every comment on this board" aria-label="Comments" aria-pressed={commentsOpen}>
-          <Icon name="comment" size={18} />
-          {openComments > 0 && <span className="fab-count">{openComments > 99 ? '99+' : openComments}</span>}
-        </button>
-        <button className="fab" onClick={() => addNote()} title="New note (N)" aria-label="New note">
-          <Icon name="note" size={18} />
-        </button>
-        <button className="fab" onClick={tidy} title="Tidy up: arrange every branch neatly" aria-label="Tidy up">
-          <Icon name="grid" size={18} />
-        </button>
-        <button className="fab" onClick={() => fitVisible(400)} title="Fit everything" aria-label="Fit everything">
-          <Icon name="canvas" size={18} />
-        </button>
-      </div>
+      {mobile ? (
+        <div className="canvas-tools">
+          <button className="fab" onClick={() => addNote()} title="New note" aria-label="New note">
+            <Icon name="note" size={18} />
+          </button>
+          <button className="fab" onClick={() => fitVisible(400)} title="Fit everything" aria-label="Fit everything">
+            <Icon name="canvas" size={18} />
+          </button>
+        </div>
+      ) : (
+        // One quiet bar for the view: zoom, fit, tidy, note, comments, overview.
+        <div className="canvas-bar" role="toolbar" aria-label="Canvas">
+          <button onClick={() => rf.zoomOut({ duration: 200 })} title="Zoom out (⌘−)" aria-label="Zoom out">
+            <Icon name="minus" size={15} />
+          </button>
+          <button onClick={() => rf.zoomIn({ duration: 200 })} title="Zoom in (⌘+)" aria-label="Zoom in">
+            <Icon name="plus" size={15} />
+          </button>
+          <button onClick={() => fitVisible(400)} title="Fit everything" aria-label="Fit everything">
+            <Icon name="canvas" size={15} />
+          </button>
+          <span className="cb-sep" />
+          <button onClick={tidy} title="Tidy up: arrange every branch neatly" aria-label="Tidy up">
+            <Icon name="grid" size={15} />
+          </button>
+          <button onClick={() => addNote()} title="New note (N)" aria-label="New note">
+            <Icon name="note" size={15} />
+          </button>
+          <button className={commentsOpen ? 'on' : ''} onClick={() => setCommentsPanel(!commentsOpen)} title="Comments on this board" aria-label="Comments" aria-pressed={commentsOpen}>
+            <Icon name="comment" size={15} />
+            {openComments > 0 && <span className="cb-count">{openComments > 99 ? '99+' : openComments}</span>}
+          </button>
+          <button className={showMap ? 'on' : ''} onClick={() => toggleMap()} title="Overview map" aria-label="Overview map" aria-pressed={showMap}>
+            <Icon name="overview" size={15} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

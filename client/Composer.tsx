@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { MicButton, stopDictation } from './Mic.tsx';
 import type { Attachment, Board, TurnNode } from '../shared/types.ts';
 import { fileSize, uploadAttachment } from './Shots.tsx';
@@ -33,6 +33,20 @@ export function composerInsert(t: string) {
   inserters[inserters.length - 1]?.(t);
 }
 
+// "Branch" on the latest step of a thread: the next message starts a new path instead of
+// continuing. Keyed by card, so it only applies to the card it was asked for.
+let forkFor: string | null = null;
+const forkSubs = new Set<() => void>();
+export function wantFork(id: string | null) {
+  forkFor = id;
+  forkSubs.forEach((f) => f());
+}
+const useForkFor = () =>
+  useSyncExternalStore(
+    (f) => (forkSubs.add(f), () => forkSubs.delete(f)),
+    () => forkFor,
+  );
+
 /** The message box: under the board, and (docked) inside the details panel for that step. */
 export function Composer({
   target,
@@ -44,7 +58,7 @@ export function Composer({
 }: {
   target?: TurnNode;
   board: Board;
-  onSubmit: (p: string, attachments: Attachment[]) => Promise<boolean>;
+  onSubmit: (p: string, attachments: Attachment[], fork?: boolean) => Promise<boolean>;
   onClear?: () => void;
   drawerOpen?: boolean;
   docked?: boolean;
@@ -55,11 +69,19 @@ export function Composer({
   const [text, setText] = useState(() => readDraft(key));
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
-  const isFork = !!target && branches[target.branchId]?.headNodeId !== target.id;
+  const isHead = !!target && branches[target.branchId]?.headNodeId === target.id;
   const targetBusy = !!target && isLive(target);
+  const forced = useForkFor() === target?.id && isHead && !targetBusy;
+  const isFork = (!!target && !isHead) || forced;
+  // On the latest step you can still choose: carry on, or start a new path from here.
+  const canSwitch = isHead && !targetBusy && !!target?.sessionId;
 
+  // Keys focus the box that's on screen: the panel's when a card is open (the board's is hidden then).
   useEffect(() => {
-    if (!docked) composerFocus.current = ref.current;
+    composerFocus.current = ref.current;
+    return () => {
+      if (composerFocus.current === ref.current) composerFocus.current = null;
+    };
   });
   // Views pad themselves by this much so nothing hides under the floating composer.
   const box = useRef<HTMLDivElement>(null);
@@ -169,7 +191,8 @@ export function Composer({
     const dictated = await stopDictation();
     const prompt = (dictated ?? text).trim();
     if (dictated !== null) setText(dictated);
-    if (await onSubmit(prompt, ready)) {
+    if (await onSubmit(prompt, ready, forced)) {
+      if (forced) wantFork(null);
       setText('');
       atts.forEach((a) => a.preview && URL.revokeObjectURL(a.preview));
       setAtts([]);
@@ -203,10 +226,21 @@ export function Composer({
         <div className="composer-target">
           {target ? (
             <>
-              <span className={`target-chip ${isFork ? 'fork' : ''}`}>
-                <Icon name={isFork ? 'branch' : 'chat'} size={12} />
-                {docked ? (isFork ? 'Branch' : 'Reply') : isFork ? 'New branch from' : 'Continue'}
-              </span>
+              {canSwitch ? (
+                <span className="target-switch" role="radiogroup" aria-label="Reply or branch">
+                  <button type="button" role="radio" aria-checked={!forced} className={!forced ? 'on' : ''} onClick={() => wantFork(null)} title="Continue this thread">
+                    <Icon name="chat" size={12} /> {docked ? 'Reply' : 'Continue'}
+                  </button>
+                  <button type="button" role="radio" aria-checked={forced} className={forced ? 'on fork' : ''} onClick={() => wantFork(target!.id)} title="Start a new path from here; the original stays">
+                    <Icon name="branch" size={12} /> Branch
+                  </button>
+                </span>
+              ) : (
+                <span className={`target-chip ${isFork ? 'fork' : ''}`}>
+                  <Icon name={isFork ? 'branch' : 'chat'} size={12} />
+                  {docked ? (isFork ? 'Branch' : 'Reply') : isFork ? 'New branch from' : 'Continue'}
+                </span>
+              )}
               {docked ? (
                 <span className="target-text faint">{isFork ? 'starts a new path from here; the original stays' : 'continues this thread'}</span>
               ) : (

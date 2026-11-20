@@ -1,3 +1,4 @@
+import { AsideList, SelectionAsk } from './Asides.tsx';
 import { CardComments } from './Comments.tsx';
 import { ToolDiff, editsOf } from './ToolDiff.tsx';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -40,7 +41,7 @@ function parseDiff(text: string) {
 
 const took = (ms?: number) => (!ms ? '' : ms < 60000 ? `${Math.round(ms / 1000)} s` : `${Math.round(ms / 60000)} min`);
 
-export function Drawer({ node, onClose, onReply, onGo, composer }: { node: TurnNode; onClose: () => void; onReply?: (id: string) => void; onGo?: (id: string) => void; composer?: ReactNode }) {
+export function Drawer({ node, onClose, onReply, onGo, onBranch, composer }: { node: TurnNode; onClose: () => void; onReply?: (id: string) => void; onGo?: (id: string) => void; onBranch?: (prompt: string) => void; composer?: ReactNode }) {
   const { branches, nodes } = useStore();
   const branch = branches[node.branchId];
   const [diff, setDiff] = useState<string | null>(null);
@@ -122,6 +123,22 @@ export function Drawer({ node, onClose, onReply, onGo, composer }: { node: TurnN
     return () => clearTimeout(t);
   }, [node.id]);
   const threadName = path[0]?.title || path[0]?.prompt || '';
+  const go = (target: TurnNode | undefined, dir: 'up' | 'down') => {
+    if (!target || !onGo) return;
+    setSlide(dir === 'up' ? 'out-up' : 'out-down');
+    arriving.current = dir;
+    setTimeout(() => onGo(target.id), 170);
+  };
+  // J / K: the next and previous step, from anywhere but a text box.
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || (e.target as HTMLElement)?.closest?.('input, textarea, [contenteditable]')) return;
+      if (e.key === 'j') go(next, 'down');
+      else if (e.key === 'k') go(prev, 'up');
+    };
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  });
   const files = parseDiff(diff ?? '');
   const working = isLive(node);
 
@@ -142,6 +159,16 @@ export function Drawer({ node, onClose, onReply, onGo, composer }: { node: TurnN
             </span>
           </div>
         </div>
+        {onGo && (prev || next) && (
+          <div className="dh-nav">
+            <button className="icon-btn sm" disabled={!prev} onClick={() => go(prev, 'up')} title="Previous step (K)" aria-label="Previous step">
+              <Icon name="chevronUp" size={15} />
+            </button>
+            <button className="icon-btn sm" disabled={!next} onClick={() => go(next, 'down')} title="Next step (J)" aria-label="Next step">
+              <Icon name="chevronDown" size={15} />
+            </button>
+          </div>
+        )}
         <button
           className="icon-btn"
           aria-label="More"
@@ -161,6 +188,7 @@ export function Drawer({ node, onClose, onReply, onGo, composer }: { node: TurnN
 
       <div className={`drawer-scroll ${slide ? `slide-${slide}` : ''}`} ref={scroller}>
         <StepPullHint pull={pull} dir="up" target={onGo && prev} step={path.length - 1} />
+        <SelectionAsk scroller={scroller} node={node} onBranch={onBranch} />
         <div className="ds ds-note">
           <NoteBar branchId={node.branchId} />
         </div>
@@ -193,6 +221,8 @@ export function Drawer({ node, onClose, onReply, onGo, composer }: { node: TurnN
           )}
           {node.error && <div className="error-box">{node.error}</div>}
         </section>
+
+        <AsideList node={node} onBranch={onBranch} />
 
         <section className="ds">
           <div className="ds-label">

@@ -71,11 +71,11 @@ async function newBranch(board: Board, from: string | null): Promise<Branch> {
   return branch;
 }
 
-async function pickBranch(board: Board, parent: TurnNode | null): Promise<Branch> {
+async function pickBranch(board: Board, parent: TurnNode | null, fork = false): Promise<Branch> {
   if (!parent) return newBranch(board, null);
   const pb = getBranch(parent.branchId);
   // Replying to the latest turn of a branch continues it; anything else forks.
-  if (pb && pb.headNodeId === parent.id) return pb;
+  if (pb && pb.headNodeId === parent.id && !fork) return pb;
   // Imported steps have no checkpoint: a branch from one starts from the folder's current commit.
   if (board.isolation === 'worktree' && board.repoRoot && !parent.commit && !parent.imported)
     throw new Error('That turn has no checkpoint, so it cannot be forked.');
@@ -87,7 +87,7 @@ async function pickBranch(board: Board, parent: TurnNode | null): Promise<Branch
 
 // ---- turns ----
 
-export async function startTurn(boardId: string, parentId: string | null, prompt: string, position: Position, attachments: Attachment[] = []): Promise<TurnNode> {
+export async function startTurn(boardId: string, parentId: string | null, prompt: string, position: Position, attachments: Attachment[] = [], fork = false): Promise<TurnNode> {
   const board = getBoard(boardId);
   if (!board) throw new Error('Board not found');
   const parent = parentId ? getTurn(parentId) : null;
@@ -96,7 +96,7 @@ export async function startTurn(boardId: string, parentId: string | null, prompt
     throw new Error('Wait for that turn to finish (or stop it) before replying.');
   if (parent && !parent.sessionId) throw new Error('That turn never started a session, so it cannot be continued.');
 
-  const branch = await pickBranch(board, parent ?? null);
+  const branch = await pickBranch(board, parent ?? null, fork);
   const node: TurnNode = {
     kind: 'turn',
     id: nanoid(10),

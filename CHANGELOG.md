@@ -3,10 +3,15 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
-## 0.36.1
+## 0.37.0
 
+- **Ask about anything you select.** Select part of a card's details and click **Ask** (or press A). Pick "What is this?", "Explain simply", "What does it mean for users?" or type your own question. The answer streams in right under the selection. It knows the whole conversation and can read the code, but it never changes anything and never joins the thread. Ask a follow-up, or turn it into a real branch with one click. Past questions stay under the answer
+- **Branch from any card.** The latest card in a thread now has a Branch button beside Reply, and the message box has a **Continue / Branch** switch. Press **B** to branch from the open card
+- **Branches fan out like a tree.** A new branch lands right beside the card it came from: the existing branch slides a little left, the new one goes right. Other threads only move when they're actually in the way
+- **Move between steps** with the arrows in the details panel, or **J** and **K**
+- **Calmer canvas.** One quiet toolbar at the bottom left replaces the floating buttons and zoom controls. The overview map is off unless you turn it on. Edge labels are gone. With a card open, only its message box shows
+- **Away mode is gone.** "Start at login" moved to Settings → General
 - Update notes in Settings show **bold** and `code` properly instead of raw asterisks and backticks
-- A new branch lands right beside its own thread. Threads to its right slide over to make room, instead of the branch going past every other thread on the board
 
 ## 0.36.0
 

@@ -5,7 +5,6 @@ import type { Attachment, Board, TurnNode } from '../shared/types.ts';
 import { BoardSettings, MODES, NewBoard } from './BoardForms.tsx';
 import { Canvas } from './Canvas.tsx';
 import { Chat } from './Chat.tsx';
-import { AwayLink, AwayScreen, goAway } from './Away.tsx';
 import { ShotViewer } from './Shots.tsx';
 import { ContextMenu, type MenuItem } from './ContextMenu.tsx';
 // The terminal (xterm) loads only when you open it.
@@ -13,7 +12,7 @@ const MapView = lazy(() => import('./MapView.tsx').then((m) => ({ default: m.Map
 const TerminalPanel = lazy(() => import('./Terminal.tsx').then((m) => ({ default: m.TerminalPanel })));
 import { bugReportUrl, ideaUrl } from './feedback.ts';
 import { CodeView, fileCache } from './CodeView.tsx';
-import { Composer, composerFocus } from './Composer.tsx';
+import { Composer, composerFocus, wantFork } from './Composer.tsx';
 import { Drawer } from './Drawer.tsx';
 import { PairScreen, Splash, StartCommand, UnreachableScreen } from './Gate.tsx';
 import { Icon } from './icons.tsx';
@@ -276,7 +275,18 @@ function Shell() {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === '/' || e.key === 'r') {
         e.preventDefault();
+        if (e.key === 'r') wantFork(null);
         composerFocus.current?.focus();
+      }
+      // B: branch from the open card (or the one you're replying to).
+      if (e.key === 'b') {
+        const id = openId ?? targetId;
+        if (id) {
+          e.preventDefault();
+          wantFork(id);
+          if (!openId) setTargetId(id);
+          setTimeout(() => composerFocus.current?.focus(), 0);
+        }
       }
       if (e.key === 'Escape' && !openId && !sheet && page !== 'board') return setPage('board');
       if (e.key === 'Escape' && !openId && !sheet) setTargetId(null);
@@ -287,14 +297,14 @@ function Shell() {
     };
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
-  }, [openId, sheet, board?.id, setTargetId, page]);
+  }, [openId, targetId, sheet, board?.id, setTargetId, page]);
 
-  const submit = async (prompt: string, attachments: Attachment[] = [], parentId: string | null = targetId) => {
+  const submit = async (prompt: string, attachments: Attachment[] = [], parentId: string | null = targetId, fork = false) => {
     if (!board) return false;
     const { position, moves } = placement(store.nodes, board.id, parentId, { x: 0, y: 0 });
     try {
       if (moves.length) send({ type: 'move', moves });
-      const { id, queued } = await request<{ id: string; queued?: boolean }>({ type: 'send', boardId: board.id, parentId, prompt, position, attachments });
+      const { id, queued } = await request<{ id: string; queued?: boolean }>({ type: 'send', boardId: board.id, parentId, prompt, position, attachments, fork });
       // Sent to a step that's still working: it waits on that card and runs next.
       if (queued) return toast('Queued. It runs as the next step when this one finishes.'), true;
       setTargetId(id);
@@ -331,7 +341,7 @@ function Shell() {
   // The details panel has its own message box, always for the step it shows.
   const drawerComposer =
     board && openNode && openNode.sessionId ? (
-      <Composer key={openNode.id} docked target={openNode} board={board} onSubmit={(p, a) => submit(p, a, openNode.id)} />
+      <Composer key={openNode.id} docked target={openNode} board={board} onSubmit={(p, a, f) => submit(p, a, openNode.id, f)} />
     ) : null;
 
   const boardView = board ? (
@@ -376,7 +386,7 @@ function Shell() {
         </div>
       </div>
       {/* The map has its own box, for questions about the code. */}
-      {view !== 'map' && <Composer key={board.id} target={target} board={board} onSubmit={submit} onClear={() => setTargetId(null)} drawerOpen={!!openNode} />}
+      {view !== 'map' && !drawerComposer && <Composer key={board.id} target={target} board={board} onSubmit={(p, a, f) => submit(p, a, targetId, f)} onClear={() => setTargetId(null)} drawerOpen={!!openNode} />}
     </div>
   ) : (
     <Welcome onNew={() => setSheet('new')} />
@@ -448,7 +458,6 @@ function Shell() {
     if (board) paletteItems.push({ id: 'a-settings', group: 'Actions', label: 'Board settings', icon: 'settings', run: () => setSheet('board') });
     if (board) paletteItems.push({ id: 'a-import', group: 'Actions', label: 'Bring in Claude Code sessions', icon: 'download', run: () => setSheet('import') });
     if (board) paletteItems.push({ id: 'a-term', group: 'Actions', label: termOpen ? 'Hide terminal' : 'Open terminal', hint: 'Ctrl+`', icon: 'terminal', run: () => (setPage('board'), setTab('board'), setTermOpen(!termOpen)) });
-    paletteItems.push({ id: 'a-away', group: 'Actions', label: 'Away mode', hint: 'Keep this computer awake', icon: 'moon', run: goAway });
     paletteItems.push({ id: 'a-update', group: 'Actions', label: 'Check for updates', icon: 'refresh', run: () => (settingsTab('updates'), mobile ? setTab('devices') : setSheet('devices')) });
     paletteItems.push({ id: 'a-notes', group: 'Actions', label: 'Notes', hint: 'Notes kept for later', icon: 'folder', run: () => (mobile ? (setTab('learn'), setLearnPage('notes')) : setPage('notes')) });
     paletteItems.push({ id: 'a-learn', group: 'Actions', label: 'Concepts: notes of past threads', icon: 'spark', run: () => (mobile ? setTab('learn') : setPage('concepts')) });
@@ -627,9 +636,8 @@ function Shell() {
             <span>Settings</span>
           </button>
         </nav>
-        {openNode && <Drawer node={openNode} onClose={() => setOpenId(null)} onReply={(id) => (setTargetId(id), setTimeout(() => composerFocus.current?.focus(), 0))} onGo={(id) => (setOpenId(id), setFocus({ id, n: Date.now() }))} composer={drawerComposer} />}
+        {openNode && <Drawer node={openNode} onClose={() => setOpenId(null)} onReply={(id) => (setTargetId(id), setTimeout(() => composerFocus.current?.focus(), 0))} onGo={(id) => (setOpenId(id), setFocus({ id, n: Date.now() }))} onBranch={(p) => void submit(p, [], openNode.id, true)} composer={drawerComposer} />}
         {sheets}
-      <AwayScreen onGoTo={goTo} />
       <ShotViewer />
       <NoteSheet />
       </div>
@@ -693,9 +701,6 @@ function Shell() {
             </>
           )}
           <span className="spacer" />
-          <button className="rail-btn" onClick={goAway} title="Away mode" aria-label="Away mode">
-            <Icon name="phone" size={16} />
-          </button>
           <button className="rail-btn" onClick={() => setSheet('devices')} title="Settings" aria-label="Settings">
             <Icon name="settings" size={16} />
           </button>
@@ -784,7 +789,6 @@ function Shell() {
             <button className="side-link" onClick={() => setSheet('devices')}>
               <Icon name="settings" size={15} /> Settings
             </button>
-            <AwayLink />
           </div>
           <div className="foot-row">
             <ThemeToggle />
@@ -901,9 +905,8 @@ function Shell() {
         )}
       </main>
 
-      {openNode && <Drawer node={openNode} onClose={() => setOpenId(null)} onReply={(id) => (setTargetId(id), setTimeout(() => composerFocus.current?.focus(), 0))} onGo={(id) => (setOpenId(id), setFocus({ id, n: Date.now() }))} composer={drawerComposer} />}
+      {openNode && <Drawer node={openNode} onClose={() => setOpenId(null)} onReply={(id) => (setTargetId(id), setTimeout(() => composerFocus.current?.focus(), 0))} onGo={(id) => (setOpenId(id), setFocus({ id, n: Date.now() }))} onBranch={(p) => void submit(p, [], openNode.id, true)} composer={drawerComposer} />}
       {sheets}
-      <AwayScreen onGoTo={goTo} />
       <ShotViewer />
       <NoteSheet />
     </div>

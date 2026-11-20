@@ -18,13 +18,13 @@ import * as g from './git.ts';
 import { checkToken, getPublicUrl, getToken, isLocalRequest, newPairCode, redeemPairCode, rotateToken, setPublicUrl } from './auth.ts';
 import * as push from './push.ts';
 import { enableTailscaleServe, tailscaleInfo } from './remote.ts';
-import { awayStatus, noteDevice, setAway } from './away.ts';
 import { capture, deleteShot, imageType, readShot, saveShot } from './shots.ts';
 import { attachTerminal, closeBoardTerminals, closeTerminal, listTerminals, openTerminal, resizeTerminal, setTerminalEmitter, setTerminalRemoteAllowed, terminalRemoteAllowed, terminalSupported, writeTerminal } from './terminal.ts';
 import { checkAttachments, deleteAttachment, saveAttachment } from './attachments.ts';
 import { saveCheckpoint } from './runner.ts';
 import { askMap, buildMap, forgetAnswer, linkCheck, loadAnswers, loadMap, mapIsStale, saveFlow, zoomItem } from './codemap.ts';
 import { answer, isRunning, pruneBranches, queueMessage, runQueued, setActivityHook, setEmitter, setNotifier, startTurn, stop, touch } from './runner.ts';
+import { askAside, dropAside } from './asides.ts';
 import { readImageText, threadTitle, tidyDictation } from './tutor.ts';
 import { deleteConcept, keepNote, noteAfterStep, refreshNote, setNotesEmit } from './threadnotes.ts';
 import { linkPr, prAfterStep, refreshPr, setPrEmit, startPrWatch } from './github.ts';
@@ -322,13 +322,9 @@ setNotifier((node, kind) => {
 
 wss.on('connection', (ws, req) => {
   clients.add(ws);
-  // Remember when a phone (or any other device) connects, for away mode's setup.
-  const deviceId = nanoid(6);
   const remote = !isLocalRequest(req);
   remoteOf.set(ws, remote);
   ws.on('close', () => remoteOf.delete(ws));
-  noteDevice(deviceId, remote, String(req.headers['user-agent'] ?? ''), true);
-  ws.on('close', () => noteDevice(deviceId, remote, '', false));
   visible.set(ws, false);
   alive.set(ws, Date.now());
   ws.on('pong', () => alive.set(ws, Date.now()));
@@ -449,10 +445,11 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       // Replying to a step that's still working: wait on it, then run as the next step.
       const parent = msg.parentId ? getTurn(msg.parentId) : undefined;
       if (parent && (parent.status === 'running' || parent.status === 'waiting')) {
+        if (msg.fork) throw new Error('Wait for that step to finish before branching from it.');
         queueMessage(parent, prompt, goodPos(msg.position) ? msg.position : { x: parent.position.x, y: parent.position.y + 300 }, attachments);
         return { id: parent.id, queued: true };
       }
-      const node = await startTurn(msg.boardId, msg.parentId, prompt, goodPos(msg.position) ? msg.position : { x: 0, y: 0 }, attachments);
+      const node = await startTurn(msg.boardId, msg.parentId, prompt, goodPos(msg.position) ? msg.position : { x: 0, y: 0 }, attachments, !!msg.fork);
       return { id: node.id };
     }
     case 'stop':
@@ -722,6 +719,18 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       broadcast({ type: 'node', node: t });
       return;
     }
+    case 'askAside': {
+      const t = getTurn(msg.nodeId);
+      if (!t) throw new Error('Step not found');
+      const question = String(msg.question ?? '').trim();
+      if (!question) throw new Error('Ask a question.');
+      return askAside(t, String(msg.quote ?? '').trim(), question);
+    }
+    case 'dropAside': {
+      const t = getTurn(msg.nodeId);
+      if (t) dropAside(t, String(msg.id));
+      return;
+    }
     case 'mapGet': {
       const board = getBoard(msg.boardId);
       if (!board) throw new Error('Board not found');
@@ -774,18 +783,6 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       save();
       broadcast({ type: 'node', node: t });
       return;
-    }
-    case 'awayInfo':
-    case 'setAway': {
-      if (msg.type === 'setAway') setAway(!!msg.on, typeof msg.screen === 'boolean' ? msg.screen : undefined);
-      const [away, tailscale, service] = await Promise.all([awayStatus(), tailscaleInfo(PORT), serviceStatus()]);
-      return {
-        away,
-        tailscale,
-        publicUrl: getPublicUrl(),
-        service: { supported: service.supported, installed: service.installed, reason: service.reason },
-        pushDevices: push.subscriptionCount(),
-      };
     }
     case 'remoteInfo':
       return { tailscale: await tailscaleInfo(PORT), publicUrl: getPublicUrl(), port: PORT };
