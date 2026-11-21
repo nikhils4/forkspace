@@ -1,0 +1,327 @@
+/* =========================================================
+   Calm: the last word on how Forkspace looks.
+   Neutral graphite, one accent, flat surfaces, hairlines instead of boxes,
+   nothing that moves unless an agent is working.
+   ========================================================= */
+:root {
+  --bg: #0e0e10;
+  --bg-2: #111113;
+  --surface: #17171a;
+  --surface-2: #1d1d21;
+  --surface-3: #26262b;
+  --border: rgba(255, 255, 255, 0.06);
+  --border-2: rgba(255, 255, 255, 0.11);
+  --text: #ededef;
+  --text-2: #a1a1a8;
+  --text-3: #6b6b73;
+  --accent: #9b8cff;
+  --accent-2: #7c6cf6;
+  --accent-soft: rgba(155, 140, 255, 0.12);
+  --shadow: 0 8px 24px -12px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 24px 60px -24px rgba(0, 0, 0, 0.7);
+  --calm-card: #161619;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']):not([data-theme='terminal']) {
+    --bg: #f7f7f5;
+    --bg-2: #f2f2f0;
+    --surface: #ffffff;
+    --surface-2: #f1f1ef;
+    --surface-3: #e7e7e4;
+    --border: rgba(20, 20, 25, 0.07);
+    --border-2: rgba(20, 20, 25, 0.13);
+    --text: #18181b;
+    --text-2: #5f5f66;
+    --text-3: #96969d;
+    --accent: #6d5cf0;
+    --accent-2: #5b49e6;
+    --accent-soft: rgba(109, 92, 240, 0.09);
+    --shadow: 0 8px 24px -14px rgba(20, 20, 25, 0.2);
+    --shadow-lg: 0 24px 60px -24px rgba(20, 20, 25, 0.28);
+    --calm-card: #ffffff;
+  }
+}
+:root[data-theme='light'] {
+  --bg: #f7f7f5;
+  --bg-2: #f2f2f0;
+  --surface: #ffffff;
+  --surface-2: #f1f1ef;
+  --surface-3: #e7e7e4;
+  --border: rgba(20, 20, 25, 0.07);
+  --border-2: rgba(20, 20, 25, 0.13);
+  --text: #18181b;
+  --text-2: #5f5f66;
+  --text-3: #96969d;
+  --accent: #6d5cf0;
+  --accent-2: #5b49e6;
+  --accent-soft: rgba(109, 92, 240, 0.09);
+  --shadow: 0 8px 24px -14px rgba(20, 20, 25, 0.2);
+  --shadow-lg: 0 24px 60px -24px rgba(20, 20, 25, 0.28);
+  --calm-card: #ffffff;
+}
+
+/* ---------- shell: one sheet, hairlines between parts ---------- */
+.app:not(.mobile) {
+  padding: 0 !important;
+  gap: 0 !important;
+  background: var(--bg);
+}
+.app:not(.mobile) > .sidebar {
+  margin: 0 !important;
+  height: 100% !important;
+  width: 232px;
+  border: 0 !important;
+  border-right: 1px solid var(--border) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: var(--bg-2) !important;
+}
+.app:not(.mobile) > .sidebar.rail {
+  width: 56px;
+}
+.sidebar .brand {
+  height: 52px;
+  font-size: 14px;
+}
+.sidebar .side-head {
+  padding: 18px 10px 4px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--text-3);
+}
+.sidebar .side-link {
+  height: 32px;
+  border-radius: 8px;
+  color: var(--text-2);
+  font-size: 13px;
+}
+.sidebar .side-link:hover,
+.sidebar .side-link.on {
+  background: var(--surface-2);
+  color: var(--text);
+  box-shadow: none;
+}
+.app:not(.mobile) .main {
+  background: var(--bg);
+  border: 0 !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  box-shadow: none !important;
+}
+
+/* ---------- top bar: quiet, no boxes ---------- */
+.app:not(.mobile) .topbar {
+  height: 52px;
+  background: transparent;
+  border-bottom: 1px solid var(--border);
+}
+.topbar .segmented {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  gap: 2px;
+}
+.topbar .segmented button {
+  height: 30px;
+  padding: 0 11px;
+  border-radius: 8px;
+  color: var(--text-3);
+  font-size: 13px;
+}
+.topbar .segmented button:hover {
+  color: var(--text);
+}
+.topbar .segmented button.on {
+  background: var(--surface-2);
+  color: var(--text);
+  box-shadow: none;
+}
+
+/* ---------- canvas ---------- */
+.canvas .react-flow__background {
+  opacity: 0.55;
+}
+.react-flow__edge-path {
+  stroke: var(--border-2);
+  stroke-width: 1.5;
+}
+
+/* Cards: flat paper, a hairline, a soft lift when chosen. */
+.turn {
+  background: var(--calm-card) !important;
+  border: 1px solid var(--border-2) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.15) !important;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+.turn::before,
+.turn::after {
+  display: none !important;
+}
+.react-flow__node:hover .turn {
+  border-color: color-mix(in srgb, var(--text) 22%, transparent) !important;
+}
+.turn.target,
+.react-flow__node.selected .turn {
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent) !important;
+  box-shadow:
+    0 0 0 3px var(--accent-soft),
+    var(--shadow) !important;
+}
+.turn.status-running,
+.turn.status-waiting {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border-2)) !important;
+}
+.turn-head {
+  padding: 12px 14px 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.turn-prompt {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.turn-summary {
+  color: var(--text-2);
+  font-size: 12.5px;
+  -webkit-line-clamp: 3;
+}
+.turn-foot {
+  border-top: 0 !important;
+  padding: 2px 10px 10px !important;
+  background: transparent !important;
+}
+.turn-foot .btn {
+  height: 28px;
+  border-radius: 8px;
+  font-size: 12.5px;
+}
+.turn-foot .btn:not(.ghost):not(.danger-ghost) {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  box-shadow: none;
+  color: var(--text);
+}
+.file-chip {
+  background: transparent;
+  border-color: var(--border);
+}
+
+/* Far out: status and title only, big enough to read. */
+.turn.far {
+  padding: 22px 24px 24px;
+}
+.far-status {
+  color: var(--text-3);
+  font-weight: 500;
+}
+.far-prompt {
+  font-weight: 650;
+}
+
+/* The thread's name over its first card: a heading, not a pill. */
+.thread-title {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 4px 8px;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text);
+}
+.thread-title:hover {
+  background: var(--surface-2);
+}
+.thread-done:has(+ .turn.far) .thread-title {
+  font-size: 30px;
+  max-width: 520px;
+}
+.thread-done:has(+ .turn.far) .complete-circle {
+  width: 36px;
+  height: 36px;
+}
+
+/* ---------- message box: a plain, solid field ---------- */
+.composer-box::before,
+.composer-box::after {
+  display: none !important;
+}
+.stage > .composer .composer-box,
+.composer-box {
+  background: var(--surface) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 1px solid var(--border-2) !important;
+  border-radius: 14px !important;
+  box-shadow: var(--shadow) !important;
+}
+.composer-box:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border-2)) !important;
+  box-shadow:
+    0 0 0 3px var(--accent-soft),
+    var(--shadow) !important;
+}
+.composer.docked .composer-box {
+  box-shadow: none !important;
+}
+.target-switch {
+  background: var(--surface-2);
+}
+
+/* ---------- details panel: a full-height sheet on the right ---------- */
+@media (min-width: 768px) {
+  .app:not(.mobile) .drawer {
+    top: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    height: auto !important;
+    border-radius: 0 !important;
+    border: 0 !important;
+    border-left: 1px solid var(--border) !important;
+    background: var(--bg-2) !important;
+    box-shadow: -24px 0 48px -32px rgba(0, 0, 0, 0.5) !important;
+  }
+  .app:not(.mobile) .drawer::before,
+  .app:not(.mobile) .drawer::after {
+    display: none !important;
+  }
+}
+.drawer .drawer-head {
+  border-bottom: 1px solid var(--border);
+}
+.drawer .ds-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--text-3);
+}
+
+/* ---------- canvas toolbar ---------- */
+.canvas-bar {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+/* ---------- buttons: fewer gradients ---------- */
+.btn.primary {
+  background: var(--accent-2) !important;
+  box-shadow: none !important;
+}
+.btn.primary::before,
+.btn.primary::after {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .turn.fresh {
+    animation-duration: 0.25s;
+  }
+}

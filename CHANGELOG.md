@@ -3,6 +3,14 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.38.0
+
+- **A calmer look, all over.** Neutral graphite (or warm paper in light mode) with one accent colour. The sidebar, top bar and details panel are flat and edge to edge, separated by thin lines instead of floating boxes
+- **Quieter cards.** One thin border, a soft ring on the card you're on, no branch codes. Click anywhere on a card to open it; the Details button is gone
+- **Thread names read as headings** over the first card, large enough to read when you zoom out
+- **A plain message box.** The moving colour glow is gone
+- The view switch, toolbar and buttons lost their extra boxes and gradients
+
 ## 0.37.0
 
 - **Ask about anything you select.** Select part of a card's details and click **Ask** (or press A). Pick "What is this?", "Explain simply", "What does it mean for users?" or type your own question. The answer streams in right under the selection. It knows the whole conversation and can read the code, but it never changes anything and never joins the thread. Ask a follow-up, or turn it into a real branch with one click. Past questions stay under the answer

@@ -6,6 +6,7 @@ import { registerSW } from './pwa.ts';
 import { applyTheme } from './theme.ts';
 import { connect } from './store.ts';
 import './styles.css';
+import './calm.css';
 
 applyTheme();
 registerSW();

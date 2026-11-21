@@ -28,7 +28,7 @@
     <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
     <meta name="theme-color" content="#05050b" />
     <meta name="color-scheme" content="dark" />
-    <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "SoftwareApplication", "@id": "https://forkspace-app.netlify.app/#app", "name": "Forkspace", "description": "Run many Claude Code agents on one canvas. Branch from any step, review live diffs, approve from your phone, and learn the concepts behind the code. Free and open source.", "url": "https://forkspace-app.netlify.app/", "applicationCategory": "DeveloperApplication", "applicationSubCategory": "AI coding agent editor", "operatingSystem": "macOS, Linux, Windows", "softwareRequirements": "Node.js 20+, git, Anthropic API key", "license": "https://opensource.org/licenses/MIT", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "image": "https://forkspace-app.netlify.app/assets/og.png", "screenshot": ["https://forkspace-app.netlify.app/assets/canvas.webp?v=3", "https://forkspace-app.netlify.app/assets/code-learn.webp?v=3", "https://forkspace-app.netlify.app/assets/chat-learn.webp?v=3"], "featureList": ["Run many Claude Code agents side by side on a canvas", "Branch any conversation from any step; the code branches too with git worktrees", "Live diffs and a file tree per branch", "Approve agent actions from your phone", "Concepts explained in plain words while agents work", "Import existing Claude Code sessions"], "codeRepository": "https://github.com/nikhils4/forkspace", "author": {"@id": "https://github.com/nikhils4#person"}}, {"@type": "Person", "@id": "https://github.com/nikhils4#person", "name": "nikhils4", "url": "https://github.com/nikhils4"}, {"@type": "WebSite", "@id": "https://forkspace-app.netlify.app/#site", "name": "Forkspace", "url": "https://forkspace-app.netlify.app/", "publisher": {"@id": "https://github.com/nikhils4#person"}}]}</script>
+    <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "SoftwareApplication", "@id": "https://forkspace-app.netlify.app/#app", "name": "Forkspace", "description": "Run many Claude Code agents on one canvas. Branch from any step, review live diffs, approve from your phone, and learn the concepts behind the code. Free and open source.", "url": "https://forkspace-app.netlify.app/", "applicationCategory": "DeveloperApplication", "applicationSubCategory": "AI coding agent editor", "operatingSystem": "macOS, Linux, Windows", "softwareRequirements": "Node.js 20+, git, Anthropic API key", "license": "https://opensource.org/licenses/MIT", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "image": "https://forkspace-app.netlify.app/assets/og.png", "screenshot": ["https://forkspace-app.netlify.app/assets/canvas.webp?v=4", "https://forkspace-app.netlify.app/assets/ask.webp?v=4", "https://forkspace-app.netlify.app/assets/chat.webp?v=4"], "featureList": ["Run many Claude Code agents side by side on a canvas", "Branch any conversation from any step; the code branches too with git worktrees", "Live diffs and a file tree per branch", "Approve agent actions from your phone", "Concepts explained in plain words while agents work", "Import existing Claude Code sessions", "Ask a quick side question about any selected text"], "codeRepository": "https://github.com/nikhils4/forkspace", "author": {"@id": "https://github.com/nikhils4#person"}}, {"@type": "Person", "@id": "https://github.com/nikhils4#person", "name": "nikhils4", "url": "https://github.com/nikhils4"}, {"@type": "WebSite", "@id": "https://forkspace-app.netlify.app/#site", "name": "Forkspace", "url": "https://forkspace-app.netlify.app/", "publisher": {"@id": "https://github.com/nikhils4#person"}}]}</script>
     <script>
       try {
         if (localStorage.getItem('fs-mode') === 'terminal') document.documentElement.dataset.mode = 'terminal';
@@ -2009,6 +2009,14 @@
       :root[data-mode='terminal'] .ex-code * {
         color: inherit;
       }
+          .ask-mock { display: flex; flex-direction: column; gap: 10px; }
+      .ask-src { margin: 0; font-size: 14px; line-height: 1.5; }
+      .ask-src mark { background: rgba(155, 140, 255, 0.3); color: inherit; border-radius: 3px; padding: 0 2px; }
+      .ask-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+      .ask-ans { font-size: 13px; line-height: 1.5; opacity: 0.85; border-left: 2px solid currentColor; padding-left: 10px; min-height: 40px; }
+      .tree-mock svg path { fill: none; stroke: currentColor; stroke-opacity: 0.35; stroke-width: 1.5; }
+      .tree-mock svg rect { fill: none; stroke: currentColor; stroke-opacity: 0.5; }
+      .tree-mock svg .new { stroke-opacity: 1; }
     </style>
   </head>
   <body>
@@ -2030,7 +2038,7 @@
     <header class="hero" id="hero">
       <canvas id="cosmos" aria-hidden="true"></canvas>
       <div class="wrap hero-copy">
-        <a class="kicker rise" style="--d: 0.1s" href="#shipped"><b id="kick-ver">v0.32</b><span id="kick-text">Shipping almost every hour</span></a>
+        <a class="kicker rise" style="--d: 0.1s" href="#shipped"><b id="kick-ver">v0.37</b><span id="kick-text">Shipping almost every hour</span></a>
         <h1>
           <span class="line rise" style="--d: 0.25s">Every prompt</span>
           <span class="line rise" style="--d: 0.45s"><em>splits the universe.</em></span>
@@ -2052,16 +2060,16 @@
             <div class="in">
               <div class="bar"><i></i><i></i><i></i><span id="portal-url">localhost:4747 · canvas</span></div>
               <div class="portal-shots">
-                <img class="on" src="/assets/canvas.webp?v=3" width="2880" height="1800" alt="Forkspace canvas: Claude Code agent steps branching into a tree" fetchpriority="high" />
-                <img src="/assets/code-learn.webp?v=3" width="2880" height="1800" alt="Forkspace Code view: a live diff with a concept explained beside it" loading="lazy" />
-                <img src="/assets/chat-learn.webp?v=3" width="2880" height="1800" alt="Forkspace Chat view: a conversation with a concept explained beside the code" loading="lazy" />
+                <img class="on" src="/assets/canvas.webp?v=4" width="2880" height="1800" alt="Forkspace canvas: Claude Code agent steps branching into a tree" fetchpriority="high" />
+                <img src="/assets/ask.webp?v=4" width="2880" height="1800" alt="Forkspace details panel: a side question about a selected phrase, answered under it" loading="lazy" />
+                <img src="/assets/chat.webp?v=4" width="2880" height="1800" alt="Forkspace Chat view: a thread with its branches listed between steps" loading="lazy" />
               </div>
             </div>
           </div>
         </div>
         <div class="portal-tabs" role="tablist" aria-label="Views">
           <button class="on" role="tab" aria-selected="true" data-i="0">Canvas</button>
-          <button role="tab" aria-selected="false" data-i="1">Code</button>
+          <button role="tab" aria-selected="false" data-i="1">Ask</button>
           <button role="tab" aria-selected="false" data-i="2">Chat</button>
         </div>
         <p class="portal-cap" id="portal-cap">Every step an agent took, as a map. Branches included.</p>
@@ -2085,7 +2093,7 @@
           <div class="shift-row"><span><span class="then">Undo and hope</span></span><span class="arrow">→</span><span class="now">Branch from any step, code included</span></div>
           <div class="shift-row"><span><span class="then">Read the diff at the end</span></span><span class="arrow">→</span><span class="now">Watch every change land</span></div>
           <div class="shift-row"><span><span class="then">Nod at code you don't get</span></span><span class="arrow">→</span><span class="now">Actually get it</span></div>
-          <div class="shift-row"><span><span class="then">Docs open in another tab</span></span><span class="arrow">→</span><span class="now">Concepts explained as it codes</span></div>
+          <div class="shift-row"><span><span class="then">Paste a line into another chat</span></span><span class="arrow">→</span><span class="now">Select it, ask, move on</span></div>
           <div class="shift-row"><span><span class="then">Stuck at your desk</span></span><span class="arrow">→</span><span class="now">Approve from your phone</span></div>
         </div>
       </div>
@@ -2115,7 +2123,7 @@
             <div class="label">Direct</div>
             <h2>Many agents. <em>One map.</em></h2>
             <p>Branch from any step. The code branches too, each in its own git worktree. Bad idea? It stays on its branch.</p>
-            <div class="step-inline frame"><div class="in"><img src="/assets/canvas.webp?v=3" width="2880" height="1800" alt="Forkspace canvas: Claude Code agent steps branching into a tree" loading="lazy" /></div></div>
+            <div class="step-inline frame"><div class="in"><img src="/assets/canvas.webp?v=4" width="2880" height="1800" alt="Forkspace canvas: Claude Code agent steps branching into a tree" loading="lazy" /></div></div>
           </div>
           <div class="step">
             <div class="label">Review</div>
@@ -2124,19 +2132,19 @@
             <div class="step-inline frame"><div class="in"><img src="/assets/code-learn.webp?v=3" width="2880" height="1800" alt="Forkspace code view: file tree and a live diff of the agent's changes" loading="lazy" /></div></div>
           </div>
           <div class="step">
-            <div class="label">Learn</div>
-            <h2>Learn while <em>agents build.</em></h2>
-            <p>The concept behind every change, in plain words. Like a patient senior dev, minus the sighing.</p>
-            <div class="step-inline frame"><div class="in"><img src="/assets/chat-learn.webp?v=3" width="2880" height="1800" alt="Forkspace chat view: a conversation with a concept explained beside the code" loading="lazy" /></div></div>
+            <div class="label">Ask</div>
+            <h2>Ask about <em>any line.</em></h2>
+            <p>Select a phrase in any answer and ask what it is. The reply lands right under it, and the thread stays clean.</p>
+            <div class="step-inline frame"><div class="in"><img src="/assets/ask.webp?v=4" width="2880" height="1800" alt="Forkspace details panel: a side question answered under the selected text" loading="lazy" /></div></div>
           </div>
         </div>
         <div class="story-device">
           <div class="screens">
-            <div class="frame on"><div class="in"><img src="/assets/canvas.webp?v=3" width="2880" height="1800" alt="Canvas view" loading="lazy" /></div></div>
+            <div class="frame on"><div class="in"><img src="/assets/canvas.webp?v=4" width="2880" height="1800" alt="Canvas view" loading="lazy" /></div></div>
             <div class="frame"><div class="in"><img src="/assets/code-learn.webp?v=3" width="2880" height="1800" alt="Code view" loading="lazy" /></div></div>
-            <div class="frame"><div class="in"><img src="/assets/chat-learn.webp?v=3" width="2880" height="1800" alt="Chat view" loading="lazy" /></div></div>
+            <div class="frame"><div class="in"><img src="/assets/ask.webp?v=4" width="2880" height="1800" alt="A side question" loading="lazy" /></div></div>
           </div>
-          <div class="progress mono"><span class="on">Direct</span><span>Review</span><span>Learn</span></div>
+          <div class="progress mono"><span class="on">Direct</span><span>Review</span><span>Ask</span></div>
         </div>
       </div>
     </section>
@@ -2207,48 +2215,39 @@
           </div>
 
           <div class="tile reveal" style="--d: 0.08s">
-            <span class="ver">0.32</span>
+            <span class="ver">0.37</span>
             <div>
-              <h3>Options stay beside the card.</h3>
-              <p>When Claude offers choices, they're kept on that step. Take one, come back, take another.</p>
+              <h3>Read, then move on.</h3>
+              <p>J and K step through a thread. B branches from the card you're on. Your hands stay on the keys.</p>
             </div>
-            <div class="mock opts">
-              <div class="opt-box">
-                <div class="opt-q">Want it faster? A few ways to go:</div>
-                <div class="opt"><span class="opt-n">1</span><span class="opt-t">Cache the answers<small>Memoization</small></span><button class="chip-btn">Use</button></div>
-                <div class="opt"><span class="opt-n">2</span><span class="opt-t">Squaring trick<small>log n steps</small></span><button class="chip-btn">Use</button></div>
-                <div class="opt"><span class="opt-n">3</span><span class="opt-t">Lookup table<small>space for time</small></span><button class="chip-btn">Use</button></div>
-              </div>
-              <span class="opt-tab">3 options</span>
+            <div class="mock cmts">
+              <div class="cmt"><kbd>J</kbd>&nbsp; Next step</div>
+              <div class="cmt"><kbd>K</kbd>&nbsp; Previous step</div>
+              <div class="cmt"><kbd>B</kbd>&nbsp; Branch from here</div>
             </div>
           </div>
 
           <div class="tile reveal">
-            <span class="ver">0.32</span>
+            <span class="ver">0.37</span>
             <div>
-              <h3>Notes that keep up.</h3>
-              <p>One living note per thread. It knows what it's missing and syncs in a tap.</p>
+              <h3>Ask about any line.</h3>
+              <p>Select part of an answer, tap Ask. The reply shows up right under it. One click turns it into a branch.</p>
             </div>
-            <div class="mock">
-              <div class="nbar" id="nbar">
-                <span class="ic">✎</span>
-                <span style="flex: 1"><b>Power function, three ways</b><span class="st" id="nb-st">2 new steps not in the notes yet</span></span>
-                <button class="chip-btn pri" id="nb-sync">Sync</button>
-              </div>
-              <div class="note-lines" id="nb-lines"><i style="width: 92%"></i><i style="width: 78%"></i><i style="width: 85%"></i></div>
+            <div class="mock ask-mock">
+              <p class="ask-src">It now uses <mark>exponentiation by squaring</mark> to stay fast.</p>
+              <div class="ask-chips"><button class="chip-btn pri" data-ask="0">What is this?</button><button class="chip-btn" data-ask="1">Why this way?</button></div>
+              <div class="ask-ans" id="ask-ans">Squares half the answer instead of multiplying a thousand times. 1000 steps become about 10.</div>
             </div>
           </div>
 
           <div class="tile reveal" style="--d: 0.08s">
-            <span class="ver">0.28</span>
+            <span class="ver">0.37</span>
             <div>
-              <h3>Thoughts for later.</h3>
-              <p>Pin a comment to any step. Send it to your next prompt, or tick it off.</p>
+              <h3>Branches land where you look.</h3>
+              <p>A new branch sits beside its sibling, right under the card it came from. Nothing jumps across the board.</p>
             </div>
-            <div class="mock cmts">
-              <button class="cmt"><span class="tick"></span>Also handle empty input before parsing</button>
-              <button class="cmt done"><span class="tick"></span>Ask about rounding: banker or half up?</button>
-              <button class="cmt"><span class="tick"></span>Check NaN and negative zero</button>
+            <div class="mock tree-mock" aria-hidden="true">
+              <svg viewBox="0 0 220 96" width="100%" height="96"><path d="M110 22 C110 44 60 40 60 62" /><path d="M110 22 C110 44 160 40 160 62" class="new" /><rect x="80" y="4" width="60" height="18" rx="5" /><rect x="30" y="62" width="60" height="18" rx="5" /><rect x="130" y="62" width="60" height="18" rx="5" class="new" /></svg>
             </div>
           </div>
         </div>
@@ -2750,8 +2749,8 @@
       const portal = $('#portal');
       const pShots = $$('.portal-shots img');
       const pTabs = $$('.portal-tabs button');
-      const CAPS = ['Every step an agent took, as a map. Branches included.', 'The live diff on the left. The idea behind it on the right.', 'Talk to any agent. The concept sits beside the code.'];
-      const URLS = ['canvas', 'code', 'chat'];
+      const CAPS = ['Every step an agent took, as a map. Branches included.', 'Select any line of an answer. Ask what it means. Move on.', 'The same thread as a chat, with every branch one tap away.'];
+      const URLS = ['canvas', 'ask', 'chat'];
       let pAuto = !reduce;
       const showShot = (i) => {
         pShots.forEach((s, j) => s.classList.toggle('on', j === i));
@@ -2959,7 +2958,7 @@
           $('.chip-btn', o).textContent = was ? 'Again' : 'Use';
         }),
       );
-      $('#nb-sync').addEventListener('click', (e) => {
+      $('#nb-sync')?.addEventListener('click', (e) => {
         const bar = $('#nbar'), st = $('#nb-st'), btn = e.currentTarget;
         if (bar.classList.contains('ok')) {
           bar.classList.remove('ok');
@@ -2983,6 +2982,8 @@
         }, reduce ? 0 : 1100);
       });
       $$('.cmt').forEach((c) => c.addEventListener('click', () => c.classList.toggle('done')));
+      const ASK = ['Squares half the answer instead of multiplying a thousand times. 1000 steps become about 10.', 'Big powers stay instant. A plain loop would slow down as the number grows.'];
+      $$('[data-ask]').forEach((b) => b.addEventListener('click', () => { $$('[data-ask]').forEach((x) => x.classList.toggle('pri', x === b)); const el = $('#ask-ans'); if (el) el.textContent = ASK[+b.dataset.ask]; }));
 
       // ---------- live release count from GitHub ----------
       (async () => {

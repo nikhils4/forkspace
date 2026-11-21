@@ -498,7 +498,7 @@ function editedFiles(node: TurnNode, cwd?: string) {
 }
 
 export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: TurnData }) {
-  const { node, onOpen, onReply, isTarget, faded } = data;
+  const { node, onReply, isTarget, faded } = data;
   const dim = node.completed ? 'completed' : faded ? 'faded' : '';
   const branch = useSelect((s) => s.branches[node.branchId]);
   // Zoomed far out: show just the essentials so big boards stay readable.
@@ -563,12 +563,7 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
             <Icon name="download" size={11} />
             Claude Code
           </span>
-        ) : (
-          <span className="branch-tag" title={branch?.gitBranch ?? 'branch'}>
-            <Icon name="branch" size={11} />
-            {node.branchId.slice(0, 6)}
-          </span>
-        )}
+        ) : null}
       </div>
 
       <div className="turn-prompt">{node.prompt}</div>
@@ -622,10 +617,6 @@ export const TurnCard = memo(function TurnCard({ data }: NodeProps & { data: Tur
       {node.pending && <Permission node={node} p={node.pending} />}
 
       <div className="turn-foot nodrag">
-        <button className="btn ghost sm" onClick={() => onOpen(node.id)}>
-          Details
-        </button>
-
         <span className="spacer" />
         {live ? (
           <button className="btn danger-ghost sm" onClick={() => send({ type: 'stop', nodeId: node.id })}>
