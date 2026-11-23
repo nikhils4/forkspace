@@ -447,7 +447,7 @@ function Shell() {
     ];
     for (const [v, label, icon] of views) if (board) paletteItems.push({ id: `v-${v}`, group: 'Views', label, icon, run: () => setView(v) });
     paletteItems.push(
-      { id: 'a-new', group: 'Actions', label: 'New thread', icon: 'plus', run: () => (setTargetId(null), setTab('board'), setTimeout(() => composerFocus.current?.focus(), 50)) },
+      { id: 'a-new', group: 'Actions', label: 'New thread', icon: 'plus', run: () => (setOpenId(null), setTargetId(null), setTab('board'), setTimeout(() => composerFocus.current?.focus(), 50)) },
       { id: 'a-board', group: 'Actions', label: 'New board', icon: 'folder', run: () => setSheet('new') },
       { id: 'a-devices', group: 'Actions', label: 'Set up your phone', icon: 'phone', run: () => (settingsTab('phone'), mobile ? setTab('devices') : setSheet('devices')) },
     );
@@ -762,7 +762,7 @@ function Shell() {
             <>
               <div className="side-head">
                 <span>Threads</span>
-                <button className="icon-btn sm" onClick={() => (setPage('board'), setTargetId(null), setTimeout(() => composerFocus.current?.focus(), 0))} aria-label="New thread" title="New thread">
+                <button className="icon-btn sm" onClick={() => (setPage('board'), setOpenId(null), setTargetId(null), setTimeout(() => composerFocus.current?.focus(), 50))} aria-label="New thread" title="New thread">
                   <Icon name="plus" size={15} />
                 </button>
               </div>

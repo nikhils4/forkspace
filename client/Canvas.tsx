@@ -52,7 +52,7 @@ export function Canvas({
   board: Board;
   targetId: string | null;
   setTargetId: (id: string | null) => void;
-  openDetails: (id: string) => void;
+  openDetails: (id: string | null) => void;
   focus: { id: string; n: number } | null;
 }) {
   const store = useStore();
@@ -89,10 +89,12 @@ export function Canvas({
 
   const onReply = useCallback(
     (id: string | null) => {
+      // A new thread needs the main message box: the details panel's box always continues its card.
+      if (!id) openDetails(null);
       setTargetId(id);
-      setTimeout(() => composerFocus.current?.focus(), 0);
+      setTimeout(() => composerFocus.current?.focus(), 50);
     },
-    [setTargetId],
+    [setTargetId, openDetails],
   );
 
   /** True when an earlier step on this card's path was marked complete. */
