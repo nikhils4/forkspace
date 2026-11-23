@@ -25,6 +25,7 @@ import { saveCheckpoint } from './runner.ts';
 import { askMap, buildMap, forgetAnswer, linkCheck, loadAnswers, loadMap, mapIsStale, saveFlow, zoomItem } from './codemap.ts';
 import { answer, isRunning, pruneBranches, queueMessage, runQueued, setActivityHook, setEmitter, setNotifier, startTurn, stop, touch } from './runner.ts';
 import { askAside, dropAside } from './asides.ts';
+import { ensureModel, speechStatus, transcribe } from './speech.ts';
 import { readImageText, threadTitle, tidyDictation } from './tutor.ts';
 import { deleteConcept, keepNote, noteAfterStep, refreshNote, setNotesEmit } from './threadnotes.ts';
 import { linkPr, prAfterStep, refreshPr, setPrEmit, startPrWatch } from './github.ts';
@@ -92,6 +93,7 @@ const server = http.createServer((req, res) => {
   if (url.pathname.startsWith('/api/workspace/')) return workspaceApi(req, res, url);
   if (url.pathname.startsWith('/api/shots')) return shotsApi(req, res, url);
   if (url.pathname === '/api/attachments') return attachApi(req, res, url);
+  if (url.pathname === '/api/dictation') return dictationApi(req, res, url);
   let file = path.join(DIST, path.normalize(url.pathname).replace(/^(\.\.[/\\])+/, ''));
   if (!file.startsWith(DIST) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
     if (url.pathname.startsWith('/assets/')) {
@@ -183,6 +185,54 @@ async function attachApi(req: http.IncomingMessage, res: http.ServerResponse, ur
   if (req.method !== 'POST') return json(405, { error: 'Use POST' });
   try {
     json(200, saveAttachment(await readBody(req, 31 * 1024 * 1024), url.searchParams.get('name') ?? 'file'));
+  } catch (err: any) {
+    json(400, { error: String(err?.message ?? err) });
+  }
+}
+
+// ---- dictation: what the project calls things, so misheard names get fixed ----
+async function dictationContext(board: Board) {
+  const files = await g.git(board.cwd, '-c', 'core.quotepath=off', 'ls-files').catch(() => '');
+  const names = new Set<string>();
+  for (const f of files.split('\n').slice(0, 3000)) {
+    if (!f) continue;
+    const parts = f.split('/');
+    names.add(parts[parts.length - 1].replace(/\.[^.]+$/, ''));
+    if (parts.length > 1) names.add(parts[parts.length - 2]);
+  }
+  const recent = state.nodes
+    .filter((n): n is TurnNode => n.kind === 'turn' && n.boardId === board.id)
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, 6)
+    .map((n) => n.prompt);
+  return { names: [...names].slice(0, 300), recent };
+}
+
+// The recording, transcribed on this Mac by Whisper, then tidied like before.
+async function dictationApi(req: http.IncomingMessage, res: http.ServerResponse, url: URL) {
+  const json = (code: number, body: unknown) => {
+    res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+    res.end(JSON.stringify(body));
+  };
+  if (!checkToken((req.headers.authorization ?? '').replace(/^Bearer /, ''))) return json(401, { error: 'Sign in first.' });
+  // Asked when you first press the mic: that's when the model starts downloading.
+  if (req.method === 'GET') {
+    if (speechStatus().state === 'downloading') ensureModel();
+    return json(200, speechStatus());
+  }
+  if (req.method !== 'POST') return json(405, { error: 'Use POST' });
+  try {
+    const audio = await readBody(req, 40 * 1024 * 1024);
+    const board = getBoard(url.searchParams.get('board') ?? '');
+    const ctx = board ? await dictationContext(board) : { names: [], recent: [] };
+    // Whisper reads the hint as earlier speech: the words it should expect, in plain sentences.
+    const hint = [board ? `Project ${board.name}.` : '', ctx.recent.slice(0, 2).join(' ').slice(0, 300), ctx.names.slice(0, 60).join(', ')].filter(Boolean).join(' ');
+    const heard = await transcribe(audio, { lang: url.searchParams.get('lang') ?? undefined, hint });
+    if (heard === null) return json(200, { text: null, status: speechStatus() });
+    if (!heard || !board || heard.split(/\s+/).length < 3) return json(200, { text: heard });
+    const before = url.searchParams.get('before') ?? '';
+    const text = await tidyDictation(heard, { before, board: board.name, ...ctx }, board.cwd).catch(() => heard);
+    return json(200, { text });
   } catch (err: any) {
     json(400, { error: String(err?.message ?? err) });
   }
@@ -606,21 +656,8 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       const text = String(msg.text ?? '').slice(0, 6000);
       const board = getBoard(msg.boardId);
       if (!text.trim() || !board || text.trim().split(/\s+/).length < 3) return { text };
-      const files = await g.git(board.cwd, '-c', 'core.quotepath=off', 'ls-files').catch(() => '');
-      const names = new Set<string>();
-      for (const f of files.split('\n').slice(0, 3000)) {
-        if (!f) continue;
-        const parts = f.split('/');
-        names.add(parts[parts.length - 1].replace(/\.[^.]+$/, ''));
-        if (parts.length > 1) names.add(parts[parts.length - 2]);
-      }
-      const recent = state.nodes
-        .filter((n): n is TurnNode => n.kind === 'turn' && n.boardId === board.id)
-        .sort((a, b) => b.createdAt - a.createdAt)
-        .slice(0, 6)
-        .map((n) => n.prompt);
       try {
-        return { text: await tidyDictation(text, { before: String(msg.before ?? ''), board: board.name, names: [...names].slice(0, 300), recent }, board.cwd) };
+        return { text: await tidyDictation(text, { before: String(msg.before ?? ''), board: board.name, ...(await dictationContext(board)) }, board.cwd) };
       } catch {
         return { text };
       }

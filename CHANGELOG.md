@@ -3,6 +3,12 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.39.0
+
+- **Much more accurate dictation.** Words still appear as you speak. When you stop, Whisper on your Mac listens to the recording again, primed with your project's file names, and its text replaces the live one. Then the usual quick pass fixes names and drops filler. Nothing leaves your Mac
+- Needs `whisper-cpp` and `ffmpeg` (`brew install whisper-cpp ffmpeg`). The first time you press the mic, Forkspace fetches the speech model (about 550 MB, once). Until then, or without Whisper, dictation works as before
+- **Settings → General → Dictation** shows whether it's ready, the download progress, or the command to install it
+
 ## 0.38.1
 
 - **New thread starts a new thread again.** With a card open, New thread (sidebar +, right-click on the canvas, or the command palette) used to drop you into that card's reply box, so your message became a branch. It now closes the details panel and puts you in the main box

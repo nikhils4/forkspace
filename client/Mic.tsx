@@ -1,13 +1,41 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from './icons.tsx';
-import { request, toast } from './store.ts';
+import { getToken, request, toast } from './store.ts';
 
-// Dictation for the message box. The browser's speech recognition writes words as you speak;
-// when you stop, a quick pass fixes what it misheard (using this project's file names and
-// your recent prompts), adds punctuation and drops filler words.
+// Dictation for the message box. The browser's speech recognition writes words as you speak,
+// and the audio is recorded at the same time. When you stop, Whisper on this Mac transcribes the
+// recording (primed with this project's file names), and that text replaces the live one. Then a
+// quick pass fixes names, adds punctuation and drops filler words. Without Whisper, the live text
+// gets the quick pass alone.
 
 const Recognition: any = typeof window !== 'undefined' ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition : null;
-export const micSupported = () => !!Recognition;
+const Recorder: typeof MediaRecorder | null = typeof window !== 'undefined' && 'MediaRecorder' in window ? MediaRecorder : null;
+export const micSupported = () => !!Recognition || !!Recorder;
+const auth = () => ({ authorization: `Bearer ${getToken() ?? ''}` });
+
+// Once per page: ask whether Whisper is ready (this also starts fetching its model).
+let told = false;
+function checkWhisper() {
+  if (told) return;
+  told = true;
+  fetch('/api/dictation', { headers: auth() })
+    .then((r) => r.json())
+    .then((st) => {
+      if (st?.state === 'downloading') toast('Getting the speech model for more accurate dictation (about 550 MB, once). Until it is ready, dictation works as before.');
+    })
+    .catch(() => {});
+}
+
+/** Whisper's text for the recording, or null when it isn't available. */
+async function whisper(audio: Blob, boardId: string, before: string): Promise<string | null> {
+  if (!audio.size) return null;
+  const q = new URLSearchParams({ board: boardId, lang: (navigator.language || 'en').slice(0, 2).toLowerCase(), before: before.slice(-600) });
+  const r = await Promise.race([
+    fetch(`/api/dictation?${q}`, { method: 'POST', body: audio, headers: auth() }).then((x) => x.json()),
+    new Promise<null>((res) => setTimeout(() => res(null), 45000)),
+  ]).catch(() => null);
+  return typeof r?.text === 'string' && r.text.trim() ? r.text.trim() : null;
+}
 
 /** Join recognised phrases with exactly one space between them. */
 const join = (a: string, b: string) => (!a ? b.replace(/^\s+/, '') : !b ? a : /\s$/.test(a) || /^\s/.test(b) ? a.replace(/\s+$/, '') + ' ' + b.replace(/^\s+/, '') : `${a} ${b}`);
@@ -38,7 +66,7 @@ export function MicButton({ text, setText, onStop, boardId }: { text: string; se
   latest.current = text;
 
   useEffect(() => () => session.current?.abort(), []);
-  if (!Recognition) return null;
+  if (!micSupported()) return null;
 
   const start = () => {
     const base = text && !/\s$/.test(text) ? `${text} ` : text;
@@ -50,7 +78,40 @@ export function MicButton({ text, setText, onStop, boardId }: { text: string; se
     let rec: any = null;
     let ended: () => void = () => {};
     const endedP = () => new Promise<void>((res) => (ended = res));
-    let waitEnd = endedP();
+    let waitEnd = Recognition ? endedP() : Promise.resolve();
+
+    // The recording Whisper transcribes when you stop.
+    const chunks: Blob[] = [];
+    let recorder: MediaRecorder | null = null;
+    let stream: MediaStream | null = null;
+    const recorded = new Promise<Blob>((resolve) => {
+      if (!Recorder || !navigator.mediaDevices?.getUserMedia) return resolve(new Blob());
+      navigator.mediaDevices
+        .getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
+        .then((s) => {
+          stream = s;
+          if (done || userStopped) {
+            s.getTracks().forEach((t) => t.stop());
+            return resolve(new Blob());
+          }
+          const type = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm'].find((t) => Recorder.isTypeSupported?.(t));
+          recorder = new Recorder(s, type ? { mimeType: type } : undefined);
+          recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+          recorder.onstop = () => {
+            s.getTracks().forEach((t) => t.stop());
+            resolve(new Blob(chunks, { type: recorder?.mimeType }));
+          };
+          recorder.start(1000);
+        })
+        .catch(() => resolve(new Blob()));
+    });
+    const stopRecording = () => {
+      try {
+        if (recorder && recorder.state !== 'inactive') recorder.stop();
+        else stream?.getTracks().forEach((t) => t.stop());
+      } catch {}
+    };
+    checkWhisper();
 
     const listen = () => {
       const r = new Recognition();
@@ -103,11 +164,15 @@ export function MicButton({ text, setText, onStop, boardId }: { text: string; se
       try {
         rec?.stop();
       } catch {}
+      stopRecording();
       // Let the last words arrive, but never hang.
       await Promise.race([waitEnd, new Promise((r) => setTimeout(r, 1500))]);
+      setState('tidying');
+      const audio = await Promise.race([recorded, new Promise<Blob>((r) => setTimeout(() => r(new Blob()), 2000))]);
+      const heard = await whisper(audio, boardId, base);
+      if (heard) return base + heard;
       const raw = finalText.trim();
       if (!raw) return base.replace(/\s+$/, '');
-      setState('tidying');
       const clean = await tidy(boardId, base, raw);
       return base + clean;
     };
@@ -139,13 +204,14 @@ export function MicButton({ text, setText, onStop, boardId }: { text: string; se
       abort: () => {
         done = true;
         userStopped = true;
+        stopRecording();
         try {
           rec?.abort();
         } catch {}
       },
     };
     try {
-      listen();
+      if (Recognition) listen();
       setState('on');
     } catch {
       active = null;

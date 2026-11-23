@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import type { RemoteInfo } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
 import { disablePush, enablePush, isIOS, isStandalone, pushEnabled, pushSupport, useInstall } from './pwa.ts';
-import { isLocalPage, request, setToken, toast } from './store.ts';
+import { getToken, isLocalPage, request, setToken, toast } from './store.ts';
 import { Switch } from './ui.tsx';
 import { UpdateSection } from './Updates.tsx';
 import { StartCommand } from './Gate.tsx';
@@ -250,6 +250,55 @@ function Appearance() {
   );
 }
 
+/** Whether dictation is transcribed by Whisper on this Mac, or only by the browser. */
+function Dictation() {
+  const [st, setSt] = useState<{ state: 'ready' | 'downloading' | 'missing'; progress?: number; need?: string[]; error?: string } | null>(null);
+  useEffect(() => {
+    let live = true;
+    const load = () =>
+      fetch('/api/dictation', { headers: { authorization: `Bearer ${getToken() ?? ''}` } })
+        .then((r) => r.json())
+        .then((x) => {
+          if (!live) return;
+          setSt(x);
+          if (x?.state === 'downloading' && !x.error) setTimeout(load, 2000);
+        })
+        .catch(() => {});
+    load();
+    return () => {
+      live = false;
+    };
+  }, []);
+  if (!st) return null;
+  const cmd = `brew install ${(st.need ?? []).join(' ')}`;
+  return (
+    <section className="card-section">
+      <h3>
+        <Icon name="mic" size={16} /> Dictation
+      </h3>
+      <div className="setting-row">
+        <div className="setting-text">
+          <b>{st.state === 'ready' ? 'Accurate dictation is on' : st.state === 'downloading' ? (st.error ? 'The speech model did not download' : `Getting the speech model… ${Math.round((st.progress ?? 0) * 100)}%`) : 'Dictation uses the browser only'}</b>
+          <span>
+            {st.state === 'ready'
+              ? 'Words appear as you speak. When you stop, Whisper on this Mac listens to the recording again and fixes them, using your project’s file names. Nothing leaves your Mac.'
+              : st.state === 'downloading'
+                ? st.error
+                  ? `${st.error}. Press the mic again to retry.`
+                  : 'About 550 MB, once. Until it’s ready, dictation works as before.'
+                : 'For much better accuracy, install Whisper and ffmpeg, then restart Forkspace.'}
+          </span>
+        </div>
+      </div>
+      {st.state === 'missing' && (
+        <button className="btn sm" onClick={() => navigator.clipboard?.writeText(cmd).then(() => toast('Copied'))}>
+          <Icon name="copy" size={13} /> {cmd}
+        </button>
+      )}
+    </section>
+  );
+}
+
 function AlwaysOn() {
   const [st, setSt] = useState<ServiceStatus | null>(null);
   const [busy, setBusy] = useState(false);
@@ -353,6 +402,7 @@ export function Settings() {
             <Install />
           </section>
           <AlwaysOn />
+          <Dictation />
         </>
       )}
 
