@@ -3,6 +3,10 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.49.0
+
+- **The thread notes bar is gone from the top of the page.** The notes are one small icon in the header instead, with a dot when new steps aren't in them yet; click it to open them (they catch up on their own)
+
 ## 0.48.0
 
 - **A calmer header.** The bar of step segments is gone. One small button shows which step you're on ("15/24"); click it for a list of every step, opening at the one you're on, and jump to any of them

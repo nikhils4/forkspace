@@ -113,6 +113,19 @@ export function NoteTab({ branchId, inline }: { branchId: string; inline?: boole
 }
 
 /** A thread's notes in a line, for the details panel and the chat. */
+/** The thread's notes as one small icon: a spinner while they're written, a dot when new steps aren't in them yet. */
+export function NoteButton({ branchId }: { branchId: string }) {
+  useTick();
+  const { rootId, note: n, behind } = useThreadNote(branchId);
+  if (!n || (!n.markdown && !n.busy)) return null;
+  const status = n.busy ? 'Writing the notes…' : behind ? `${behind} new step${behind === 1 ? '' : 's'} not in the notes yet (opening them catches up)` : n.error ? 'Last update failed' : `Up to date · ${timeAgo(n.updatedAt)}`;
+  return (
+    <button className={`icon-btn sm tnote-btn ${behind && !n.busy ? 'behind' : ''}`} onClick={() => openThreadNote(rootId)} title={`Thread notes · ${status}`} aria-label="Thread notes">
+      {n.busy ? <span className="spinner" /> : <Icon name="note" size={15} />}
+    </button>
+  );
+}
+
 export function NoteBar({ branchId }: { branchId: string }) {
   useTick();
   const { rootId, note: n, behind } = useThreadNote(branchId);

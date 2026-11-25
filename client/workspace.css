@@ -2067,3 +2067,22 @@
 .call {
   gap: 10px;
 }
+
+/* The thread notes, as one icon in the header. */
+.tnote-btn {
+  position: relative;
+}
+.tnote-btn.behind::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.tnote-btn .spinner {
+  width: 12px;
+  height: 12px;
+}

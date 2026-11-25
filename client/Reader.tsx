@@ -10,7 +10,7 @@ import { useReady } from './review.ts';
 import { Attachments } from './Shots.tsx';
 import { STAGE_LABEL, threadsOf, turnsOfBranch, type Stage, type ThreadRow } from './status.ts';
 import { isLocalPage, openTerminalFor, request, send, toast, useStore } from './store.ts';
-import { NoteBar, openThreadNote } from './ThreadNotes.tsx';
+import { NoteButton, openThreadNote } from './ThreadNotes.tsx';
 import { PrSection } from './Threads.tsx';
 import { ToolDiff, editsOf } from './ToolDiff.tsx';
 import { childrenOf, currentActivity, isLive, pathTo } from './tree.ts';
@@ -266,6 +266,7 @@ export function ThreadReader({
               {index + 1}/{path.length}
             </button>
           )}
+          <NoteButton branchId={step.branchId} />
           <button className={`icon-btn sm ${sideOpen ? 'on' : ''}`} onClick={onToggleSide} title={sideOpen ? 'Hide changes (])' : 'Show changes (])'} aria-label="Changes panel" aria-pressed={sideOpen}>
             <Icon name="sidebar" size={15} />
           </button>
@@ -287,9 +288,6 @@ export function ThreadReader({
       <div className="rd-scroll" ref={scroller}>
         <SelectionAsk scroller={scroller} node={step} onBranch={(p) => onBranch(step.id, p)} />
         <div className={`rd-doc sv-doc go-${dir}`} key={stepId}>
-          <div className="rd-note">
-            <NoteBar branchId={step.branchId} />
-          </div>
           {index >= 0 && (
             <StepSection
               key={step.id}
