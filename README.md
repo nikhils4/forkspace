@@ -61,9 +61,9 @@ Along the top: **Threads**, **Canvas**, **Code** and **Map** (keys `1` to `4`). 
 
 | Pane | What's there |
 |---|---|
-| **Left** | Every thread, grouped by what needs you, what's working, what's open and what's done. Filter by name. The open thread shows its branches under it. `↑` `↓` move between threads. |
-| **Middle** | The open thread. A small map of its branches on top: click any dot or branch name to go there. Below, its steps in order: the chosen one is open (what you asked, the answer, side questions, how it got there), the rest are one line each. `J` `K` move between steps. The box at the bottom replies or branches. |
-| **Right** | What the chosen step changed, file by file, plus the pull request. `]` hides it for more reading room. |
+| **Left** | Every thread, grouped by what needs you, what's working, what's recent and what's done. Each one says in a line what it's doing, what it needs, or the path it took. A spinner means working, an amber dot means it needs you. `↑` `↓` move between threads. |
+| **Middle** | The open thread. On top, its **map**: a lane per branch with what that branch is for, and a stop per step saying in a few words what happened there (written by a small model once per step). Click any stop to read it. Below, the steps read top to bottom as one document: what you asked, the answer, side questions, how it got there, and where branches leave. Scrolling moves the map with you; `J` `K` jump between steps. **Branch from here** on any step tries something else from that point. |
+| **Right** | What the step you're reading changed, file by file, plus the pull request. `]` hides it for more reading room. |
 
 Clicking a card on the canvas, a search result or a running agent opens it here. The status bar along the bottom holds the board switcher, **Work**, **Notes**, **Concepts**, running agents, **Terminal** and **Settings**. On a phone it stays the familiar chat, with tabs at the bottom.
 

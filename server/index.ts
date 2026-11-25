@@ -26,7 +26,7 @@ import { askMap, buildMap, forgetAnswer, linkCheck, loadAnswers, loadMap, mapIsS
 import { answer, isRunning, pruneBranches, queueMessage, runQueued, setActivityHook, setEmitter, setNotifier, startTurn, stop, touch } from './runner.ts';
 import { askAside, dropAside } from './asides.ts';
 import { ensureModel, speechStatus, transcribe } from './speech.ts';
-import { readImageText, threadTitle, tidyDictation } from './tutor.ts';
+import { readImageText, threadLabels, threadTitle, tidyDictation } from './tutor.ts';
 import { deleteConcept, keepNote, noteAfterStep, refreshNote, setNotesEmit } from './threadnotes.ts';
 import { linkPr, prAfterStep, refreshPr, setPrEmit, startPrWatch } from './github.ts';
 import { flush, getBoard, getBranch, getNode, getTurn, save, state, subtree } from './store.ts';
@@ -709,6 +709,39 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
         return [];
       }
     }
+    case 'labelThread': {
+      // Labels for the thread's map, once per step and branch, in one small call per thread.
+      const root = getTurn(msg.rootId);
+      if (!root || labelling.has(root.id)) return null;
+      const all: TurnNode[] = [];
+      const walk = (t: TurnNode) => {
+        all.push(t);
+        for (const n of state.nodes) if (n.kind === 'turn' && n.parentId === t.id) walk(n);
+      };
+      walk(root);
+      const steps = all.filter((t) => !t.label && t.status !== 'running' && t.status !== 'waiting');
+      const firsts = new Map<string, TurnNode>();
+      for (const t of [...all].sort((a, b) => a.createdAt - b.createdAt)) if (!firsts.has(t.branchId)) firsts.set(t.branchId, t);
+      const branches = [...firsts.entries()].filter(([id]) => !getBranch(id)?.purpose).map(([id, t]) => ({ id, first: t.prompt }));
+      if (!steps.length && !branches.length) return null;
+      labelling.add(root.id);
+      const cwd = getBranch(root.branchId)?.cwd ?? getBoard(root.boardId)?.cwd ?? os.homedir();
+      void threadLabels(
+        steps.slice(0, 40).map((t) => ({ id: t.id, branch: t.branchId, prompt: t.prompt, did: lastSaid(t) })),
+        branches,
+        cwd,
+      )
+        .then((r) => {
+          for (const t of steps) if (r.steps[t.id]) (t.label = r.steps[t.id]), broadcast({ type: 'node', node: t });
+          for (const b of branches) {
+            const br = getBranch(b.id);
+            if (br && r.branches[b.id]) (br.purpose = r.branches[b.id]), broadcast({ type: 'branch', branch: br });
+          }
+          save();
+        })
+        .finally(() => labelling.delete(root.id));
+      return null;
+    }
     case 'termOpen':
     case 'termList':
     case 'termAttach':
@@ -890,6 +923,15 @@ server.on('error', (err: NodeJS.ErrnoException) => {
   console.error(err);
   process.exit(1);
 });
+const labelling = new Set<string>();
+const lastSaid = (t: TurnNode) => {
+  for (let i = t.events.length - 1; i >= 0; i--) {
+    const e = t.events[i];
+    if (e.t === 'text' && !e.partial && e.text.trim()) return e.text;
+  }
+  return '';
+};
+
 // A step cut off by a restart (an update, a crash) never got its checkpoint: save it now, so
 // its changes show up and the next step starts from them.
 async function recoverCheckpoints() {

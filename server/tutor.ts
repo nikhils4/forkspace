@@ -94,6 +94,46 @@ export async function threadTitle(prompt: string, summary: string, cwd: string):
   return fallbackTitle(prompt);
 }
 
+// ---- the thread map: a few words per step and per branch ----
+
+const LABELS_SCHEMA = {
+  type: 'object',
+  properties: {
+    steps: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, label: { type: 'string' } }, required: ['id', 'label'] } },
+    branches: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, purpose: { type: 'string' } }, required: ['id', 'purpose'] } },
+  },
+  required: ['steps', 'branches'],
+};
+
+/**
+ * Short labels for a thread's map, in one call: what each step did (2 to 4 words, like "Add power()"
+ * or "Handle negatives") and what each branch is for (3 to 6 words).
+ */
+export async function threadLabels(
+  steps: { id: string; branch: string; prompt: string; did: string }[],
+  branches: { id: string; first: string }[],
+  cwd: string,
+): Promise<{ steps: Record<string, string>; branches: Record<string, string> }> {
+  const out = { steps: {} as Record<string, string>, branches: {} as Record<string, string> };
+  if (!steps.length && !branches.length) return out;
+  const tidy = (t: string, n: number) => t.replace(/^["']|["'.]$/g, '').replace(/\s+/g, ' ').trim().slice(0, n);
+  try {
+    const res = await ask<{ steps: { id: string; label: string }[]; branches: { id: string; purpose: string }[] }>(
+      `Label the steps of this coding thread for a small map.\n\n` +
+        (steps.length ? `Steps (what the developer asked, then what the agent did):\n${steps.map((s) => `- id ${s.id}: asked "${clip(s.prompt, 300)}"${s.did ? `; did: ${clip(s.did, 300)}` : ''}`).join('\n')}\n\n` : '') +
+        (branches.length ? `Branches (each starts with this request):\n${branches.map((b) => `- id ${b.id}: "${clip(b.first, 300)}"`).join('\n')}\n\n` : '') +
+        `For each step, a label of 2 to 4 words saying what happened, like "Add power()", "Handle negatives", "Fix flaky test". ` +
+        `For each branch, a purpose of 3 to 6 words saying what it tries, like "Cache repeated results". Plain words, no trailing period.`,
+      'You write very short, precise labels for steps of software work.',
+      LABELS_SCHEMA,
+      cwd,
+    );
+    for (const s of res?.steps ?? []) if (s.label?.trim()) out.steps[s.id] = tidy(s.label, 40);
+    for (const b of res?.branches ?? []) if (b.purpose?.trim()) out.branches[b.id] = tidy(b.purpose, 60);
+  } catch {}
+  return out;
+}
+
 // ---- dictation: fix what the speech recogniser got wrong ----
 
 const TIDY_SCHEMA = { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] };

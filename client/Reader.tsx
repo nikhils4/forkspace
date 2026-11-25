@@ -1,31 +1,71 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { CanvasNode, TurnNode } from '../shared/types.ts';
 import { AsideList, SelectionAsk } from './Asides.tsx';
 import { CardComments } from './Comments.tsx';
 import { ContextMenu, type MenuItem } from './ContextMenu.tsx';
 import { parseDiff } from './Drawer.tsx';
 import { Icon } from './icons.tsx';
-import { DiffStat, LiveLine, Md, Permission, STATUS_LABEL, StatusDot, ToolLine, branchColor } from './nodes.tsx';
+import { DiffStat, LiveLine, Md, Permission, STATUS_LABEL, ToolLine, branchColor } from './nodes.tsx';
 import { useReady } from './review.ts';
 import { Attachments } from './Shots.tsx';
 import { STAGE_LABEL, threadsOf, turnsOfBranch, type Stage, type ThreadRow } from './status.ts';
 import { isLocalPage, openTerminalFor, request, toast, useStore } from './store.ts';
 import { NoteBar, openThreadNote } from './ThreadNotes.tsx';
-import { PrBadge, PrSection, StageChip, StageDot } from './Threads.tsx';
+import { PrSection, StageChip } from './Threads.tsx';
 import { ToolDiff, editsOf } from './ToolDiff.tsx';
-import { childrenOf, currentActivity, isLive, lastText, pathTo } from './tree.ts';
+import { childrenOf, isLive, lastText, pathTo } from './tree.ts';
 import { timeAgo, useTick } from './ui.tsx';
 import { tipFrom } from './Workspace.tsx';
 
-// The desktop's three panes: every thread on the left, the open one in the middle (a small map
-// of its branches on top, its steps below), and what the chosen step changed on the right.
+// The desktop's three panes: every thread on the left; the open one in the middle, a map of its
+// steps and branches on top and the steps themselves below, read like one document; and what the
+// step you're reading changed on the right.
 
 const typing = (e: KeyboardEvent) => e.metaKey || e.ctrlKey || e.altKey || !!(e.target as HTMLElement)?.closest?.('input, textarea, select, [contenteditable], .cm-editor, .xterm');
 const urgent = (s: Stage) => s === 'needs' || s === 'error' || s === 'failing' || s === 'feedback';
 const busy = (s: Stage) => s === 'working' || s === 'checking';
 const finished = (t: ThreadRow) => !!t.root.completed || t.stage === 'done' || t.stage === 'merged';
 
+/** A step's map label: the written one, or the first few words of what was asked. */
+export function stepLabel(t: TurnNode) {
+  if (t.label) return t.label;
+  const words = t.prompt
+    .replace(/[`*_#>\[\]()]/g, '')
+    .replace(/^(please|can you|could you|now|ok|okay|so|and)\b[\s,]*/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .slice(0, 4)
+    .join(' ');
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : 'Step';
+}
+
+/** Every step under a thread's first one. */
+function threadSteps(nodes: Record<string, CanvasNode>, rootId: string) {
+  const all: TurnNode[] = [];
+  const walk = (t: TurnNode) => {
+    all.push(t);
+    childrenOf(nodes, t.id).forEach(walk);
+  };
+  const root = nodes[rootId] as TurnNode | undefined;
+  if (root) walk(root);
+  return all;
+}
+
 // ---------------- left: every thread ----------------
+
+function ThreadIcon({ stage }: { stage: Stage }) {
+  if (busy(stage)) return <span className="ti ti-work" title={STAGE_LABEL[stage]} />;
+  if (stage === 'needs' || stage === 'feedback') return <span className="ti ti-needs" title={STAGE_LABEL[stage]} />;
+  if (stage === 'error' || stage === 'failing') return <span className="ti ti-err" title={STAGE_LABEL[stage]} />;
+  if (stage === 'done' || stage === 'merged')
+    return (
+      <span className="ti ti-done" title={STAGE_LABEL[stage]}>
+        <Icon name="check" size={10} strokeWidth={3} />
+      </span>
+    );
+  return <span className="ti ti-idle" title={STAGE_LABEL[stage]} />;
+}
 
 export function ThreadList({ boardId, current, onPick, onNew }: { boardId: string; current: TurnNode | null; onPick: (t: TurnNode) => void; onNew: () => void }) {
   useTick();
@@ -40,17 +80,14 @@ export function ThreadList({ boardId, current, onPick, onNew }: { boardId: strin
   const groups: [string, ThreadRow[]][] = [
     ['Needs you', shown.filter((t) => !finished(t) && urgent(t.stage))],
     ['Working', shown.filter((t) => !finished(t) && busy(t.stage))],
-    ['Open', shown.filter((t) => !finished(t) && !urgent(t.stage) && !busy(t.stage))],
+    ['Recent', shown.filter((t) => !finished(t) && !urgent(t.stage) && !busy(t.stage))],
     ['Done', shown.filter(finished)],
   ];
-  // The order the arrow keys walk: what's on screen, top to bottom.
   const order = groups.flatMap(([label, list]) => (label === 'Done' && !showDone && !q ? [] : list));
-
   const pick = (t: ThreadRow) => onPick(tipFrom(nodes, t.root.id));
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
-      if (typing(e) || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
-      if (!order.length) return;
+      if (typing(e) || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') || !order.length) return;
       e.preventDefault();
       const at = order.findIndex((t) => t.root.id === root?.id);
       const next = e.key === 'ArrowDown' ? order[Math.min(order.length - 1, at + 1)] : order[Math.max(0, at - 1)];
@@ -59,169 +96,281 @@ export function ThreadList({ boardId, current, onPick, onNew }: { boardId: strin
     addEventListener('keydown', k);
     return () => removeEventListener('keydown', k);
   });
-  // Keep the open thread in view.
   const list = useRef<HTMLDivElement>(null);
   useEffect(() => {
     list.current?.querySelector('.tl-row.on')?.scrollIntoView({ block: 'nearest' });
   }, [root?.id]);
 
+  // The second line says the one thing worth knowing: what it's doing now, what it needs, or
+  // the path it took (from the map's labels).
+  const line = (t: ThreadRow) => {
+    if (busy(t.stage) || urgent(t.stage)) return t.now || STAGE_LABEL[t.stage];
+    const tip = tipFrom(nodes, t.root.id);
+    const path = pathTo(nodes, tip.id);
+    // The path it took, once the map has labels for it; until then, what it last said.
+    if (path.length > 1 && path.every((s) => s.label)) {
+      const labels = path.map((s) => s.label!);
+      return labels.length > 3 ? `… → ${labels.slice(-3).join(' → ')}` : labels.join(' → ');
+    }
+    return lastText(tip) || tip.error || STATUS_LABEL[tip.status];
+  };
+
   return (
     <aside className="tl">
       <div className="tl-head">
-        <span className="tl-label">Threads</span>
-        <span className="spacer" />
-        <button className="tl-new" onClick={onNew} title="New thread (N)">
-          <Icon name="plus" size={14} /> New
+        <div className="tl-find">
+          <Icon name="search" size={13} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a thread" onKeyDown={(e) => e.key === 'Escape' && (setQ(''), (e.target as HTMLInputElement).blur())} />
+        </div>
+        <button className="tl-new" onClick={onNew} title="New thread" aria-label="New thread">
+          <Icon name="plus" size={15} />
         </button>
       </div>
-      <div className="tl-find">
-        <Icon name="search" size={13} />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter threads" onKeyDown={(e) => e.key === 'Escape' && (setQ(''), (e.target as HTMLInputElement).blur())} />
-      </div>
       <div className="tl-scroll" ref={list}>
-        {!threads.length && <div className="tl-empty">No threads yet. Start one with New.</div>}
+        {!threads.length && <div className="tl-empty">No threads yet.</div>}
         {groups.map(([label, rows]) => {
           if (!rows.length) return null;
           const folded = label === 'Done' && !showDone && !q;
           return (
-            <section key={label} className="tl-group">
-              <button className="tl-group-head" onClick={() => label === 'Done' && setShowDone(!showDone)} disabled={label !== 'Done'}>
-                {label === 'Done' && <Icon name={folded ? 'chevronRight' : 'chevronDown'} size={11} />}
-                {label}
-                <span>{rows.length}</span>
-              </button>
+            <section key={label} className={`tl-group g-${label.split(' ')[0].toLowerCase()}`}>
+              {label === 'Done' ? (
+                <button className="tl-group-head" onClick={() => setShowDone(!showDone)}>
+                  {label} <span>{rows.length}</span>
+                  <Icon name={folded ? 'chevronRight' : 'chevronDown'} size={11} />
+                </button>
+              ) : (
+                <div className="tl-group-head">
+                  {label} <span>{rows.length}</span>
+                </div>
+              )}
               {!folded &&
                 rows.map((t) => {
                   const on = t.root.id === root?.id;
-                  const steps = t.branches.reduce((a, b) => a + b.steps, 0);
-                  const pr = t.branches.find((b) => b.branch?.pr)?.branch?.pr;
                   return (
-                    <div key={t.root.id} className={`tl-item ${on ? 'open' : ''}`}>
-                      <button className={`tl-row ${on ? 'on' : ''}`} onClick={() => pick(t)} title={t.title}>
-                        <StageDot stage={t.stage} />
-                        <span className="tl-text">
-                          <span className="tl-title">{t.title}</span>
-                          <span className="tl-sub">{busy(t.stage) || urgent(t.stage) ? t.now || STAGE_LABEL[t.stage] : `${steps} step${steps === 1 ? '' : 's'}${t.branches.length > 1 ? ` · ${t.branches.length} branches` : ''}`}</span>
-                        </span>
-                        <span className="tl-when">{pr ? <PrBadge pr={pr} /> : timeAgo(t.at)}</span>
-                      </button>
-                      {on &&
-                        t.branches.length > 1 &&
-                        t.branches.map((b) => (
-                          <button key={b.branchId} className={`tl-branch ${current?.branchId === b.branchId ? 'on' : ''}`} onClick={() => onPick(b.last)} style={{ ['--branch' as any]: branchColor(b.branchId) }} title={`${b.label} · ${STAGE_LABEL[b.stage]}`}>
-                            <span className="tl-branch-line" />
-                            <span className="ellipsis">{b.label}</span>
-                            <StageDot stage={b.stage} />
-                          </button>
-                        ))}
-                    </div>
+                    <button key={t.root.id} className={`tl-row ${on ? 'on' : ''}`} onClick={() => pick(t)} title={t.title}>
+                      <ThreadIcon stage={t.stage} />
+                      <span className="tl-text">
+                        <span className="tl-title">{t.title}</span>
+                        <span className="tl-sub">{line(t)}</span>
+                      </span>
+                      <span className="tl-side">
+                        <span className="tl-when">{timeAgo(t.at)}</span>
+                        {t.branches.length > 1 && (
+                          <span className="tl-forks" title={`${t.branches.length} branches`}>
+                            <Icon name="branch" size={10} />
+                            {t.branches.length}
+                          </span>
+                        )}
+                      </span>
+                    </button>
                   );
                 })}
             </section>
           );
         })}
       </div>
-      <div className="tl-keys">
-        <kbd>↑</kbd>
-        <kbd>↓</kbd> threads <kbd>J</kbd>
-        <kbd>K</kbd> steps
-      </div>
     </aside>
   );
 }
 
-// ---------------- middle: the thread ----------------
+// ---------------- middle: the map ----------------
 
-/** A small map of one thread: a lane per branch, a dot per step. Click a dot to read it. */
-export function BranchMap({ rootId, selectedId, onSelect }: { rootId: string; selectedId: string; onSelect: (id: string) => void }) {
-  const { nodes } = useStore();
-  const all: TurnNode[] = [];
-  const walk = (t: TurnNode) => {
-    all.push(t);
-    childrenOf(nodes, t.id).forEach(walk);
-  };
+const GAP_X = 28;
+const LANE = 40;
+
+/** The thread as a map: a lane per branch, a labelled stop per step. Click any stop to read it. */
+export function ThreadMap({ rootId, selectedId, pathIds, onSelect }: { rootId: string; selectedId: string; pathIds: Set<string>; onSelect: (id: string) => void }) {
+  const { nodes, branches } = useStore();
+  const all = threadSteps(nodes, rootId);
   const root = nodes[rootId] as TurnNode | undefined;
+
+  // Labels: asked for once per thread whenever a finished step or a branch doesn't have one yet.
+  const missing = all.filter((t) => !t.label && !isLive(t)).length + new Set(all.map((t) => t.branchId)).size - new Set(all.filter((t) => branches[t.branchId]?.purpose).map((t) => t.branchId)).size;
+  const asked = useRef('');
+  useEffect(() => {
+    const key = `${rootId}:${missing}`;
+    if (!missing || asked.current === key) return;
+    asked.current = key;
+    request({ type: 'labelThread', rootId }).catch(() => {});
+  }, [rootId, missing]);
+
+  const box = useRef<HTMLDivElement>(null);
+  // Stops share the room there is (wider when it's free), so the whole thread usually fits.
+  const [room, setRoom] = useState(700);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setRoom(el.clientWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  useEffect(() => {
+    const el = box.current?.querySelector('.tm-stop.sel') as HTMLElement | null;
+    el?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+  }, [selectedId]);
+
   if (!root) return null;
-  walk(root);
-  if (all.length < 2) return null;
-  // Lanes: the thread's own line first, then branches in the order they were made.
   const lanes: string[] = [];
   for (const t of [...all].sort((a, b) => a.createdAt - b.createdAt)) if (!lanes.includes(t.branchId)) lanes.push(t.branchId);
   const depth = new Map<string, number>();
   for (const t of all) depth.set(t.id, t.parentId && depth.has(t.parentId) ? depth.get(t.parentId)! + 1 : 0);
-  const onPath = new Set(pathTo(nodes, tipFrom(nodes, selectedId).id).map((t) => t.id));
-  const X = 30;
-  const Y = 22;
-  const pos = (t: TurnNode) => ({ x: 14 + depth.get(t.id)! * X, y: 12 + lanes.indexOf(t.branchId) * Y });
-  const maxD = Math.max(...all.map((t) => depth.get(t.id)!));
-  const width = 14 + maxD * X + 14;
-  const height = 12 + (lanes.length - 1) * Y + 12;
-  const label = (branchId: string) => {
-    const first = all.filter((t) => t.branchId === branchId).sort((a, b) => a.createdAt - b.createdAt)[0];
-    return branchId === root.branchId ? 'main' : first?.title || first?.prompt || '';
+  const maxD = Math.max(0, ...all.map((t) => depth.get(t.id)!));
+  const PILL = Math.round(Math.max(118, Math.min(210, (room - maxD * GAP_X) / (maxD + 1))));
+  const at = (t: TurnNode) => ({ x: depth.get(t.id)! * (PILL + GAP_X), y: lanes.indexOf(t.branchId) * LANE });
+  const width = (maxD + 1) * (PILL + GAP_X) - GAP_X;
+  const height = lanes.length * LANE - 8;
+  const purpose = (id: string) => {
+    const p = branches[id]?.purpose;
+    if (p) return p;
+    if (id === root.branchId) return 'Main line';
+    const first = all.filter((t) => t.branchId === id).sort((a, b) => a.createdAt - b.createdAt)[0];
+    return first ? stepLabel(first) : 'Branch';
   };
+  const laneTip = (id: string) => all.filter((t) => t.branchId === id).sort((a, b) => b.createdAt - a.createdAt)[0];
+
   return (
-    <div className="bm">
-      <svg width={width} height={height} className="bm-svg">
-        {all.map((t) => {
-          if (!t.parentId || !nodes[t.parentId]) return null;
-          const a = pos(nodes[t.parentId] as TurnNode);
-          const b = pos(t);
-          const d = a.y === b.y ? `M${a.x} ${a.y} L${b.x} ${b.y}` : `M${a.x} ${a.y} C${a.x + X * 0.6} ${a.y} ${b.x - X * 0.6} ${b.y} ${b.x} ${b.y}`;
-          return <path key={t.id} d={d} className={onPath.has(t.id) ? 'on' : ''} style={{ stroke: onPath.has(t.id) ? branchColor(t.branchId) : undefined }} />;
-        })}
-        {all.map((t) => {
-          const p = pos(t);
-          const on = t.id === selectedId;
+    <div className="tm">
+      <div className="tm-lanes" style={{ height }}>
+        {lanes.map((l, i) => {
+          const tip = laneTip(l);
+          const on = tip && pathIds.has(tip.id);
           return (
-            <g key={t.id} className={`bm-dot ${on ? 'sel' : ''} ${onPath.has(t.id) ? 'path' : ''} status-${t.status}`} onClick={() => onSelect(t.id)}>
-              <title>{t.prompt}</title>
-              <circle cx={p.x} cy={p.y} r={10} className="bm-hit" />
-              {on && <circle cx={p.x} cy={p.y} r={8} className="bm-ring" />}
-              <circle cx={p.x} cy={p.y} r={4.5} style={{ fill: branchColor(t.branchId) }} />
-            </g>
+            <button key={l} className={`tm-lane ${on ? 'on' : ''}`} style={{ top: i * LANE, ['--branch' as any]: branchColor(l) }} onClick={() => tip && onSelect(tip.id)} title={purpose(l)}>
+              <span className="tm-lane-bar" />
+              <span className="ellipsis">{purpose(l)}</span>
+            </button>
           );
         })}
-      </svg>
-      <div className="bm-labels" style={{ height }}>
-        {lanes.map((l, i) => (
-          <button key={l} style={{ top: 12 + i * Y - 9, ['--branch' as any]: branchColor(l) }} onClick={() => onSelect(all.filter((t) => t.branchId === l).sort((a, b) => b.createdAt - a.createdAt)[0].id)} className={onPath.has(all.filter((t) => t.branchId === l).sort((a, b) => b.createdAt - a.createdAt)[0].id) ? 'on' : ''}>
-            {label(l)}
-          </button>
-        ))}
+      </div>
+      <div className="tm-scroll" ref={box}>
+        <div className="tm-canvas" style={{ width, height }}>
+          <svg width={width} height={height} className="tm-edges">
+            {all.map((t) => {
+              const parent = t.parentId ? (nodes[t.parentId] as TurnNode | undefined) : undefined;
+              if (!parent) return null;
+              const a = at(parent);
+              const b = at(t);
+              const x1 = a.x + PILL;
+              const y1 = a.y + 16;
+              const x2 = b.x;
+              const y2 = b.y + 16;
+              const mid = (x1 + x2) / 2;
+              const d = y1 === y2 ? `M${x1} ${y1} L${x2} ${y2}` : `M${x1} ${y1} C${mid} ${y1} ${mid} ${y2} ${x2} ${y2}`;
+              const on = pathIds.has(t.id);
+              return <path key={t.id} d={d} className={on ? 'on' : ''} style={on ? { stroke: branchColor(t.branchId) } : undefined} />;
+            })}
+          </svg>
+          {all.map((t) => {
+            const p = at(t);
+            const on = pathIds.has(t.id);
+            return (
+              <button
+                key={t.id}
+                className={`tm-stop ${t.id === selectedId ? 'sel' : ''} ${on ? 'path' : ''} st-${t.status}`}
+                style={{ left: p.x, top: p.y, width: PILL, ['--branch' as any]: branchColor(t.branchId) }}
+                onClick={() => onSelect(t.id)}
+                title={`${t.prompt}\n${STATUS_LABEL[t.status]}`}
+              >
+                <span className="tm-dot" />
+                <span className="tm-label">{stepLabel(t)}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
 }
 
+// ---------------- middle: the thread, read like a document ----------------
+
 const took = (ms?: number) => (!ms ? '' : ms < 60000 ? `${Math.round(ms / 1000)} s` : `${Math.round(ms / 60000)} min`);
 
-/** The open thread: its map, its steps (the chosen one open), and the box to reply or branch. */
-export function ThreadReader({ stepId, onSelect, onBranch, composer, sideOpen, onToggleSide }: { stepId: string; onSelect: (id: string) => void; onBranch: (prompt: string) => void; composer: ReactNode; sideOpen: boolean; onToggleSide: () => void }) {
+export function ThreadReader({
+  stepId,
+  onSelect,
+  composer,
+  sideOpen,
+  onToggleSide,
+  onBranch,
+}: {
+  stepId: string;
+  /** Start a branch from a step with this prompt (a side question turned into a branch). */
+  onBranch: (fromId: string, prompt: string) => void;
+  onSelect: (id: string) => void;
+  /** The box under the thread: replies to `target` (the end of what you're reading, or a step you chose to branch from). */
+  composer: (target: TurnNode, done: () => void) => ReactNode;
+  sideOpen: boolean;
+  onToggleSide: () => void;
+}) {
   useTick();
   const { nodes, branches, boards } = useStore();
   const ready = useReady();
   const step = nodes[stepId] as TurnNode;
-  const path = pathTo(nodes, tipFrom(nodes, stepId).id);
+
+  // The path being read stays put while you scroll through it; it only changes when you pick a
+  // step that isn't on it (another branch on the map, a new reply).
+  const [tipId, setTipId] = useState(() => tipFrom(nodes, stepId).id);
+  const tipOk = !!nodes[tipId] && pathTo(nodes, tipId).some((t) => t.id === stepId);
+  const tip = tipOk ? tipFrom(nodes, tipId) : tipFrom(nodes, stepId);
+  useEffect(() => {
+    if (tip.id !== tipId) setTipId(tip.id);
+  }, [tip.id]);
+  const path = pathTo(nodes, tip.id);
+  const pathIds = useMemo(() => new Set(path.map((t) => t.id)), [path.map((t) => t.id).join()]);
   const root = path[0];
   const row = useMemo(() => threadsOf(nodes, branches, boards, ready, root.boardId).find((t) => t.root.id === root.id), [nodes, branches, boards, ready, root.id]);
-  const scroller = useRef<HTMLDivElement>(null);
-  const index = path.findIndex((t) => t.id === stepId);
 
-  // J / K walk the steps; the open one scrolls into view.
+  // Branching from an earlier step: the box under the thread says so, until you send or cancel.
+  const [branchFrom, setBranchFrom] = useState<string | null>(null);
+  useEffect(() => setBranchFrom(null), [root.id]);
+  const target = (branchFrom && (nodes[branchFrom] as TurnNode)) || tip;
+
+  // Reading position. Scrolling picks the step you're on (the map and the changes follow);
+  // picking a step on the map or with J/K scrolls to it.
+  const scroller = useRef<HTMLDivElement>(null);
+  const quiet = useRef(false);
+  const until = useRef(0);
+  const select = (id: string, scroll = true) => {
+    quiet.current = !scroll;
+    onSelect(id);
+  };
+  useLayoutEffect(() => {
+    if (quiet.current) return void (quiet.current = false);
+    const el = scroller.current?.querySelector(`[data-step="${stepId}"]`) as HTMLElement | null;
+    if (!el || !scroller.current) return;
+    until.current = Date.now() + 700;
+    scroller.current.scrollTo({ top: Math.max(0, el.offsetTop - 16), behavior: 'smooth' });
+  }, [stepId]);
+  const onScroll = () => {
+    const sc = scroller.current;
+    if (!sc || Date.now() < until.current) return;
+    const secs = [...sc.querySelectorAll<HTMLElement>('[data-step]')];
+    const line = sc.scrollTop + sc.clientHeight * 0.3;
+    let cur = secs[0];
+    for (const s of secs) if (s.offsetTop <= line) cur = s;
+    if (sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 4) cur = secs[secs.length - 1];
+    const id = cur?.dataset.step;
+    if (id && id !== stepId) select(id, false);
+  };
+  // While the last step streams, stay at the bottom if you were already there.
+  const live = path.find(isLive);
+  const streamed = live ? live.events.length + (live.events.at(-1)?.t === 'text' ? (live.events.at(-1) as any).text.length : 0) : 0;
+  useEffect(() => {
+    const sc = scroller.current;
+    if (sc && live && sc.scrollHeight - sc.scrollTop - sc.clientHeight < 140) sc.scrollTop = sc.scrollHeight;
+  }, [streamed]);
+
+  const index = path.findIndex((t) => t.id === stepId);
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       if (typing(e)) return;
-      if (e.key === 'j' && index < path.length - 1) onSelect(path[index + 1].id);
-      else if (e.key === 'k' && index > 0) onSelect(path[index - 1].id);
+      if (e.key === 'j' && index < path.length - 1) select(path[index + 1].id);
+      else if (e.key === 'k' && index > 0) select(path[index - 1].id);
     };
     addEventListener('keydown', k);
     return () => removeEventListener('keydown', k);
   });
-  useEffect(() => {
-    // Only when it's out of view: earlier steps stay on screen for context.
-    (scroller.current?.querySelector('.rs.on') as HTMLElement | null)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [stepId]);
 
   const title = root.title || root.prompt;
   return (
@@ -232,66 +381,56 @@ export function ThreadReader({ stepId, onSelect, onBranch, composer, sideOpen, o
             {title}
           </h1>
           {row && <StageChip stage={row.stage} small />}
+          <span className="rd-count">
+            {path.length} step{path.length === 1 ? '' : 's'}
+            {row && row.branches.length > 1 ? ` · ${row.branches.length} branches` : ''}
+          </span>
           <span className="spacer" />
           <button className={`icon-btn sm ${sideOpen ? 'on' : ''}`} onClick={onToggleSide} title={sideOpen ? 'Hide changes (])' : 'Show changes (])'} aria-label="Changes panel" aria-pressed={sideOpen}>
             <Icon name="sidebar" size={15} />
           </button>
         </div>
-        <BranchMap rootId={root.id} selectedId={stepId} onSelect={onSelect} />
+        <ThreadMap rootId={root.id} selectedId={stepId} pathIds={pathIds} onSelect={(id) => select(id)} />
       </header>
-      <div className="rd-scroll" ref={scroller}>
-        <SelectionAsk scroller={scroller} node={step} onBranch={onBranch} />
-        <div className="rd-note">
-          <NoteBar branchId={step.branchId} />
+      <div className="rd-scroll" ref={scroller} onScroll={onScroll}>
+        <SelectionAsk scroller={scroller} node={step} onBranch={(p) => onBranch(step.id, p)} />
+        <div className="rd-doc">
+          <div className="rd-note">
+            <NoteBar branchId={step.branchId} />
+          </div>
+          {path.map((s, i) => (
+            <StepSection
+              key={s.id}
+              node={s}
+              n={i + 1}
+              on={s.id === stepId}
+              last={i === path.length - 1}
+              others={childrenOf(nodes, s.id).filter((k) => !pathIds.has(k.id))}
+              onPoint={() => s.id !== stepId && select(s.id, false)}
+              onBranchHere={() => (setBranchFrom(s.id), select(s.id, false))}
+              onGo={(id) => select(tipFrom(nodes, id).id)}
+              onBranch={(p) => onBranch(s.id, p)}
+            />
+          ))}
+          <div className="rd-end" />
         </div>
-        <ol className="rd-steps">
-          {path.map((s, i) => {
-            const on = s.id === stepId;
-            const others = childrenOf(nodes, s.id).filter((k) => !path.includes(k));
-            return (
-              <li key={s.id} className={`rs ${on ? 'on' : ''} status-${s.status}`} style={{ ['--branch' as any]: branchColor(s.branchId) }}>
-                {on ? (
-                  <StepBody node={s} n={i + 1} onBranch={onBranch} />
-                ) : (
-                  <button className="rs-row" onClick={() => onSelect(s.id)}>
-                    <span className="rs-num">{i + 1}</span>
-                    <span className="rs-text">
-                      <span className="rs-prompt">{s.prompt}</span>
-                      <span className="rs-sum">{isLive(s) ? currentActivity(s) : lastText(s) || s.error || STATUS_LABEL[s.status]}</span>
-                    </span>
-                    <span className="rs-meta">
-                      <DiffStat s={s.diffStat} />
-                      <StatusDot status={s.status} />
-                    </span>
-                  </button>
-                )}
-                {others.length > 0 && (
-                  <div className="rs-forks">
-                    {others.map((k) => (
-                      <button key={k.id} onClick={() => onSelect(tipFrom(nodes, k.id).id)} style={{ ['--branch' as any]: branchColor(k.branchId) }} title={k.prompt}>
-                        <Icon name="branch" size={11} />
-                        <span className="ellipsis">{k.title || k.prompt}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ol>
       </div>
-      {step.pending && (
-        <div className="rd-ask">
-          <Permission node={step} p={step.pending} />
-        </div>
-      )}
-      <div className="rd-composer">{composer}</div>
+      <div className="rd-composer">
+        {branchFrom && target.id !== tip.id && (
+          <div className="rd-branching" style={{ ['--branch' as any]: branchColor(target.branchId) }}>
+            <Icon name="branch" size={12} />
+            Branching from step {path.findIndex((t) => t.id === target.id) + 1}: <b>{stepLabel(target)}</b>
+            <span className="spacer" />
+            <button onClick={() => setBranchFrom(null)}>Cancel</button>
+          </div>
+        )}
+        {composer(target, () => setBranchFrom(null))}
+      </div>
     </section>
   );
 }
 
-/** One step, open: what you asked, the answer, side questions, and how it got there. */
-function StepBody({ node, n, onBranch }: { node: TurnNode; n: number; onBranch: (prompt: string) => void }) {
+function StepSection({ node, n, on, last, others, onPoint, onBranchHere, onGo, onBranch }: { node: TurnNode; n: number; on: boolean; last: boolean; others: TurnNode[]; onPoint: () => void; onBranchHere: () => void; onGo: (id: string) => void; onBranch: (prompt: string) => void }) {
   const { branches } = useStore();
   const branch = branches[node.branchId];
   const [long, setLong] = useState(false);
@@ -299,58 +438,83 @@ function StepBody({ node, n, onBranch }: { node: TurnNode; n: number; onBranch: 
   const final = [...node.events].reverse().find((e) => e.t === 'text' && e.text.trim());
   const tools = node.events.filter((e) => e.t === 'tool').length;
   return (
-    <div className="rs-body">
-      <div className="rs-top">
-        <span className="rs-num">{n}</span>
-        <StatusDot status={node.status} />
-        {working ? <LiveLine node={node} /> : <b>{node.completed ? 'Completed' : STATUS_LABEL[node.status]}</b>}
-        <span className="faint">
-          {timeAgo(node.finishedAt ?? node.createdAt)}
-          {node.durationMs ? ` · ${took(node.durationMs)}` : ''}
-        </span>
+    <article className={`ss ${on ? 'on' : ''} ${last ? 'last' : ''} st-${node.status}`} data-step={node.id} onPointerDown={onPoint} style={{ ['--branch' as any]: branchColor(node.branchId) }}>
+      <div className="ss-rail">
+        <span className="ss-num">{n}</span>
+        <span className="ss-line" />
       </div>
-      <div className={`rs-ask ${long ? 'open' : ''}`} onClick={() => setLong(!long)}>
-        {node.prompt}
-      </div>
-      <Attachments list={node.attachments} label={node.prompt} />
-      {!!node.comments?.length && <CardComments node={node} roomy />}
-      <div className="rs-answer">
-        {final && final.t === 'text' ? <Md text={final.text} partial={working && final.partial} /> : <div className="ds-quiet">{working ? 'Working on it. The answer shows up here.' : 'The agent finished without a message.'}</div>}
-        {node.error && <div className="error-box">{node.error}</div>}
-      </div>
-      <AsideList node={node} onBranch={onBranch} />
-      {tools > 0 && (
-        <details className="ds ds-fold">
-          <summary>
-            How it got there <span className="faint">· {tools} action{tools === 1 ? '' : 's'}</span>
-          </summary>
-          <div className="ds-steps">
-            {node.events.map((e, i) =>
-              e.t === 'text' ? (
-                <Md key={i} text={e.text} />
-              ) : e.t === 'thinking' ? (
-                <details key={i} className="block">
-                  <summary>Thinking</summary>
-                  <div className="md faint">{e.text}</div>
-                </details>
-              ) : (
-                <details key={i} className="block">
-                  <summary>
-                    <ToolLine e={e} cwd={branch?.cwd} />
-                  </summary>
-                  {editsOf(e) ? (
-                    <ToolDiff e={e} cwd={branch?.cwd} />
-                  ) : (
-                    <pre className="pre">{JSON.stringify(e.input, null, 2)}</pre>
-                  )}
-                  {e.result != null && <pre className={`pre ${e.isError ? 'err' : ''}`}>{e.result}</pre>}
-                </details>
-              ),
-            )}
+      <div className="ss-main">
+        <div className="ss-head">
+          <span className="ss-label">{stepLabel(node)}</span>
+          <span className="ss-meta">
+            {working ? <LiveLine node={node} /> : <span className={`ss-status s-${node.status}`}>{node.completed ? 'Completed' : STATUS_LABEL[node.status]}</span>}
+            <span>{timeAgo(node.finishedAt ?? node.createdAt)}</span>
+            {node.durationMs ? <span>{took(node.durationMs)}</span> : null}
+            <DiffStat s={node.diffStat} />
+          </span>
+          {!working && node.sessionId && !last && (
+            <button className="ss-branch" onClick={onBranchHere} title="Try something else from this step">
+              <Icon name="branch" size={12} /> Branch from here
+            </button>
+          )}
+        </div>
+        <div className={`ss-you ${long ? 'open' : ''}`} onClick={() => setLong(!long)}>
+          <span className="ss-you-tag">You</span>
+          <span className="ss-you-text">{node.prompt}</span>
+        </div>
+        <Attachments list={node.attachments} label={node.prompt} />
+        {!!node.comments?.length && <CardComments node={node} roomy />}
+        <div className="ss-answer">
+          {final && final.t === 'text' ? <Md text={final.text} partial={working && final.partial} /> : <div className="ss-quiet">{working ? 'Working on it…' : 'Finished without a message.'}</div>}
+          {node.error && <div className="error-box">{node.error}</div>}
+        </div>
+        {node.pending && (
+          <div className="ss-pending">
+            <Permission node={node} p={node.pending} />
           </div>
-        </details>
-      )}
-    </div>
+        )}
+        <AsideList node={node} onBranch={onBranch} />
+        {tools > 0 && (
+          <details className="ss-how">
+            <summary>
+              <Icon name="chevronRight" size={12} className="fr-caret" />
+              How it got there <span className="faint">· {tools} action{tools === 1 ? '' : 's'}</span>
+            </summary>
+            <div className="ds-steps">
+              {node.events.map((e, i) =>
+                e.t === 'text' ? (
+                  <Md key={i} text={e.text} />
+                ) : e.t === 'thinking' ? (
+                  <details key={i} className="block">
+                    <summary>Thinking</summary>
+                    <div className="md faint">{e.text}</div>
+                  </details>
+                ) : (
+                  <details key={i} className="block">
+                    <summary>
+                      <ToolLine e={e} cwd={branch?.cwd} />
+                    </summary>
+                    {editsOf(e) ? <ToolDiff e={e} cwd={branch?.cwd} /> : <pre className="pre">{JSON.stringify(e.input, null, 2)}</pre>}
+                    {e.result != null && <pre className={`pre ${e.isError ? 'err' : ''}`}>{e.result}</pre>}
+                  </details>
+                ),
+              )}
+            </div>
+          </details>
+        )}
+        {others.length > 0 && (
+          <div className="ss-forks">
+            <span>Branched here</span>
+            {others.map((k) => (
+              <button key={k.id} onClick={() => onGo(k.id)} style={{ ['--branch' as any]: branchColor(k.branchId) }} title={k.prompt}>
+                <span className="ss-fork-dot" />
+                <span className="ellipsis">{branches[k.branchId]?.purpose || stepLabel(k)}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </article>
   );
 }
 
@@ -465,4 +629,3 @@ export function NewThreadPane({ composer, count }: { composer: ReactNode; count:
   );
 }
 
-export type { CanvasNode };

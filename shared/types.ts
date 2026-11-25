@@ -58,6 +58,8 @@ export interface Branch {
   note?: ThreadNote;
   /** The GitHub pull request this branch's work went into, and how it stands. */
   pr?: PrInfo;
+  /** What this branch is for, in a few words (shown on the thread's map). */
+  purpose?: string;
 }
 
 /** Something on a pull request that still needs doing. */
@@ -268,6 +270,8 @@ export interface TurnNode {
   title?: string;
   /** Subject of this step's checkpoint commit. */
   commitMessage?: string;
+  /** What happened in this step, in 2 to 4 words (shown on the thread's map). */
+  label?: string;
   /** You marked this step finished: it and everything after it fade on the canvas. */
   completed?: boolean;
   id: string;
@@ -400,6 +404,7 @@ export type ClientMsg =
   | { type: 'termOpen'; reqId: string; boardId: string; branchId?: string; cols: number; rows: number }
   | { type: 'termList'; reqId: string; boardId: string }
   | { type: 'scripts'; reqId: string; boardId: string; branchId?: string }
+  | { type: 'labelThread'; reqId: string; rootId: string }
   | { type: 'termAttach'; reqId: string; id: string }
   | { type: 'termInput'; id: string; data: string }
   | { type: 'termResize'; id: string; cols: number; rows: number }

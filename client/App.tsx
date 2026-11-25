@@ -731,10 +731,18 @@ function Shell() {
               <ThreadReader
                 stepId={reading.id}
                 onSelect={(id) => setOpenId(id)}
-                onBranch={(p) => void submit(p, [], reading.id, true)}
-                composer={drawerComposer}
+                onBranch={(from, p) => void submit(p, [], from, true)}
                 sideOpen={sideOpen}
                 onToggleSide={() => setSideOpen(!sideOpen)}
+                composer={(t, done) =>
+                  t.sessionId ? (
+                    <Composer key={t.id} docked target={t} board={board} onSubmit={async (p, a, f) => {
+                      const ok = await submit(p, a, t.id, f);
+                      if (ok) done();
+                      return ok;
+                    }} />
+                  ) : null
+                }
               />
             ) : (
               <NewThreadPane count={leaves(store.nodes, board.id).length} composer={<Composer key={`new-${board.id}`} board={board} onSubmit={(p, a) => submit(p, a, null)} />} />

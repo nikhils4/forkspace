@@ -3,6 +3,14 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.42.0
+
+- **The thread map says what happened.** Every step on the map is labelled in a few words ("Handle negatives", "Add result cache") and every branch says what it's for. A small model writes them once per step
+- **Threads read like a document.** All the steps of the path you're on, top to bottom: what you asked, the answer, how it got there, where branches leave. Scroll and the map follows; click a stop on the map and the page goes there
+- **Branch from here** on any step, with a clear note above the box until you send or cancel
+- **A calmer thread list.** One line per thread says what it's doing, what it needs, or the path it took. A spinner for working, an amber dot when it needs you, a tick when done
+- The map fits the space it has, so the whole thread shows at once
+
 ## 0.41.0
 
 - **Threads is now three panes.** Every thread stays listed on the left, so you never lose your place. The open thread reads in the middle, with what its step changed on the right
