@@ -3,6 +3,13 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.43.0
+
+- **A clearer thread map.** Each stop shows what happened, what it changed (+/−) and how long it took, or that it's still working or needs you
+- Each branch says what it's for right in its own lane, with nothing cut off
+- Branches drop down from the step they leave, so it's easy to see where each one started
+- **Fold the map** into a one-line trail of the steps when you want more room to read; it remembers
+
 ## 0.42.0
 
 - **The thread map says what happened.** Every step on the map is labelled in a few words ("Handle negatives", "Add result cache") and every branch says what it's for. A small model writes them once per step

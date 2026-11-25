@@ -175,14 +175,34 @@ export function ThreadList({ boardId, current, onPick, onNew }: { boardId: strin
 
 // ---------------- middle: the map ----------------
 
-const GAP_X = 28;
-const LANE = 40;
+const GAP_X = 30;
+const LANE = 62;
+const STOP_H = 48;
 
-/** The thread as a map: a lane per branch, a labelled stop per step. Click any stop to read it. */
+const mapOpen = () => {
+  try {
+    return localStorage.getItem('forkspace:map') !== 'closed';
+  } catch {
+    return true;
+  }
+};
+
+/**
+ * The thread as a map: a lane per branch, a stop per step saying what happened there. A branch's
+ * purpose sits in its lane, just before where it leaves. Click any stop to read it. Folds down to
+ * a one-line trail when you want the room.
+ */
 export function ThreadMap({ rootId, selectedId, pathIds, onSelect }: { rootId: string; selectedId: string; pathIds: Set<string>; onSelect: (id: string) => void }) {
   const { nodes, branches } = useStore();
   const all = threadSteps(nodes, rootId);
   const root = nodes[rootId] as TurnNode | undefined;
+  const [open, setOpen] = useState(mapOpen);
+  const toggle = () => {
+    setOpen(!open);
+    try {
+      localStorage.setItem('forkspace:map', open ? 'closed' : 'open');
+    } catch {}
+  };
 
   // Labels: asked for once per thread whenever a finished step or a branch doesn't have one yet.
   const missing = all.filter((t) => !t.label && !isLive(t)).length + new Set(all.map((t) => t.branchId)).size - new Set(all.filter((t) => branches[t.branchId]?.purpose).map((t) => t.branchId)).size;
@@ -195,7 +215,7 @@ export function ThreadMap({ rootId, selectedId, pathIds, onSelect }: { rootId: s
   }, [rootId, missing]);
 
   const box = useRef<HTMLDivElement>(null);
-  // Stops share the room there is (wider when it's free), so the whole thread usually fits.
+  // Stops share the room there is, so the whole thread usually fits.
   const [room, setRoom] = useState(700);
   useEffect(() => {
     const el = box.current;
@@ -203,45 +223,50 @@ export function ThreadMap({ rootId, selectedId, pathIds, onSelect }: { rootId: s
     const ro = new ResizeObserver(() => setRoom(el.clientWidth));
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [open]);
   useEffect(() => {
     const el = box.current?.querySelector('.tm-stop.sel') as HTMLElement | null;
     el?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
-  }, [selectedId]);
+  }, [selectedId, open]);
 
   if (!root) return null;
+  const path = all.filter((t) => pathIds.has(t.id)).sort((a, b) => a.createdAt - b.createdAt);
+
+  if (!open || all.length < 2)
+    return (
+      <div className="tm-trail">
+        {(all.length < 2 ? all : path).map((t, i) => (
+          <span key={t.id} className="tm-trail-item">
+            {i > 0 && <Icon name="chevronRight" size={11} />}
+            <button className={t.id === selectedId ? 'on' : ''} onClick={() => onSelect(t.id)} style={{ ['--branch' as any]: branchColor(t.branchId) }} title={t.prompt}>
+              <span className={`tm-dot st-${t.status}`} />
+              {stepLabel(t)}
+            </button>
+          </span>
+        ))}
+        {all.length >= 2 && (
+          <button className="tm-fold" onClick={toggle} title="Show the map">
+            <Icon name="chevronDown" size={13} /> Map
+          </button>
+        )}
+      </div>
+    );
+
   const lanes: string[] = [];
   for (const t of [...all].sort((a, b) => a.createdAt - b.createdAt)) if (!lanes.includes(t.branchId)) lanes.push(t.branchId);
   const depth = new Map<string, number>();
   for (const t of all) depth.set(t.id, t.parentId && depth.has(t.parentId) ? depth.get(t.parentId)! + 1 : 0);
   const maxD = Math.max(0, ...all.map((t) => depth.get(t.id)!));
-  const PILL = Math.round(Math.max(118, Math.min(210, (room - maxD * GAP_X) / (maxD + 1))));
+  const PILL = Math.round(Math.max(130, Math.min(230, (room - maxD * GAP_X) / (maxD + 1))));
   const at = (t: TurnNode) => ({ x: depth.get(t.id)! * (PILL + GAP_X), y: lanes.indexOf(t.branchId) * LANE });
-  const width = (maxD + 1) * (PILL + GAP_X) - GAP_X;
-  const height = lanes.length * LANE - 8;
-  const purpose = (id: string) => {
-    const p = branches[id]?.purpose;
-    if (p) return p;
-    if (id === root.branchId) return 'Main line';
-    const first = all.filter((t) => t.branchId === id).sort((a, b) => a.createdAt - b.createdAt)[0];
-    return first ? stepLabel(first) : 'Branch';
-  };
-  const laneTip = (id: string) => all.filter((t) => t.branchId === id).sort((a, b) => b.createdAt - a.createdAt)[0];
+  const width = Math.max((maxD + 1) * (PILL + GAP_X) - GAP_X, room - 6);
+  const height = (lanes.length - 1) * LANE + STOP_H;
+  const firstOf = (id: string) => all.filter((t) => t.branchId === id).sort((a, b) => a.createdAt - b.createdAt)[0];
+  const purpose = (id: string) => branches[id]?.purpose || (id === root.branchId ? 'Main line' : stepLabel(firstOf(id)));
+  const took = (t: TurnNode) => (t.durationMs ? (t.durationMs < 60000 ? `${Math.round(t.durationMs / 1000)}s` : `${Math.round(t.durationMs / 60000)}m`) : '');
 
   return (
     <div className="tm">
-      <div className="tm-lanes" style={{ height }}>
-        {lanes.map((l, i) => {
-          const tip = laneTip(l);
-          const on = tip && pathIds.has(tip.id);
-          return (
-            <button key={l} className={`tm-lane ${on ? 'on' : ''}`} style={{ top: i * LANE, ['--branch' as any]: branchColor(l) }} onClick={() => tip && onSelect(tip.id)} title={purpose(l)}>
-              <span className="tm-lane-bar" />
-              <span className="ellipsis">{purpose(l)}</span>
-            </button>
-          );
-        })}
-      </div>
       <div className="tm-scroll" ref={box}>
         <div className="tm-canvas" style={{ width, height }}>
           <svg width={width} height={height} className="tm-edges">
@@ -250,34 +275,69 @@ export function ThreadMap({ rootId, selectedId, pathIds, onSelect }: { rootId: s
               if (!parent) return null;
               const a = at(parent);
               const b = at(t);
-              const x1 = a.x + PILL;
-              const y1 = a.y + 16;
-              const x2 = b.x;
-              const y2 = b.y + 16;
-              const mid = (x1 + x2) / 2;
-              const d = y1 === y2 ? `M${x1} ${y1} L${x2} ${y2}` : `M${x1} ${y1} C${mid} ${y1} ${mid} ${y2} ${x2} ${y2}`;
               const on = pathIds.has(t.id);
-              return <path key={t.id} d={d} className={on ? 'on' : ''} style={on ? { stroke: branchColor(t.branchId) } : undefined} />;
+              const style = on ? { stroke: branchColor(t.branchId) } : undefined;
+              // Same lane: straight on. A new branch: down from under the stop it leaves, then along.
+              if (a.y === b.y) return <path key={t.id} d={`M${a.x + PILL} ${a.y + STOP_H / 2} L${b.x} ${b.y + STOP_H / 2}`} className={on ? 'on' : ''} style={style} />;
+              const x = a.x + PILL / 2;
+              const y2 = b.y + STOP_H / 2;
+              return <path key={t.id} d={`M${x} ${a.y + STOP_H} L${x} ${y2 - 10} Q${x} ${y2} ${x + 10} ${y2} L${b.x} ${y2}`} className={on ? 'on' : ''} style={style} />;
             })}
           </svg>
+          {/* A branch's purpose, in the free room after its last stop (the main line's is the title). */}
+          {lanes.map((l, i) => {
+            if (l === root.branchId) return null;
+            const last = all.filter((t) => t.branchId === l).sort((a, b) => depth.get(b.id)! - depth.get(a.id)!)[0];
+            const first = firstOf(l);
+            const after = at(last).x + PILL + 12;
+            // No room after it: say it before the branch starts instead, on the empty part of its lane.
+            const before = after > width - 110;
+            const box = before ? { left: 0, width: at(first).x - 12, justifyContent: 'flex-end' as const } : { left: after, maxWidth: width - after };
+            return (
+              <div key={l} className={`tm-purpose ${before ? 'before' : ''} ${pathIds.has(first.id) ? 'on' : ''}`} style={{ ...box, top: i * LANE, height: STOP_H, ['--branch' as any]: branchColor(l) }} title={purpose(l)}>
+                <Icon name="branch" size={11} />
+                <span>{purpose(l)}</span>
+              </div>
+            );
+          })}
           {all.map((t) => {
             const p = at(t);
             const on = pathIds.has(t.id);
+            const live = isLive(t);
+            const d = t.diffStat;
             return (
               <button
                 key={t.id}
                 className={`tm-stop ${t.id === selectedId ? 'sel' : ''} ${on ? 'path' : ''} st-${t.status}`}
-                style={{ left: p.x, top: p.y, width: PILL, ['--branch' as any]: branchColor(t.branchId) }}
+                style={{ left: p.x, top: p.y, width: PILL, height: STOP_H, ['--branch' as any]: branchColor(t.branchId) }}
                 onClick={() => onSelect(t.id)}
                 title={`${t.prompt}\n${STATUS_LABEL[t.status]}`}
               >
-                <span className="tm-dot" />
                 <span className="tm-label">{stepLabel(t)}</span>
+                <span className="tm-meta">
+                  <span className={`tm-dot st-${t.status}`} />
+                  {live ? (
+                    <span className="tm-live">{t.status === 'waiting' ? 'needs you' : 'working…'}</span>
+                  ) : t.status === 'error' ? (
+                    <span className="del-text">failed</span>
+                  ) : d && d.files ? (
+                    <>
+                      <span className="add-text">+{d.insertions}</span>
+                      <span className="del-text">−{d.deletions}</span>
+                    </>
+                  ) : (
+                    <span>no changes</span>
+                  )}
+                  <span className="tm-took">{took(t)}</span>
+                </span>
               </button>
             );
           })}
         </div>
       </div>
+      <button className="tm-fold tm-fold-abs" onClick={toggle} title="Fold the map into one line">
+        <Icon name="chevronUp" size={13} />
+      </button>
     </div>
   );
 }
