@@ -17,7 +17,7 @@ export type MenuItem =
   | { swatches: string[]; current?: string; onPick: (c: string) => void };
 
 /** A small floating menu at the pointer. Stays on screen, closes on outside click, Esc or scroll. */
-export function ContextMenu({ x, y, items, onClose }: { x: number; y: number; items: MenuItem[]; onClose: () => void }) {
+export function ContextMenu({ x, y, items, onClose, above }: { x: number; y: number; items: MenuItem[]; onClose: () => void; /** Open upward from y (menus on the bottom bar). */ above?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ x, y });
   const [arming, setArming] = useState<number | null>(null);
@@ -27,8 +27,9 @@ export function ContextMenu({ x, y, items, onClose }: { x: number; y: number; it
     const el = ref.current;
     if (!el) return;
     // offsetWidth/Height ignore the opening scale animation.
-    setPos({ x: Math.max(8, Math.min(x, innerWidth - el.offsetWidth - 8)), y: Math.max(8, Math.min(y, innerHeight - el.offsetHeight - 8)) });
-  }, [x, y]);
+    const top = above ? y - el.offsetHeight : y;
+    setPos({ x: Math.max(8, Math.min(x, innerWidth - el.offsetWidth - 8)), y: Math.max(8, Math.min(top, innerHeight - el.offsetHeight - 8)) });
+  }, [x, y, above]);
 
   const actionable = items.map((it, i) => (it !== 'sep' && 'onClick' in it && !it.disabled ? i : -1)).filter((i) => i >= 0);
 

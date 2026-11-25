@@ -7,6 +7,7 @@ import { applyTheme } from './theme.ts';
 import { connect } from './store.ts';
 import './styles.css';
 import './calm.css';
+import './workspace.css';
 
 applyTheme();
 registerSW();

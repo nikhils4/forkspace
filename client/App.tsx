@@ -2,7 +2,7 @@ import { ReactFlowProvider } from '@xyflow/react';
 import { NoteSheet, setCodeOpener } from './ThreadNotes.tsx';
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Attachment, Board, TurnNode } from '../shared/types.ts';
-import { BoardSettings, MODES, NewBoard } from './BoardForms.tsx';
+import { BoardSettings, NewBoard } from './BoardForms.tsx';
 import { Canvas } from './Canvas.tsx';
 import { Chat } from './Chat.tsx';
 import { ShotViewer } from './Shots.tsx';
@@ -16,8 +16,9 @@ import { Composer, composerFocus, wantFork } from './Composer.tsx';
 import { Drawer } from './Drawer.tsx';
 import { PairScreen, Splash, StartCommand, UnreachableScreen } from './Gate.tsx';
 import { Icon } from './icons.tsx';
-import { Inbox, SidebarAgents, useAgents } from './Inbox.tsx';
-import { SidebarThreads, WorkPage } from './Threads.tsx';
+import { Inbox, useAgents } from './Inbox.tsx';
+import { WorkPage } from './Threads.tsx';
+import { Dock, Stacks, TabStrip, ThreadView, rootOf, tipFrom, type ActiveTab } from './Workspace.tsx';
 import { threadsOf } from './status.ts';
 import { ImportSessions } from './Import.tsx';
 import { LearnLibrary } from './Learn.tsx';
@@ -30,7 +31,7 @@ import { Palette, type PaletteItem } from './Palette.tsx';
 import { Settings, settingsTab } from './Settings.tsx';
 import { request, send, toast, useStore } from './store.ts';
 import { branchColor, STATUS_LABEL } from './nodes.tsx';
-import { isLive, isTurn, latestLeaf, leaves } from './tree.ts';
+import { isLive, isTurn, latestLeaf, leaves, pathTo } from './tree.ts';
 import { clearReady, useReady, useWatchFinishes } from './review.ts';
 import { Segmented, Sheet, useIsMobile } from './ui.tsx';
 
@@ -95,38 +96,6 @@ function Shell() {
     addEventListener('forkspace:term-for', on);
     return () => removeEventListener('forkspace:term-for', on);
   }, []);
-  // Desktop: the sidebar can be hidden to give the canvas the whole window.
-  const [sideOpen, setSideOpen] = useState(() => {
-    try {
-      return localStorage.getItem('forkspace:side') !== 'closed';
-    } catch {
-      return true;
-    }
-  });
-  const toggleSide = useCallback(() => {
-    setSideOpen((v) => {
-      try {
-        localStorage.setItem('forkspace:side', v ? 'closed' : 'open');
-      } catch {}
-      return !v;
-    });
-  }, []);
-  // Desktop: or shrink it to a slim rail of icons.
-  const [sideMini, setSideMini] = useState(() => {
-    try {
-      return localStorage.getItem('forkspace:side-mini') === '1';
-    } catch {
-      return false;
-    }
-  });
-  const toggleMini = useCallback(() => {
-    setSideMini((v) => {
-      try {
-        localStorage.setItem('forkspace:side-mini', v ? '0' : '1');
-      } catch {}
-      return !v;
-    });
-  }, []);
   const [tab, setTab] = useState<Tab>('board');
   const [palette, setPalette] = useState(false);
   const [codeOpen, setCodeOpen] = useState<{ path: string; line?: number; n: number } | null>(null);
@@ -142,7 +111,30 @@ function Shell() {
   useWatchFinishes(store.nodes, store.loaded);
 
   const board = store.boards.find((b) => b.id === boardId) ?? store.boards[0] ?? null;
-  const view: View = (board && views[board.id]) || (mobile ? 'chat' : 'canvas');
+  // Desktop: browser-style tabs per board. The board's views first, then the threads you opened.
+  const [tabsBy, setTabsBy] = useState<Record<string, string[]>>(() => {
+    try {
+      return JSON.parse(ls.get('forkspace:tabs') || '{}');
+    } catch {
+      return {};
+    }
+  });
+  const [activeBy, setActiveBy] = useState<Record<string, ActiveTab>>(() => {
+    try {
+      return JSON.parse(ls.get('forkspace:active') || '{}');
+    } catch {
+      return {};
+    }
+  });
+  // The step last shown in each thread tab, so switching back lands where you were.
+  const [sel, setSel] = useState<Record<string, string>>({});
+  useEffect(() => ls.set('forkspace:tabs', JSON.stringify(tabsBy)), [tabsBy]);
+  useEffect(() => ls.set('forkspace:active', JSON.stringify(activeBy)), [activeBy]);
+  const tabs = (board ? (tabsBy[board.id] ?? []) : []).filter((id) => isTurn(store.nodes[id]) && !store.nodes[id].parentId);
+  const rawDesk: ActiveTab = (board && activeBy[board.id]) || 'stacks';
+  const desk: ActiveTab = rawDesk.startsWith('t:') && !tabs.includes(rawDesk.slice(2)) ? 'stacks' : rawDesk;
+  const deskThread = desk.startsWith('t:') ? desk.slice(2) : null;
+  const view: View = mobile ? (board && views[board.id]) || 'chat' : desk === 'code' || desk === 'map' ? desk : 'canvas';
   const targetId = board ? (targets[board.id] ?? null) : null;
   const target = targetId && isTurn(store.nodes[targetId]) ? (store.nodes[targetId] as TurnNode) : undefined;
 
@@ -163,6 +155,19 @@ function Shell() {
   useEffect(() => {
     if (targetId && openId && openId !== targetId && isTurn(store.nodes[targetId])) setOpenIdRaw(targetId);
   }, [targetId, targetLoaded]);
+  // Desktop: a step that opens (a card clicked, a notification, a search hit) shows in its
+  // thread's tab, opening the tab if needed.
+  const openLoaded = !!(openId && store.nodes[openId]);
+  useEffect(() => {
+    if (mobile || !openId || !isTurn(store.nodes[openId])) return;
+    const n = store.nodes[openId] as TurnNode;
+    const root = rootOf(store.nodes, n.id);
+    if (!root) return;
+    if (n.boardId !== board?.id) setBoardId(n.boardId);
+    setTabsBy((x) => ((x[n.boardId] ?? []).includes(root.id) ? x : { ...x, [n.boardId]: [...(x[n.boardId] ?? []), root.id].slice(-12) }));
+    setActiveBy((x) => ({ ...x, [n.boardId]: `t:${root.id}` }));
+    setSel((x) => ({ ...x, [root.id]: n.id }));
+  }, [openId, openLoaded, mobile]);
   // The details panel belongs to the board: going to Concepts or Notes closes it.
   useEffect(() => {
     if (page !== 'board') setOpenIdRaw(null);
@@ -208,8 +213,9 @@ function Shell() {
       setTargets((x) => ({ ...x, [t.boardId]: dest }));
       setTab('board');
       setFocus({ id: dest, n: Date.now() });
+      if (!mobile) (setPage('board'), setOpenIdRaw(dest), clearReady(dest));
     },
-    [store.nodes],
+    [store.nodes, mobile],
   );
 
   /** Go to exactly this card (a branch's latest step), without following newer forks. */
@@ -219,7 +225,8 @@ function Shell() {
     setTargets((x) => ({ ...x, [t.boardId]: isLive(t) || t.sessionId ? t.id : x[t.boardId] ?? null }));
     setTab('board');
     setFocus({ id: t.id, n: Date.now() });
-  }, []);
+    if (!mobile) (setOpenIdRaw(t.id), clearReady(t.id));
+  }, [mobile]);
 
   // Deep links: ?board=…&node=… (notification taps).
   const openUrl = useCallback(
@@ -255,11 +262,6 @@ function Shell() {
         setPalette(true);
         return;
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
-        e.preventDefault();
-        toggleSide();
-        return;
-      }
       if ((e.metaKey || e.ctrlKey) && e.altKey && e.code === 'KeyT') {
         e.preventDefault();
         toggleTerminal();
@@ -289,6 +291,11 @@ function Shell() {
         }
       }
       if (e.key === 'Escape' && !openId && !sheet && page !== 'board') return setPage('board');
+      if (!mobile && board && e.key === 'Escape' && !sheet && deskThread) return pickTab('stacks');
+      if (!mobile && board && ['1', '2', '3', '4'].includes(e.key)) {
+        setPage('board');
+        return pickTab((['stacks', 'canvas', 'code', 'map'] as const)[Number(e.key) - 1]);
+      }
       if (e.key === 'Escape' && !openId && !sheet) setTargetId(null);
       if (board && ['1', '2', '3'].includes(e.key)) {
         setPage('board');
@@ -297,7 +304,7 @@ function Shell() {
     };
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
-  }, [openId, targetId, sheet, board?.id, setTargetId, page]);
+  }, [openId, targetId, sheet, board?.id, setTargetId, page, deskThread, mobile, tabs.join()]);
 
   const submit = async (prompt: string, attachments: Attachment[] = [], parentId: string | null = targetId, fork = false) => {
     if (!board) return false;
@@ -309,11 +316,42 @@ function Shell() {
       if (queued) return toast('Queued. It runs as the next step when this one finishes.'), true;
       setTargetId(id);
       setFocus({ id, n: Date.now() });
+      if (!mobile && !parentId) setOpenIdRaw(id);
       return true;
     } catch (err: any) {
       toast(err.message, 'error');
       return false;
     }
+  };
+
+  // ---- desktop tabs ----
+  function pickTab(t: ActiveTab) {
+    if (!board) return;
+    setPage('board');
+    setActiveBy((x) => ({ ...x, [board.id]: t }));
+    if (t.startsWith('t:')) {
+      const root = t.slice(2);
+      const id = sel[root] && store.nodes[sel[root]] ? sel[root] : tipFrom(store.nodes, root).id;
+      setOpenId(id);
+    } else setOpenIdRaw(null);
+  }
+  function closeTab(root: string) {
+    if (!board) return;
+    const list = tabs.filter((x) => x !== root);
+    setTabsBy((x) => ({ ...x, [board.id]: list }));
+    if (desk === `t:${root}`) {
+      const i = tabs.indexOf(root);
+      const next = list[Math.min(i, list.length - 1)];
+      if (next) pickTab(`t:${next}`);
+      else pickTab('stacks');
+    }
+  }
+  const newThread = () => {
+    setPage('board');
+    if (board) setActiveBy((x) => ({ ...x, [board.id]: 'stacks' }));
+    setOpenIdRaw(null);
+    setTargetId(null);
+    setTimeout(() => composerFocus.current?.focus(), 60);
   };
 
   const setView = (v: View) => board && setViews((x) => ({ ...x, [board.id]: v }));
@@ -323,8 +361,9 @@ function Shell() {
       setBoardId(bid);
       setPage('board');
       setTab('board');
-      setOpenId(null);
+      setOpenIdRaw(null);
       setViews((x) => ({ ...x, [bid]: 'code' }));
+      setActiveBy((x) => ({ ...x, [bid]: 'code' }));
       setCodeOpen({ path, line, n: Date.now() });
     });
   }, []);
@@ -348,10 +387,10 @@ function Shell() {
     <div className="stage" key={board.id}>
       <div className="view">
         <div className={`pane ${view === 'chat' ? 'on' : ''}`} aria-hidden={view !== 'chat'} inert={view !== 'chat'}>
-          {wasOpened('chat') && <Chat board={board} targetId={targetId} setTargetId={setTargetId} openDetails={setOpenId} onImport={() => setSheet('import')} />}
+          {mobile && wasOpened('chat') && <Chat board={board} targetId={targetId} setTargetId={setTargetId} openDetails={setOpenId} onImport={() => setSheet('import')} />}
         </div>
         <div className={`pane ${view === 'canvas' ? 'on' : ''}`} aria-hidden={view !== 'canvas'} inert={view !== 'canvas'}>
-          {wasOpened('canvas') && <Canvas board={board} targetId={targetId} setTargetId={setTargetId} openDetails={setOpenId} focus={focus} active={view === 'canvas' && page === 'board'} />}
+          {wasOpened('canvas') && <Canvas board={board} targetId={targetId} setTargetId={setTargetId} openDetails={setOpenId} focus={focus} active={view === 'canvas' && page === 'board' && (mobile || desk === 'canvas')} />}
         </div>
         <div className={`pane ${view === 'code' ? 'on' : ''}`} aria-hidden={view !== 'code'} inert={view !== 'code'}>
           {wasOpened('code') && <CodeView board={board} target={target} setTargetId={setTargetId} openRequest={codeOpen} />}
@@ -363,7 +402,8 @@ function Shell() {
                 board={board}
                 onOpenFile={(f, line) => {
                   setCodeOpen({ path: f, line, n: Date.now() });
-                  setView('code');
+                  if (mobile) setView('code');
+                  else pickTab('code');
                 }}
                 onStartThread={async (prompt) => {
                   const position = placeFor(store.nodes, board.id, null, { x: 0, y: 0 });
@@ -378,7 +418,8 @@ function Shell() {
                 onOpenThread={(id) => {
                   setTargetId(id);
                   setFocus({ id, n: Date.now() });
-                  setView('canvas');
+                  if (mobile) setView('canvas');
+                  else setOpenIdRaw(id);
                 }}
               />
             </Suspense>
@@ -386,7 +427,9 @@ function Shell() {
         </div>
       </div>
       {/* The map has its own box, for questions about the code. */}
-      {view !== 'map' && !drawerComposer && <Composer key={board.id} target={target} board={board} onSubmit={(p, a, f) => submit(p, a, targetId, f)} onClear={() => setTargetId(null)} drawerOpen={!!openNode} />}
+      {(mobile ? view !== 'map' && !drawerComposer : desk === 'canvas' || desk === 'code') && (
+        <Composer key={board.id} target={target} board={board} onSubmit={(p, a, f) => submit(p, a, targetId, f)} onClear={() => setTargetId(null)} drawerOpen={mobile && !!openNode} />
+      )}
     </div>
   ) : (
     <Welcome onNew={() => setSheet('new')} />
@@ -445,9 +488,10 @@ function Shell() {
       ['code', 'Code view', 'code'],
       ['map', 'Map of the codebase', 'grid'],
     ];
-    for (const [v, label, icon] of views) if (board) paletteItems.push({ id: `v-${v}`, group: 'Views', label, icon, run: () => setView(v) });
+    for (const [v, label, icon] of views) if (board && (mobile || v !== 'chat')) paletteItems.push({ id: `v-${v}`, group: 'Views', label, icon, run: () => (mobile ? setView(v) : pickTab(v as ActiveTab)) });
+    if (board && !mobile) paletteItems.push({ id: 'v-stacks', group: 'Views', label: 'Threads', icon: 'overview', run: () => pickTab('stacks') });
     paletteItems.push(
-      { id: 'a-new', group: 'Actions', label: 'New thread', icon: 'plus', run: () => (setOpenId(null), setTargetId(null), setTab('board'), setTimeout(() => composerFocus.current?.focus(), 50)) },
+      { id: 'a-new', group: 'Actions', label: 'New thread', icon: 'plus', run: () => (mobile ? (setOpenId(null), setTargetId(null), setTab('board'), setTimeout(() => composerFocus.current?.focus(), 50)) : newThread()) },
       { id: 'a-board', group: 'Actions', label: 'New board', icon: 'folder', run: () => setSheet('new') },
       { id: 'a-devices', group: 'Actions', label: 'Set up your phone', icon: 'phone', run: () => (settingsTab('phone'), mobile ? setTab('devices') : setSheet('devices')) },
     );
@@ -476,7 +520,8 @@ function Shell() {
           icon: 'file',
           keywords: f,
           run: () => {
-            setView('code');
+            if (mobile) setView('code');
+            else pickTab('code');
             setTab('board');
             setCodeOpen({ path: f, n: Date.now() });
           },
@@ -645,169 +690,23 @@ function Shell() {
   }
 
   // ---------------- desktop ----------------
+  // Like a browser: tabs on top, the page in the middle, the terminal under it, a status bar below.
+  const threadStep = deskThread && openNode && rootOf(store.nodes, openNode.id)?.id === deskThread ? openNode : null;
+  const pageTitle = { concepts: 'Concepts', work: 'Work', notes: 'Notes' } as const;
+  const togglePage = (p: 'work' | 'notes' | 'concepts') => setPage(page === p ? 'board' : p);
   return (
-    <div className={`app ${openNode ? 'drawer-open' : ''} ${sideOpen ? '' : 'side-closed'} ${sideMini ? 'side-mini' : ''}`}>
-      {sideMini && sideOpen ? (
-        <aside className="sidebar rail">
-          <button className="rail-btn rail-mark" onClick={toggleMini} title="Expand sidebar" aria-label="Expand sidebar">
-            <span className="app-mark">
-              <Icon name="branch" size={15} strokeWidth={2.25} />
-            </span>
-          </button>
-          <button className={`rail-btn ${page === 'concepts' ? 'on' : ''}`} onClick={() => setPage(page === 'concepts' ? 'board' : 'concepts')} title="Concepts" aria-label="Concepts">
-            <span className="mentor-orb small" />
-            {lessonCount > 0 && <span className="rail-badge">{lessonCount > 99 ? '99+' : lessonCount}</span>}
-          </button>
-          <button className={`rail-btn ${page === 'notes' ? 'on' : ''}`} onClick={() => setPage(page === 'notes' ? 'board' : 'notes')} title="Notes" aria-label="Notes">
-            <Icon name="folder" size={17} />
-            {filedCount > 0 && <span className="rail-badge">{filedCount}</span>}
-          </button>
-          <button className={`rail-btn ${page === 'work' ? 'on' : ''}`} onClick={() => setPage(page === 'work' ? 'board' : 'work')} title="Work: every thread and where it stands" aria-label="Work">
-            <Icon name="inbox" size={17} />
-            {workCount > 0 && <span className="rail-badge">{workCount}</span>}
-          </button>
-          <span className="rail-sep" />
-          {store.boards.map((b) => {
-            const live = Object.values(store.nodes).filter((n): n is TurnNode => isTurn(n) && n.boardId === b.id && isLive(n));
-            const needs = live.some((n) => n.status === 'waiting');
-            return (
-              <button
-                key={b.id}
-                className={`rail-btn rail-board ${b.id === board?.id && page === 'board' ? 'on' : ''}`}
-                onClick={() => {
-                  setBoardId(b.id);
-                  setOpenId(null);
-                  setPage('board');
-                }}
-                title={b.name}
-                aria-label={b.name}
-              >
-                <span className="board-initial">{b.name.slice(0, 1).toUpperCase()}</span>
-                {live.length > 0 && <span className={`rail-live ${needs ? 'warn' : ''}`} />}
-              </button>
-            );
-          })}
-          <button className="rail-btn" onClick={() => setSheet('new')} title="New board" aria-label="New board">
-            <Icon name="plus" size={16} />
-          </button>
-          {(waiting.length > 0 || running.length > 0) && (
-            <>
-              <span className="rail-sep" />
-              {[...waiting, ...running].slice(0, 6).map((t) => (
-                <button key={t.id} className={`rail-btn rail-agent ${t.status}`} onClick={() => (setPage('board'), goTo(t))} title={`${t.status === 'waiting' ? 'Needs you' : 'Working'}: ${t.prompt}`} aria-label={t.prompt}>
-                  <span className="rail-agent-dot" style={{ ['--branch' as any]: branchColor(t.branchId) }} />
-                </button>
-              ))}
-            </>
-          )}
-          <span className="spacer" />
-          <button className="rail-btn" onClick={() => setSheet('devices')} title="Settings" aria-label="Settings">
-            <Icon name="settings" size={16} />
-          </button>
-          <button className="rail-btn" onClick={toggleMini} title="Expand sidebar" aria-label="Expand sidebar">
-            <Icon name="chevronRight" size={16} />
-          </button>
-        </aside>
+    <div className="app ws">
+      {board ? (
+        <TabStrip board={board} active={page === 'board' ? desk : ('' as ActiveTab)} tabs={tabs} onPick={pickTab} onClose={closeTab} onNew={newThread} onSearch={() => setPalette(true)} />
       ) : (
-      <aside className="sidebar" aria-hidden={!sideOpen}>
-        <div className="brand">
-          <div className="app-mark">
-            <Icon name="branch" size={15} strokeWidth={2.25} />
-          </div>
-          <span className="brand-name">Forkspace</span>
-          <ConnDot />
-          <span className="spacer" />
-          <button className="icon-btn sm side-hide" onClick={toggleMini} title="Shrink to icons (⌘\ hides it)" aria-label="Shrink sidebar">
-            <Icon name="sidebar" size={15} />
-          </button>
-        </div>
-
-        <div className="side-scroll">
-          <button className={`side-link side-top ${page === 'concepts' ? 'on' : ''}`} onClick={() => setPage(page === 'concepts' ? 'board' : 'concepts')}>
-            <Icon name="bookmark" size={15} /> Concepts
-            <span className="spacer" />
-            {lessonCount > 0 && <span className="count">{lessonCount}</span>}
-          </button>
-          <button className={`side-link side-top ${page === 'notes' ? 'on' : ''}`} onClick={() => setPage(page === 'notes' ? 'board' : 'notes')}>
-            <Icon name="folder" size={15} /> Notes
-            <span className="spacer" />
-            {filedCount > 0 && <span className="count">{filedCount}</span>}
-          </button>
-          <button className={`side-link side-top ${page === 'work' ? 'on' : ''}`} onClick={() => setPage(page === 'work' ? 'board' : 'work')}>
-            <Icon name="inbox" size={15} /> Work
-            <span className="spacer" />
-            {workCount > 0 && <span className="count warn">{workCount}</span>}
-          </button>
-          <div className="side-head">
-            <span>Boards</span>
-            <button className="icon-btn sm" onClick={() => setSheet('new')} aria-label="New board" title="New board">
-              <Icon name="plus" size={15} />
-            </button>
-          </div>
-          <BoardList
-            boards={store.boards}
-            current={board?.id}
-            onPick={(id) => {
-              setBoardId(id);
-              setOpenId(null);
-              setPage('board');
-            }}
-            onSettings={(id) => {
-              setBoardId(id);
-              setSheet('board');
-            }}
-          />
-
-          {board && (
-            <>
-              <div className="side-head">
-                <span>Threads</span>
-                <button className="icon-btn sm" onClick={() => (setPage('board'), setOpenId(null), setTargetId(null), setTimeout(() => composerFocus.current?.focus(), 50))} aria-label="New thread" title="New thread">
-                  <Icon name="plus" size={15} />
-                </button>
-              </div>
-              <SidebarThreads boardId={board.id} current={page === 'board' ? targetId : null} onGo={goExact} />
-            </>
-          )}
-
-          {/* Only when something is running: an empty "No agents running" was just noise. */}
-          {(waiting.length > 0 || running.length > 0) && (
-            <>
-              <div className="side-head">
-                <span>Agents</span>
-                {waiting.length > 0 && <span className="pill warn">{waiting.length} need you</span>}
-              </div>
-              <SidebarAgents onOpen={(t) => (setPage('board'), goTo(t))} />
-            </>
-          )}
-        </div>
-
-        <div className="side-foot">
-          <UpdatePill onOpen={() => (settingsTab('updates'), setSheet('devices'))} />
-          <InstallButton />
-          <div className="foot-links">
-            <button className="side-link" onClick={() => setSheet('devices')}>
-              <Icon name="settings" size={15} /> Settings
-            </button>
-          </div>
-          <div className="foot-row">
-            <ThemeToggle />
-            <a className="credit" href="https://github.com/nikhils4" target="_blank" rel="noreferrer">
-              by <b>nikhils4</b>
-            </a>
-          </div>
-        </div>
-      </aside>
+        <header className="ws-tabs" />
       )}
-
-      <main className="main">
+      <main className="main ws-main">
         <ConnectionBanner />
-        {page === 'concepts' && (
+        {page !== 'board' && (
           <div className="concepts-page page-enter">
-            <header className="topbar">
-              <div className="concepts-title">
-                <span className="mentor-orb" /> Concepts
-              </div>
+            <header className="ws-page-head">
+              <h1>{pageTitle[page]}</h1>
               <span className="spacer" />
               {board && (
                 <button className="btn sm ghost" onClick={() => setPage('board')}>
@@ -816,96 +715,85 @@ function Shell() {
               )}
             </header>
             <div className="page">
-              <div className="page-inner concepts-inner">
-                <LearnLibrary
-                  onOpen={(t) => {
-                    setPage('board');
-                    goTo(t);
-                    setView('chat');
-                  }}
-                />
+              <div className={`page-inner ${page === 'work' ? '' : 'concepts-inner'}`}>
+                {page === 'concepts' && (
+                  <LearnLibrary
+                    onOpen={(t) => {
+                      setPage('board');
+                      goTo(t);
+                    }}
+                  />
+                )}
+                {page === 'work' && <WorkPage onGo={goExact} />}
+                {page === 'notes' && <NotesPage board={board ?? undefined} />}
               </div>
             </div>
           </div>
         )}
-        {page === 'work' && (
-          <div className="concepts-page page-enter">
-            <header className="topbar">
-              <div className="concepts-title">
-                <Icon name="inbox" size={17} /> Work
-              </div>
-              <span className="spacer" />
-              {board && (
-                <button className="btn sm ghost" onClick={() => setPage('board')}>
-                  <Icon name="chevronLeft" size={14} /> Back to {board.name}
-                </button>
-              )}
-            </header>
-            <div className="page">
-              <div className="page-inner">
-                <WorkPage onGo={goExact} />
-              </div>
-            </div>
-          </div>
-        )}
-        {page === 'notes' && (
-          <div className="concepts-page page-enter">
-            <header className="topbar">
-              <div className="concepts-title">
-                <Icon name="folder" size={17} /> Notes
-              </div>
-              <span className="spacer" />
-              {board && (
-                <button className="btn sm ghost" onClick={() => setPage('board')}>
-                  <Icon name="chevronLeft" size={14} /> Back to {board.name}
-                </button>
-              )}
-            </header>
-            <div className="page">
-              <div className="page-inner concepts-inner">
-                <NotesPage board={board ?? undefined} />
-              </div>
-            </div>
-          </div>
-        )}
-        {board && page === 'board' && (
-          <header className="topbar">
-            {!sideOpen && (
-              <button className="icon-btn side-show" onClick={toggleSide} title="Show sidebar (⌘\)" aria-label="Show sidebar">
-                <Icon name="sidebar" size={17} />
-              </button>
-            )}
-            <BoardMenu board={board} home={store.home} learnOn={learnOn} onSettings={() => setSheet('board')} />
-            {board.permissionMode === 'bypassPermissions' && (
-              <button className="pill mode danger" onClick={() => setSheet('board')} title="Agents never ask before acting. Click to change">
-                <Icon name="shield" size={12} />
-                Full access
-              </button>
-            )}
-            <span className="spacer" />
-            {viewSwitch}
-            <div className="top-icons">
-              <button className={`icon-btn ${termOpen ? 'on' : ''}`} onClick={() => setTermOpen(!termOpen)} title="Terminal (Ctrl+`)" aria-label="Terminal" aria-pressed={termOpen}>
-                <Icon name="terminal" size={17} />
-              </button>
-              <button className="icon-btn" onClick={() => setPalette(true)} title="Search everything (⌘K)" aria-label="Search">
-                <Icon name="search" size={17} />
-              </button>
-            </div>
-          </header>
-        )}
-        {/* Kept mounted behind the Concepts page so the canvas keeps its place. */}
-        <div className="main-body page-enter" style={page !== 'board' ? { display: 'none' } : undefined}>
+        {/* Kept mounted behind the other tabs so the canvas and code keep their place. */}
+        <div className="main-body" style={page !== 'board' || desk === 'stacks' || deskThread ? { display: 'none' } : undefined}>
           {boardView}
         </div>
-        {termOpen && board && page === 'board' && (
+        {board && page === 'board' && desk === 'stacks' && (
+          <Stacks
+            board={board}
+            onOpen={(t) => setOpenId(sel[rootOf(store.nodes, t.id)?.id ?? ''] && store.nodes[sel[rootOf(store.nodes, t.id)!.id]] ? sel[rootOf(store.nodes, t.id)!.id] : tipFrom(store.nodes, t.id).id)}
+            composer={<Composer key={`new-${board.id}`} board={board} onSubmit={(p, a) => submit(p, a, null)} />}
+          />
+        )}
+        {board && page === 'board' && deskThread && threadStep && (
+          <ThreadView
+            key={deskThread}
+            stepId={threadStep.id}
+            onSelect={(id) => setOpenId(id)}
+            detail={
+              <Drawer
+                embedded
+                key={threadStep.id}
+                node={threadStep}
+                onClose={() => pickTab('stacks')}
+                onReply={(id) => (setTargetId(id), setTimeout(() => composerFocus.current?.focus(), 0))}
+                onGo={(id) => setOpenId(id)}
+                onBranch={(p) => void submit(p, [], threadStep.id, true)}
+                composer={drawerComposer}
+              />
+            }
+          />
+        )}
+        {board && page === 'board' && deskThread && !threadStep && <div className="ws-loading" />}
+        {termOpen && board && (
           <Suspense fallback={null}>
-            <TerminalPanel board={board} branchId={target?.branchId} openFor={termFor} onClose={() => setTermOpen(false)} drawerOpen={!!openNode} />
+            <TerminalPanel board={board} branchId={threadStep?.branchId ?? target?.branchId} openFor={termFor} onClose={() => setTermOpen(false)} docked />
           </Suspense>
         )}
       </main>
-
-      {openNode && <Drawer node={openNode} onClose={() => setOpenId(null)} onReply={(id) => (setTargetId(id), setTimeout(() => composerFocus.current?.focus(), 0))} onGo={(id) => (setOpenId(id), setFocus({ id, n: Date.now() }))} onBranch={(p) => void submit(p, [], openNode.id, true)} composer={drawerComposer} />}
+      <Dock
+        board={board}
+        boards={store.boards}
+        page={page}
+        counts={{ work: workCount, notes: filedCount, concepts: lessonCount }}
+        agents={[...waiting, ...running]}
+        termOpen={termOpen}
+        onBoard={(id) => {
+          setBoardId(id);
+          setOpenIdRaw(null);
+          setPage('board');
+        }}
+        onNewBoard={() => setSheet('new')}
+        onBoardSettings={() => setSheet('board')}
+        onPage={togglePage}
+        onAgent={(t) => goTo(t)}
+        onTerminal={() => setTermOpen(!termOpen)}
+        onSettings={() => setSheet('devices')}
+        extra={
+          <>
+            <UpdatePill onOpen={() => (settingsTab('updates'), setSheet('devices'))} />
+            <InstallButton />
+            <ThemeToggle />
+          </>
+        }
+      />
+      {!board && <Welcome onNew={() => setSheet('new')} />}
       {sheets}
       <ShotViewer />
       <NoteSheet />
@@ -1043,11 +931,6 @@ function ThemeToggle() {
   );
 }
 
-function ConnDot() {
-  const { connected } = useStore();
-  return <span className={`conn ${connected ? 'on' : ''}`} title={connected ? 'Connected to your Mac' : 'Reconnecting…'} />;
-}
-
 function ConnectionBanner() {
   const { connected, loaded, update } = useStore();
   const [show, setShow] = useState(false);
@@ -1081,42 +964,6 @@ function ConnectionBanner() {
     <div className="conn-banner">
       <span className="spinner" /> {updating ? 'Updating Forkspace. Back in a moment…' : 'Reconnecting to your Mac…'}
     </div>
-  );
-}
-
-/** The board name, and everything about the board one click away instead of always on screen. */
-function BoardMenu({ board, home, learnOn, onSettings }: { board: Board; home: string; learnOn: boolean; onSettings: () => void }) {
-  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
-  const mode = MODES.find((m) => m.value === board.permissionMode)?.label ?? board.permissionMode;
-  const path = home ? board.cwd.replace(home, '~') : board.cwd;
-  const items: MenuItem[] = [
-    { label: path, icon: 'folder', hint: 'Copy', onClick: () => navigator.clipboard?.writeText(board.cwd).then(() => toast('Folder path copied')) },
-    'sep',
-    { label: `Permissions: ${mode}`, icon: 'shield', onClick: onSettings },
-    {
-      label: learnOn ? 'Thread notes: on' : 'Thread notes: off',
-      icon: 'spark',
-      hint: learnOn ? 'Turn off' : 'Turn on',
-      onClick: () => send({ type: 'updateBoard', id: board.id, patch: { learn: { on: !learnOn, level: board.learn?.level ?? 'growing' } } }),
-    },
-    'sep',
-    { label: 'Board settings', icon: 'settings', onClick: onSettings },
-  ];
-  return (
-    <>
-      <button
-        className={`board-title ${menu ? 'open' : ''}`}
-        title={path}
-        onClick={(e) => {
-          const r = e.currentTarget.getBoundingClientRect();
-          setMenu({ x: r.left, y: r.bottom + 6 });
-        }}
-      >
-        {board.name}
-        <Icon name="chevronDown" size={14} />
-      </button>
-      {menu && <ContextMenu x={menu.x} y={menu.y} items={items} onClose={() => setMenu(null)} />}
-    </>
   );
 }
 

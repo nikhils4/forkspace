@@ -37,7 +37,7 @@ Forkspace is a third-party app, so it signs in with an API key. Anthropic's term
 
 ### Updating
 
-Forkspace ships as versions (see [CHANGELOG.md](CHANGELOG.md)). When one is out, the sidebar shows **Update to x.y.z**. Open Settings to read what's new and click **Update**. Forkspace downloads it, reinstalls if needed, rebuilds, restarts, and the page reloads itself. It won't update while agents are running.
+Forkspace ships as versions (see [CHANGELOG.md](CHANGELOG.md)). When one is out, the status bar shows **Update to x.y.z**. Open Settings to read what's new and click **Update**. Forkspace downloads it, reinstalls if needed, rebuilds, restarts, and the page reloads itself. It won't update while agents are running.
 
 - Edits you made in the Forkspace folder are kept. If the update changes the same files, you get **Set aside my edits and update**, which moves them into `git stash` (bring them back with `git stash pop`).
 - Pulled by hand while Forkspace was running? Settings shows **Update** to rebuild and restart.
@@ -55,19 +55,23 @@ Maintainers: add a section to CHANGELOG.md, then `npm run release -- 0.3.0` (or 
 - **Screenshots:** set your app's address (like `http://localhost:3000`) in board settings and Forkspace snaps it after each step that changes files, using the Chrome you already have. The newest screenshot becomes the thread's cover, so you can see at a glance what each thread built. You can also paste (`⌘V`) onto a selected step, drop an image on a card, or pick one from the card's menu.
 - **Complete:** each thread has a circle above its first card. Click it when the thread is finished: it fills with a green tick and the whole thread fades back, so what's left stands out.
 
-### Three views
+### Laid out like a browser
 
-| View | What it's for |
+Tabs run along the top. The first four are always there; after them come the threads you opened.
+
+| Tab | What it's for |
 |---|---|
-| **Chat** | Any branch as a conversation. Tap a branch point to switch. |
+| **Threads** | Every thread as a stack of cards: what it's doing, how many steps and branches, what changed. Grouped by what needs you, what's working, what's open and what's done. Start a new thread from the box at the top. |
 | **Canvas** | Every step and branch on one map, with your notes. **Tidy up** arranges it; zoom out for titles only. |
 | **Code** | The branch's files and a live diff of everything the agents changed. **Follow agent** opens each file as it's edited. |
+| **Map** | Your codebase, explained. |
+| **A thread** | Its steps on the left, one card each, with its branches above them. The chosen step reads on the right: what you asked, the answer, what changed, and the box to reply or branch. `J` and `K` move between steps. |
 
-Switching views keeps your place. Press `⌘K` to jump to any board, branch, file or action.
+Click a stack, a card on the canvas or a search result and it opens in its thread's tab. Close a tab with its **×** or a middle-click. The status bar along the bottom holds the board switcher, **Work**, **Notes**, **Concepts**, running agents, **Terminal** and **Settings**. On a phone it stays the familiar chat, with tabs at the bottom.
 
 ### Terminal
 
-Click **Terminal** in the top bar (or press `Ctrl+\``) for a real shell at the bottom of the board, already in the folder of the branch you're on. Open more with **+**. Terminals keep running when you hide the panel, and reopening shows what was on screen.
+Click **Terminal** in the status bar (or press `Ctrl+\``) for a real shell under the page. It opens in the project folder; inside a thread that works in its own copy, **Open in this thread's copy** gives you a shell there. The project's `package.json` scripts sit as one-tap buttons over it. Put two terminals **side by side**, or **fill the window** with one. Terminals keep running when you hide the panel, and reopening shows what was on screen.
 
 Phones and other paired devices can't open a terminal unless you allow it on the computer itself (Settings, Phone). On Linux the terminal needs build tools for `node-pty`; everything else works without it.
 
@@ -90,8 +94,8 @@ Turn it off per board with the **Learn** pill in the top bar.
 With **Separate copy per branch** (the default for git repos):
 
 1. Each branch works in its own git worktree under `~/.forkspace/worktrees/`, on a branch named `forkspace/<id>`.
-2. After every step, Forkspace commits that worktree, as you (your own git name and email), with a short conventional message written from the actual changes (`fix(cart): …`, `feat: …`) in your repo's style, including a ticket like `ENG-1234` if your prompt, the conversation or your branch mentions one. The commit is the step's checkpoint.
-3. Branching from a step starts a new worktree at its checkpoint, so the branch sees the code exactly as it was then.
+2. Forkspace never commits. After every step it saves a hidden snapshot of the worktree (a git object on no branch), so the step's changes can be shown. The work stays uncommitted for you to review and commit.
+3. Branching from a step starts a new worktree with that step's code laid on top, uncommitted, so the branch sees the code exactly as it was then.
 
 Branches never overwrite each other. To keep a result, merge its `forkspace/<id>` branch like any other. A step's **Details** panel shows the branch, folder and diff, plus a command to continue from that exact point in your terminal.
 
@@ -117,16 +121,6 @@ No magic. Here is everything, in plain words.
 | **Forkspace** | A small Node server on your machine plus a web page. Nothing is sent anywhere except the model calls to Anthropic. |
 
 Why an API key and not your Claude.ai login? Anthropic asks apps built on Claude Code to use API keys. If no key is set, the SDK may fall back to an existing Claude Code login on your machine, but the supported way is a key.
-
-## Away mode
-
-Stepping away? Click **Away mode** in the sidebar. Your computer stays awake while Forkspace runs, and the screen turns into a calm away screen: the time, what your agents are doing, and whether your phone is connected. Click **I'm back** for a summary of what happened.
-
-- macOS uses `caffeinate`, Windows its own power settings, Linux `systemd-inhibit`. It stops by itself if Forkspace stops.
-- Optional: keep the screen on too.
-- It stays on across restarts and updates until you turn it off.
-- On a MacBook, stay plugged in and leave the lid open. A closed or unplugged laptop can still sleep, and Forkspace tells you when you're on battery.
-- No phone connected yet? **Bring your phone along** walks you through it one step at a time, right on the away screen. Each step moves on by itself.
 
 ## Moving to another Mac
 
@@ -165,7 +159,7 @@ Pick per board, change any time.
 | Plan only | Reads and plans, changes nothing |
 | Full access | Never asks. Only for throwaway folders. |
 
-Anything waiting on you glows amber, shows under **Agents** in the sidebar, and adds a count to the tab title.
+Anything waiting on you glows amber, shows in the status bar, and adds a count to the tab title.
 
 ## Shortcuts
 
@@ -174,13 +168,12 @@ Anything waiting on you glows amber, shows under **Agents** in the sidebar, and 
 | `Enter` | Send (`Shift+Enter` for a new line) |
 | `/` or `r` | Focus the message box |
 | `⌘K` or `⌘P` | Search boards, branches, files and actions |
-| `1` `2` `3` | Chat, Canvas, Code |
-| `Esc` | Start a new thread instead of replying |
+| `1` `2` `3` `4` | Threads, Canvas, Code, Map tabs |
+| `Esc` | Back to Threads from a thread tab |
 | `n` | New note |
-| `⌘\` | Hide or show the sidebar |
 | `Ctrl+`` ` | Terminal |
 | `Backspace` | Delete selected steps (and their branches) or notes |
-| Click a step | Open its details (it moves to the middle of what's visible) |
+| Click a step | Open it in its thread's tab |
 | Right-click (long-press on a phone) | Menu for a step, note or empty canvas: reply, branch, explain, copy, recolour, delete |
 | Right-click a board, or its `···` | Board settings, **Start fresh** (clear every card, keep the board), Delete board |
 

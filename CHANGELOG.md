@@ -3,6 +3,14 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.40.0
+
+- **A new layout, like a browser.** Tabs along the top: Threads, Canvas, Code and Map, then every thread you open. The left sidebar is gone; boards, Work, Notes, Concepts, running agents, Terminal and Settings live in a slim status bar at the bottom
+- **Threads are stacks of cards.** The Threads tab shows each thread as a stack: what it's doing, its steps and branches, what changed. Grouped by needs you, working, open and done. No more scrolling one long thread
+- **Open a thread and it gets its own tab.** Steps sit on the left as short cards, branches above them. The step you pick reads on the right, with the reply box under it. Clicking a card on the canvas opens it here too
+- **A terminal that's part of the layout.** It sits under the page instead of floating over it. Your project's scripts are one tap away, two terminals fit side by side, and one can fill the window. Inside a thread, open a shell in that thread's own copy in one click
+- **Forkspace no longer commits.** Each step used to be committed to its branch with a written message. Now it saves a hidden snapshot instead: the changes still show, nothing lands on any branch, and committing is yours. Branching from a step carries its work over uncommitted
+
 ## 0.39.0
 
 - **Much more accurate dictation.** Words still appear as you speak. When you stop, Whisper on your Mac listens to the recording again, primed with your project's file names, and its text replaces the live one. Then the usual quick pass fixes names and drops filler. Nothing leaves your Mac

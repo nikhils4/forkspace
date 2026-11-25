@@ -41,7 +41,7 @@ function parseDiff(text: string) {
 
 const took = (ms?: number) => (!ms ? '' : ms < 60000 ? `${Math.round(ms / 1000)} s` : `${Math.round(ms / 60000)} min`);
 
-export function Drawer({ node, onClose, onReply, onGo, onBranch, composer }: { node: TurnNode; onClose: () => void; onReply?: (id: string) => void; onGo?: (id: string) => void; onBranch?: (prompt: string) => void; composer?: ReactNode }) {
+export function Drawer({ node, onClose, onReply, onGo, onBranch, composer, embedded = false }: { node: TurnNode; onClose: () => void; onReply?: (id: string) => void; onGo?: (id: string) => void; onBranch?: (prompt: string) => void; composer?: ReactNode; /** Shown inside a thread tab instead of floating over the board. */ embedded?: boolean }) {
   const { branches, nodes } = useStore();
   const branch = branches[node.branchId];
   const [diff, setDiff] = useState<string | null>(null);
@@ -61,10 +61,10 @@ export function Drawer({ node, onClose, onReply, onGo, onBranch, composer }: { n
 
   useEffect(() => {
     // Esc closes the panel, but not while you're typing in it (the first Esc just leaves the box).
-    const k = (e: KeyboardEvent) => e.key === 'Escape' && !menu && !(e.target as HTMLElement)?.closest?.('textarea, input') && onClose();
+    const k = (e: KeyboardEvent) => !embedded && e.key === 'Escape' && !menu && !(e.target as HTMLElement)?.closest?.('textarea, input') && onClose();
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
-  }, [onClose, menu]);
+  }, [onClose, menu, embedded]);
 
   const cmd = node.sessionId && branch ? `cd ${JSON.stringify(branch.cwd)} && claude --resume ${node.sessionId} --fork-session` : '';
   const copy = (text: string, what: string) =>
@@ -143,7 +143,7 @@ export function Drawer({ node, onClose, onReply, onGo, onBranch, composer }: { n
   const working = isLive(node);
 
   return (
-    <aside className="drawer v2" style={{ ['--branch' as any]: branchColor(node.branchId) }}>
+    <aside className={`drawer v2 ${embedded ? 'embedded' : ''}`} style={{ ['--branch' as any]: branchColor(node.branchId) }}>
       <div className="drawer-head">
         <div className="dh-main">
           <div className="dh-where" title={threadName}>
@@ -180,9 +180,11 @@ export function Drawer({ node, onClose, onReply, onGo, onBranch, composer }: { n
         >
           <Icon name="more" />
         </button>
-        <button className="icon-btn" onClick={onClose} aria-label="Close" title="Close (Esc)">
-          <Icon name="x" />
-        </button>
+        {!embedded && (
+          <button className="icon-btn" onClick={onClose} aria-label="Close" title="Close (Esc)">
+            <Icon name="x" />
+          </button>
+        )}
       </div>
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)} />}
 

@@ -39,10 +39,25 @@ export async function hasCommits(root: string): Promise<boolean> {
   }
 }
 
-/** New worktree on a new branch starting at `from`. */
+const SNAP_SUBJECT = 'forkspace: snapshot of the folder';
+
+/** True for a hidden snapshot made by snapshot(), not a real commit on any branch. */
+export async function isSnapshot(dir: string, ref: string) {
+  return (await git(dir, 'log', '-1', '--format=%s', ref).catch(() => '')) === SNAP_SUBJECT;
+}
+
+/**
+ * New worktree on a new branch starting at `from`. When `from` is a hidden snapshot, the branch
+ * starts at the commit under it and the snapshot's changes are laid on top, uncommitted, so the
+ * branch never gets a commit you didn't make.
+ */
 export async function addWorktree(root: string, dir: string, branch: string, from: string) {
   fs.mkdirSync(path.dirname(dir), { recursive: true });
-  await git(root, 'worktree', 'add', '-q', '-b', branch, dir, from);
+  if (!(await isSnapshot(root, from))) return void (await git(root, 'worktree', 'add', '-q', '-b', branch, dir, from));
+  await git(root, 'worktree', 'add', '-q', '-b', branch, dir, `${from}^`);
+  // Switch the files (and the index) to the snapshot's tree, then unstage: the work is there, uncommitted.
+  await git(dir, 'read-tree', '-m', '-u', 'HEAD', from);
+  await git(dir, 'reset', '-q');
 }
 
 export async function removeWorktree(root: string, dir: string, branch?: string) {
@@ -61,32 +76,6 @@ export async function removeWorktree(root: string, dir: string, branch?: string)
 async function hasIdentity(dir: string) {
   const get = (k: string) => git(dir, 'config', '--get', k).catch(() => '');
   return !!((await get('user.name')) && (await get('user.email')));
-}
-
-/** Stage everything in the worktree and describe it, before committing. */
-export async function stageAll(dir: string) {
-  await git(dir, 'add', '-A');
-  const stat = await git(dir, 'diff', '--cached', '--stat').catch(() => '');
-  const patch = await git(dir, 'diff', '--cached', '--no-color', '-U2').catch(() => '');
-  return { stat, patch };
-}
-
-/** Commit what's staged, as you. Returns the commit hash. */
-export async function checkpoint(dir: string, subject: string, body?: string): Promise<string> {
-  await git(dir, 'add', '-A');
-  const args = ['commit', '-q', '--no-verify', '--allow-empty', '-m', subject, ...(body ? ['-m', body] : [])];
-  if (await hasIdentity(dir)) await git(dir, ...args);
-  else await run('git', args, { cwd: dir, env: { ...GIT_ENV, ...FALLBACK_IDENTITY } });
-  return git(dir, 'rev-parse', 'HEAD');
-}
-
-/** Subjects of recent commits, so new ones can match the repo's style. */
-export async function recentSubjects(dir: string, n = 12) {
-  const out = await git(dir, 'log', `-${n * 2}`, '--format=%s').catch(() => '');
-  return out
-    .split('\n')
-    .filter((s) => s && !/^forkspace: /.test(s))
-    .slice(0, n);
 }
 
 /**
@@ -189,7 +178,7 @@ export async function snapshot(root: string): Promise<string> {
     await g('read-tree', 'HEAD');
     await g('add', '-A');
     const tree = await g('write-tree');
-    return await g('commit-tree', tree, '-p', 'HEAD', '-m', 'forkspace: snapshot of the folder');
+    return await g('commit-tree', tree, '-p', 'HEAD', '-m', SNAP_SUBJECT);
   } finally {
     fs.rmSync(tmpIndex, { force: true });
   }

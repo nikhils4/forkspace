@@ -284,6 +284,8 @@ export interface TurnNode {
   baseRepaired?: boolean;
   /** Git commit checkpoint taken when the turn finished. */
   commit?: string;
+  /** baseCommit and commit are hidden snapshots (nothing was committed to the branch). */
+  snap?: boolean;
   diffStat?: { files: number; insertions: number; deletions: number };
   costUsd?: number;
   durationMs?: number;
@@ -397,6 +399,7 @@ export type ClientMsg =
   | { type: 'dropAside'; nodeId: string; id: string }
   | { type: 'termOpen'; reqId: string; boardId: string; branchId?: string; cols: number; rows: number }
   | { type: 'termList'; reqId: string; boardId: string }
+  | { type: 'scripts'; reqId: string; boardId: string; branchId?: string }
   | { type: 'termAttach'; reqId: string; id: string }
   | { type: 'termInput'; id: string; data: string }
   | { type: 'termResize'; id: string; cols: number; rows: number }

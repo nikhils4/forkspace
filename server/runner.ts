@@ -5,7 +5,7 @@ import path from 'node:path';
 import type { Attachment, Board, Branch, PendingPermission, Position, TurnEvent, TurnNode } from '../shared/types.ts';
 import { INLINE_IMAGE_MAX, attachmentPath, imageBytes } from './attachments.ts';
 import * as g from './git.ts';
-import { commitMessage, explainCommand, threadTitle } from './tutor.ts';
+import { explainCommand, threadTitle } from './tutor.ts';
 import { archiveNote } from './threadnotes.ts';
 import { capture } from './shots.ts';
 import { ensureSessionAt } from './sessions.ts';
@@ -124,45 +124,21 @@ export async function startTurn(boardId: string, parentId: string | null, prompt
 }
 
 /**
- * Record what a step changed. Separate copy per branch: a commit, as you, with a real message
- * (skipped when nothing changed). Your own folder: a hidden snapshot, so nothing lands on your branch.
+ * Record what a step changed: a hidden snapshot of the folder, in your own folder and in a
+ * separate copy alike. Nothing is ever committed to a branch; committing stays yours.
  */
 export async function saveCheckpoint(board: Board, branch: Branch, node: TurnNode) {
   try {
-    if (branch.worktree) {
-      // If the folder moved to other code during the step (a checkout or pull), count only this
-      // step's own work, not everything that landed on main in between.
-      const head = await g.git(branch.worktree, 'rev-parse', 'HEAD');
-      if (node.baseCommit) node.baseCommit = await g.stepBase(branch.worktree, node.baseCommit, node.baseCommit, head);
-      const staged = await g.stageAll(branch.worktree);
-      if (!staged.stat.trim()) {
-        // Nothing left to save: no empty commit. (Commits the agent made itself still count.)
-        node.commit = head;
-        node.diffStat = node.baseCommit && node.baseCommit !== head ? await g.diffStat(branch.worktree, node.baseCommit, head) : { files: 0, insertions: 0, deletions: 0 };
-        return;
-      }
-      const history: string[] = [];
-      for (let p = node.parentId ? getTurn(node.parentId) : undefined; p && history.length < 6; p = p.parentId ? getTurn(p.parentId) : undefined) history.push(p.prompt);
-      const userBranch = board.repoRoot ? await g.git(board.repoRoot, 'rev-parse', '--abbrev-ref', 'HEAD').catch(() => '') : '';
-      const msg = await commitMessage({
-        prompt: node.prompt,
-        history,
-        summary: lastAgentText(node),
-        stat: staged.stat,
-        patch: staged.patch,
-        recent: await g.recentSubjects(branch.worktree),
-        branchName: userBranch,
-        cwd: branch.worktree,
-      });
-      node.commit = await g.checkpoint(branch.worktree, msg.subject, msg.body);
-      node.commitMessage = msg.subject;
-      if (node.baseCommit) node.diffStat = await g.diffStat(branch.worktree, node.baseCommit, node.commit);
-    } else if (board.repoRoot && node.baseCommit) {
-      const head = await g.git(branch.cwd, 'rev-parse', 'HEAD');
-      node.baseCommit = await g.stepBase(branch.cwd, node.baseCommit, await g.startHeadOf(branch.cwd, node.baseCommit, true), head);
-      node.commit = await g.snapshot(branch.cwd);
-      node.diffStat = await g.diffStat(branch.cwd, node.baseCommit, node.commit);
-    }
+    const dir = branch.worktree ?? (board.repoRoot ? branch.cwd : null);
+    if (!dir || !node.baseCommit) return;
+    const head = await g.git(dir, 'rev-parse', 'HEAD');
+    // Steps saved by older versions started at a real commit, not a snapshot.
+    const snapStart = node.snap ?? !branch.worktree;
+    node.baseCommit = await g.stepBase(dir, node.baseCommit, await g.startHeadOf(dir, node.baseCommit, snapStart), head);
+    node.commit = await g.snapshot(dir);
+    node.snap = true;
+    node.baseRepaired = true;
+    node.diffStat = await g.diffStat(dir, node.baseCommit, node.commit);
   } catch (err: any) {
     node.error = (node.error ? node.error + '\n' : '') + `Checkpoint failed: ${err?.message ?? err}`;
   }
@@ -172,10 +148,12 @@ async function run(board: Board, branch: Branch, node: TurnNode, parent: TurnNod
   const r: Running = { abort: new AbortController(), queue: [], showNext: () => {} };
   running.set(node.id, r);
 
-  if (branch.worktree) node.baseCommit = await g.git(branch.worktree, 'rev-parse', 'HEAD');
-  // Working in your own folder: remember how it looked (a hidden snapshot, your branch and index
-  // are untouched) so this step's changes can be shown.
-  else if (board.repoRoot) node.baseCommit = await g.snapshot(branch.cwd).catch(() => undefined);
+  // Remember how the folder looked (a hidden snapshot: the branch and index are untouched) so
+  // this step's changes can be shown.
+  if (branch.worktree || board.repoRoot) {
+    node.baseCommit = await g.snapshot(branch.worktree ?? branch.cwd).catch(() => undefined);
+    if (node.baseCommit) node.snap = true;
+  }
 
   let promptText = node.prompt;
   if (parent?.sessionId) {

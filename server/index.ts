@@ -609,7 +609,7 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       if (next?.baseCommit) return g.diff(dir, turn.baseCommit, next.baseCommit);
       // Still working: if the folder moved to other code meanwhile, show only this step's work.
       const head = await g.git(dir, 'rev-parse', 'HEAD').catch(() => '');
-      return g.liveDiff(dir, await g.stepBase(dir, turn.baseCommit, await g.startHeadOf(dir, turn.baseCommit, !branch.worktree), head));
+      return g.liveDiff(dir, await g.stepBase(dir, turn.baseCommit, await g.startHeadOf(dir, turn.baseCommit, turn.snap ?? !branch.worktree), head));
     }
     case 'listSessions': {
       const board = getBoard(msg.boardId);
@@ -692,6 +692,22 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
         setTerminalRemoteAllowed(msg.remoteAllowed);
       }
       return { supported: terminalSupported(), remoteAllowed: terminalRemoteAllowed(), here: !remoteOf.get(currentWs) };
+    }
+    case 'scripts': {
+      // The project's run scripts (package.json), for one-tap buttons over the terminal.
+      const board = getBoard(msg.boardId);
+      const dir = (msg.branchId && getBranch(msg.branchId)?.cwd) || board?.cwd;
+      if (!dir) return [];
+      try {
+        const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+        const lock = (f: string) => fs.existsSync(path.join(board?.repoRoot ?? dir, f)) || fs.existsSync(path.join(dir, f));
+        const pm = lock('pnpm-lock.yaml') ? 'pnpm' : lock('yarn.lock') ? 'yarn' : lock('bun.lockb') || lock('bun.lock') ? 'bun' : 'npm';
+        return Object.keys(pkg.scripts ?? {})
+          .slice(0, 12)
+          .map((name) => ({ name, cmd: pm === 'npm' && !['start', 'test'].includes(name) ? `npm run ${name}` : `${pm} ${name}` }));
+      } catch {
+        return [];
+      }
     }
     case 'termOpen':
     case 'termList':
@@ -902,7 +918,7 @@ async function repairStepBases() {
       // Separate copy: the step ended at its checkpoint commit (or where the folder was, if nothing
       // was left to save). Your own folder: both ends are hidden snapshots; their parents are
       // where the folder was at the start and at the end.
-      const snap = !branch.worktree;
+      const snap = n.snap ?? !branch.worktree;
       const start = await g.startHeadOf(dir, n.baseCommit, snap);
       const head = snap ? await g.git(dir, 'rev-parse', `${n.commit}^`).catch(() => start) : n.commit;
       const base = n.commit === n.baseCommit ? n.baseCommit : await g.stepBase(dir, n.baseCommit, start, head);
