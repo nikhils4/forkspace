@@ -19,7 +19,7 @@ import { turnsOfBranch } from './status.ts';
 // Everything technical (branch, folder, checkpoint, terminal command) sits behind ⋯ or a fold.
 
 /** A diff split per file, with counts. */
-function parseDiff(text: string) {
+export function parseDiff(text: string) {
   const out: { path: string; add: number; del: number; isNew: boolean; lines: string[] }[] = [];
   let cur: (typeof out)[number] | null = null;
   for (const l of text.split('\n')) {

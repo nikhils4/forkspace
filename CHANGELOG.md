@@ -3,6 +3,14 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.41.0
+
+- **Threads is now three panes.** Every thread stays listed on the left, so you never lose your place. The open thread reads in the middle, with what its step changed on the right
+- **A map of each thread's branches** sits on top of it. Click any dot or branch name to jump there
+- **Steps read like a document.** The one you pick is open, the rest are one line each. Branches that leave a step show as chips under it
+- **Keys for everything:** `↑` `↓` threads, `J` `K` steps, `]` shows or hides the changes, `1` to `4` switch views. Filter threads by name
+- Thread tabs and the stacks page are gone; the list on the left replaces both
+
 ## 0.40.0
 
 - **A new layout, like a browser.** Tabs along the top: Threads, Canvas, Code and Map, then every thread you open. The left sidebar is gone; boards, Work, Notes, Concepts, running agents, Terminal and Settings live in a slim status bar at the bottom

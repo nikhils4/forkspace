@@ -55,19 +55,17 @@ Maintainers: add a section to CHANGELOG.md, then `npm run release -- 0.3.0` (or 
 - **Screenshots:** set your app's address (like `http://localhost:3000`) in board settings and Forkspace snaps it after each step that changes files, using the Chrome you already have. The newest screenshot becomes the thread's cover, so you can see at a glance what each thread built. You can also paste (`⌘V`) onto a selected step, drop an image on a card, or pick one from the card's menu.
 - **Complete:** each thread has a circle above its first card. Click it when the thread is finished: it fills with a green tick and the whole thread fades back, so what's left stands out.
 
-### Laid out like a browser
+### Three panes
 
-Tabs run along the top. The first four are always there; after them come the threads you opened.
+Along the top: **Threads**, **Canvas**, **Code** and **Map** (keys `1` to `4`). Threads is home, and it's three panes:
 
-| Tab | What it's for |
+| Pane | What's there |
 |---|---|
-| **Threads** | Every thread as a stack of cards: what it's doing, how many steps and branches, what changed. Grouped by what needs you, what's working, what's open and what's done. Start a new thread from the box at the top. |
-| **Canvas** | Every step and branch on one map, with your notes. **Tidy up** arranges it; zoom out for titles only. |
-| **Code** | The branch's files and a live diff of everything the agents changed. **Follow agent** opens each file as it's edited. |
-| **Map** | Your codebase, explained. |
-| **A thread** | Its steps on the left, one card each, with its branches above them. The chosen step reads on the right: what you asked, the answer, what changed, and the box to reply or branch. `J` and `K` move between steps. |
+| **Left** | Every thread, grouped by what needs you, what's working, what's open and what's done. Filter by name. The open thread shows its branches under it. `↑` `↓` move between threads. |
+| **Middle** | The open thread. A small map of its branches on top: click any dot or branch name to go there. Below, its steps in order: the chosen one is open (what you asked, the answer, side questions, how it got there), the rest are one line each. `J` `K` move between steps. The box at the bottom replies or branches. |
+| **Right** | What the chosen step changed, file by file, plus the pull request. `]` hides it for more reading room. |
 
-Click a stack, a card on the canvas or a search result and it opens in its thread's tab. Close a tab with its **×** or a middle-click. The status bar along the bottom holds the board switcher, **Work**, **Notes**, **Concepts**, running agents, **Terminal** and **Settings**. On a phone it stays the familiar chat, with tabs at the bottom.
+Clicking a card on the canvas, a search result or a running agent opens it here. The status bar along the bottom holds the board switcher, **Work**, **Notes**, **Concepts**, running agents, **Terminal** and **Settings**. On a phone it stays the familiar chat, with tabs at the bottom.
 
 ### Terminal
 
@@ -168,12 +166,14 @@ Anything waiting on you glows amber, shows in the status bar, and adds a count t
 | `Enter` | Send (`Shift+Enter` for a new line) |
 | `/` or `r` | Focus the message box |
 | `⌘K` or `⌘P` | Search boards, branches, files and actions |
-| `1` `2` `3` `4` | Threads, Canvas, Code, Map tabs |
-| `Esc` | Back to Threads from a thread tab |
+| `1` `2` `3` `4` | Threads, Canvas, Code, Map |
+| `↑` `↓` | Previous or next thread |
+| `J` `K` | Next or previous step |
+| `]` | Show or hide what changed |
 | `n` | New note |
 | `Ctrl+`` ` | Terminal |
 | `Backspace` | Delete selected steps (and their branches) or notes |
-| Click a step | Open it in its thread's tab |
+| Click a step | Read it in Threads |
 | Right-click (long-press on a phone) | Menu for a step, note or empty canvas: reply, branch, explain, copy, recolour, delete |
 | Right-click a board, or its `···` | Board settings, **Start fresh** (clear every card, keep the board), Delete board |
 

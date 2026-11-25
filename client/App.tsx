@@ -18,7 +18,8 @@ import { PairScreen, Splash, StartCommand, UnreachableScreen } from './Gate.tsx'
 import { Icon } from './icons.tsx';
 import { Inbox, useAgents } from './Inbox.tsx';
 import { WorkPage } from './Threads.tsx';
-import { Dock, Stacks, TabStrip, ThreadView, rootOf, tipFrom, type ActiveTab } from './Workspace.tsx';
+import { Dock, TabStrip, type ActiveTab } from './Workspace.tsx';
+import { ChangesPane, NewThreadPane, ThreadList, ThreadReader } from './Reader.tsx';
 import { threadsOf } from './status.ts';
 import { ImportSessions } from './Import.tsx';
 import { LearnLibrary } from './Learn.tsx';
@@ -31,7 +32,7 @@ import { Palette, type PaletteItem } from './Palette.tsx';
 import { Settings, settingsTab } from './Settings.tsx';
 import { request, send, toast, useStore } from './store.ts';
 import { branchColor, STATUS_LABEL } from './nodes.tsx';
-import { isLive, isTurn, latestLeaf, leaves, pathTo } from './tree.ts';
+import { isLive, isTurn, latestLeaf, leaves } from './tree.ts';
 import { clearReady, useReady, useWatchFinishes } from './review.ts';
 import { Segmented, Sheet, useIsMobile } from './ui.tsx';
 
@@ -111,14 +112,7 @@ function Shell() {
   useWatchFinishes(store.nodes, store.loaded);
 
   const board = store.boards.find((b) => b.id === boardId) ?? store.boards[0] ?? null;
-  // Desktop: browser-style tabs per board. The board's views first, then the threads you opened.
-  const [tabsBy, setTabsBy] = useState<Record<string, string[]>>(() => {
-    try {
-      return JSON.parse(ls.get('forkspace:tabs') || '{}');
-    } catch {
-      return {};
-    }
-  });
+  // Desktop: which view each board shows (Threads, Canvas, Code, Map) and the step last open there.
   const [activeBy, setActiveBy] = useState<Record<string, ActiveTab>>(() => {
     try {
       return JSON.parse(ls.get('forkspace:active') || '{}');
@@ -126,14 +120,20 @@ function Shell() {
       return {};
     }
   });
-  // The step last shown in each thread tab, so switching back lands where you were.
-  const [sel, setSel] = useState<Record<string, string>>({});
-  useEffect(() => ls.set('forkspace:tabs', JSON.stringify(tabsBy)), [tabsBy]);
+  const [lastOpen, setLastOpen] = useState<Record<string, string>>(() => {
+    try {
+      return JSON.parse(ls.get('forkspace:last-open') || '{}');
+    } catch {
+      return {};
+    }
+  });
   useEffect(() => ls.set('forkspace:active', JSON.stringify(activeBy)), [activeBy]);
-  const tabs = (board ? (tabsBy[board.id] ?? []) : []).filter((id) => isTurn(store.nodes[id]) && !store.nodes[id].parentId);
-  const rawDesk: ActiveTab = (board && activeBy[board.id]) || 'stacks';
-  const desk: ActiveTab = rawDesk.startsWith('t:') && !tabs.includes(rawDesk.slice(2)) ? 'stacks' : rawDesk;
-  const deskThread = desk.startsWith('t:') ? desk.slice(2) : null;
+  useEffect(() => ls.set('forkspace:last-open', JSON.stringify(lastOpen)), [lastOpen]);
+  const rawDesk = (board && activeBy[board.id]) || 'stacks';
+  const desk: ActiveTab = (['stacks', 'canvas', 'code', 'map'] as string[]).includes(rawDesk) ? rawDesk : 'stacks';
+  // The right pane (what the step changed) can be hidden for more reading room.
+  const [sideOpen, setSideOpen] = useState(() => ls.get('forkspace:changes') !== 'closed');
+  useEffect(() => ls.set('forkspace:changes', sideOpen ? 'open' : 'closed'), [sideOpen]);
   const view: View = mobile ? (board && views[board.id]) || 'chat' : desk === 'code' || desk === 'map' ? desk : 'canvas';
   const targetId = board ? (targets[board.id] ?? null) : null;
   const target = targetId && isTurn(store.nodes[targetId]) ? (store.nodes[targetId] as TurnNode) : undefined;
@@ -155,19 +155,22 @@ function Shell() {
   useEffect(() => {
     if (targetId && openId && openId !== targetId && isTurn(store.nodes[targetId])) setOpenIdRaw(targetId);
   }, [targetId, targetLoaded]);
-  // Desktop: a step that opens (a card clicked, a notification, a search hit) shows in its
-  // thread's tab, opening the tab if needed.
+  // Desktop: a step that opens (a card clicked, a notification, a search hit) reads in the
+  // Threads view, with its thread picked on the left.
   const openLoaded = !!(openId && store.nodes[openId]);
   useEffect(() => {
     if (mobile || !openId || !isTurn(store.nodes[openId])) return;
     const n = store.nodes[openId] as TurnNode;
-    const root = rootOf(store.nodes, n.id);
-    if (!root) return;
     if (n.boardId !== board?.id) setBoardId(n.boardId);
-    setTabsBy((x) => ((x[n.boardId] ?? []).includes(root.id) ? x : { ...x, [n.boardId]: [...(x[n.boardId] ?? []), root.id].slice(-12) }));
-    setActiveBy((x) => ({ ...x, [n.boardId]: `t:${root.id}` }));
-    setSel((x) => ({ ...x, [root.id]: n.id }));
+    setActiveBy((x) => ({ ...x, [n.boardId]: 'stacks' }));
+    setLastOpen((x) => ({ ...x, [n.boardId]: n.id }));
   }, [openId, openLoaded, mobile]);
+  // Coming back to Threads (or to a board): open the step you were last reading.
+  useEffect(() => {
+    if (mobile || !board || desk !== 'stacks' || page !== 'board' || openId) return;
+    const id = lastOpen[board.id];
+    if (id && isTurn(store.nodes[id]) && store.nodes[id].boardId === board.id) setOpenIdRaw(id);
+  }, [board?.id, desk, page, mobile]);
   // The details panel belongs to the board: going to Concepts or Notes closes it.
   useEffect(() => {
     if (page !== 'board') setOpenIdRaw(null);
@@ -291,7 +294,7 @@ function Shell() {
         }
       }
       if (e.key === 'Escape' && !openId && !sheet && page !== 'board') return setPage('board');
-      if (!mobile && board && e.key === 'Escape' && !sheet && deskThread) return pickTab('stacks');
+      if (!mobile && board && desk === 'stacks' && (e.key === ']' || e.key === '[')) return setSideOpen((v) => !v);
       if (!mobile && board && ['1', '2', '3', '4'].includes(e.key)) {
         setPage('board');
         return pickTab((['stacks', 'canvas', 'code', 'map'] as const)[Number(e.key) - 1]);
@@ -304,7 +307,7 @@ function Shell() {
     };
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
-  }, [openId, targetId, sheet, board?.id, setTargetId, page, deskThread, mobile, tabs.join()]);
+  }, [openId, targetId, sheet, board?.id, setTargetId, page, desk, mobile]);
 
   const submit = async (prompt: string, attachments: Attachment[] = [], parentId: string | null = targetId, fork = false) => {
     if (!board) return false;
@@ -324,32 +327,20 @@ function Shell() {
     }
   };
 
-  // ---- desktop tabs ----
+  // ---- desktop views ----
   function pickTab(t: ActiveTab) {
     if (!board) return;
     setPage('board');
     setActiveBy((x) => ({ ...x, [board.id]: t }));
-    if (t.startsWith('t:')) {
-      const root = t.slice(2);
-      const id = sel[root] && store.nodes[sel[root]] ? sel[root] : tipFrom(store.nodes, root).id;
-      setOpenId(id);
-    } else setOpenIdRaw(null);
-  }
-  function closeTab(root: string) {
-    if (!board) return;
-    const list = tabs.filter((x) => x !== root);
-    setTabsBy((x) => ({ ...x, [board.id]: list }));
-    if (desk === `t:${root}`) {
-      const i = tabs.indexOf(root);
-      const next = list[Math.min(i, list.length - 1)];
-      if (next) pickTab(`t:${next}`);
-      else pickTab('stacks');
-    }
+    // Threads keeps the step you're reading; the other views have their own selection.
+    if (t !== 'stacks') setOpenIdRaw(null);
+    else if (!openId && lastOpen[board.id] && isTurn(store.nodes[lastOpen[board.id]])) setOpenIdRaw(lastOpen[board.id]);
   }
   const newThread = () => {
     setPage('board');
     if (board) setActiveBy((x) => ({ ...x, [board.id]: 'stacks' }));
     setOpenIdRaw(null);
+    if (board) setLastOpen((x) => ({ ...x, [board.id]: '' }));
     setTargetId(null);
     setTimeout(() => composerFocus.current?.focus(), 60);
   };
@@ -375,7 +366,6 @@ function Shell() {
 
   // Concepts: thread notes kept.
   const lessonCount = store.concepts.length;
-  const learnOn = board?.learn?.on !== false;
 
   // The details panel has its own message box, always for the step it shows.
   const drawerComposer =
@@ -691,13 +681,13 @@ function Shell() {
 
   // ---------------- desktop ----------------
   // Like a browser: tabs on top, the page in the middle, the terminal under it, a status bar below.
-  const threadStep = deskThread && openNode && rootOf(store.nodes, openNode.id)?.id === deskThread ? openNode : null;
+  const reading = desk === 'stacks' && openNode && openNode.boardId === board?.id ? openNode : null;
   const pageTitle = { concepts: 'Concepts', work: 'Work', notes: 'Notes' } as const;
   const togglePage = (p: 'work' | 'notes' | 'concepts') => setPage(page === p ? 'board' : p);
   return (
     <div className="app ws">
       {board ? (
-        <TabStrip board={board} active={page === 'board' ? desk : ('' as ActiveTab)} tabs={tabs} onPick={pickTab} onClose={closeTab} onNew={newThread} onSearch={() => setPalette(true)} />
+        <TabStrip board={board} active={page === 'board' ? desk : ('' as ActiveTab)} onPick={pickTab} onSearch={() => setPalette(true)} />
       ) : (
         <header className="ws-tabs" />
       )}
@@ -731,39 +721,30 @@ function Shell() {
           </div>
         )}
         {/* Kept mounted behind the other tabs so the canvas and code keep their place. */}
-        <div className="main-body" style={page !== 'board' || desk === 'stacks' || deskThread ? { display: 'none' } : undefined}>
+        <div className="main-body" style={page !== 'board' || desk === 'stacks' ? { display: 'none' } : undefined}>
           {boardView}
         </div>
         {board && page === 'board' && desk === 'stacks' && (
-          <Stacks
-            board={board}
-            onOpen={(t) => setOpenId(sel[rootOf(store.nodes, t.id)?.id ?? ''] && store.nodes[sel[rootOf(store.nodes, t.id)!.id]] ? sel[rootOf(store.nodes, t.id)!.id] : tipFrom(store.nodes, t.id).id)}
-            composer={<Composer key={`new-${board.id}`} board={board} onSubmit={(p, a) => submit(p, a, null)} />}
-          />
-        )}
-        {board && page === 'board' && deskThread && threadStep && (
-          <ThreadView
-            key={deskThread}
-            stepId={threadStep.id}
-            onSelect={(id) => setOpenId(id)}
-            detail={
-              <Drawer
-                embedded
-                key={threadStep.id}
-                node={threadStep}
-                onClose={() => pickTab('stacks')}
-                onReply={(id) => (setTargetId(id), setTimeout(() => composerFocus.current?.focus(), 0))}
-                onGo={(id) => setOpenId(id)}
-                onBranch={(p) => void submit(p, [], threadStep.id, true)}
+          <div className={`tp ${reading && sideOpen ? '' : 'no-side'}`}>
+            <ThreadList boardId={board.id} current={reading} onPick={(t) => setOpenId(t.id)} onNew={newThread} />
+            {reading ? (
+              <ThreadReader
+                stepId={reading.id}
+                onSelect={(id) => setOpenId(id)}
+                onBranch={(p) => void submit(p, [], reading.id, true)}
                 composer={drawerComposer}
+                sideOpen={sideOpen}
+                onToggleSide={() => setSideOpen(!sideOpen)}
               />
-            }
-          />
+            ) : (
+              <NewThreadPane count={leaves(store.nodes, board.id).length} composer={<Composer key={`new-${board.id}`} board={board} onSubmit={(p, a) => submit(p, a, null)} />} />
+            )}
+            {reading && sideOpen && <ChangesPane node={reading} />}
+          </div>
         )}
-        {board && page === 'board' && deskThread && !threadStep && <div className="ws-loading" />}
         {termOpen && board && (
           <Suspense fallback={null}>
-            <TerminalPanel board={board} branchId={threadStep?.branchId ?? target?.branchId} openFor={termFor} onClose={() => setTermOpen(false)} docked />
+            <TerminalPanel board={board} branchId={reading?.branchId ?? target?.branchId} openFor={termFor} onClose={() => setTermOpen(false)} docked />
           </Suspense>
         )}
       </main>
