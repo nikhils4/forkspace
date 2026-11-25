@@ -2097,3 +2097,29 @@
   font-weight: 600;
   outline: none;
 }
+
+/* Steps above where you started the tree: one line to bring them back. */
+.stree-hidden {
+  margin: 0 8px 8px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border-radius: 7px;
+  border: 1px dashed var(--border-2);
+  background: none;
+  color: var(--text-3);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.stree-hidden span {
+  margin-left: auto;
+  color: var(--accent);
+  font-weight: 600;
+}
+.stree-hidden:hover {
+  color: var(--text-2);
+  border-color: var(--text-3);
+}

@@ -77,8 +77,27 @@ export function StepTree({ rootId, selectedId, pathIds, onSelect }: { rootId: st
     (box.current?.querySelector('.stp.sel') as HTMLElement | null)?.scrollIntoView({ block: 'nearest' });
   }, [selectedId]);
 
+  const [menu, setMenu] = useState<{ x: number; y: number; t: TurnNode } | null>(null);
   const root = nodes[rootId] as TurnNode | undefined;
   if (!root) return <nav className="stree" />;
+  const top = (root.startAt && (nodes[root.startAt] as TurnNode | undefined)) || root;
+  const hidden = all.length - threadSteps(nodes, top.id).length;
+  const startHere = (t: TurnNode) => {
+    send({ type: 'setStart', rootId: root.id, stepId: t.id });
+    if (!pathTo(nodes, selectedId).some((s) => s.id === t.id)) onSelect(t.id);
+    toast('Earlier steps hidden. They’re not deleted, and Keep still includes their changes.');
+  };
+  const copy = (text: string, what: string) => navigator.clipboard?.writeText(text).then(() => toast(`${what} copied`), () => toast('Could not copy', 'error'));
+  const menuFor = (t: TurnNode): MenuItem[] => {
+    const said = [...t.events].reverse().find((e) => e.t === 'text' && e.text.trim());
+    return [
+      ...(t.id !== top.id ? [{ label: 'Start the tree here', icon: 'chevronUp' as const, hint: 'hides steps above', onClick: () => startHere(t) }] : []),
+      ...(hidden ? [{ label: `Show all steps (${hidden} hidden)`, icon: 'chevronDown' as const, onClick: () => send({ type: 'setStart', rootId: root.id, stepId: null }) }] : []),
+      'sep',
+      { label: 'Copy what you asked', icon: 'copy', onClick: () => copy(t.prompt, 'Prompt') },
+      ...(said && said.t === 'text' ? [{ label: 'Copy what it said', icon: 'copy' as const, onClick: () => copy(said.text, 'Answer') }] : []),
+    ];
+  };
   // Depth first, a step's own continuation before the branches that leave it.
   const rows: TurnNode[] = [];
   const walk = (t: TurnNode) => {
@@ -86,7 +105,7 @@ export function StepTree({ rootId, selectedId, pathIds, onSelect }: { rootId: st
     const kids = childrenOf(nodes, t.id).sort((a, b) => a.createdAt - b.createdAt);
     [...kids.filter((k) => k.branchId === t.branchId), ...kids.filter((k) => k.branchId !== t.branchId)].forEach(walk);
   };
-  walk(root);
+  walk(top);
   const lanes: string[] = [];
   for (const t of rows) if (!lanes.includes(t.branchId)) lanes.push(t.branchId);
   const row = new Map(rows.map((t, i) => [t.id, i]));
@@ -101,6 +120,13 @@ export function StepTree({ rootId, selectedId, pathIds, onSelect }: { rootId: st
       <div className="stree-h">
         Steps <span>{rows.length}{lanes.length > 1 ? ` · ${lanes.length} branches` : ''}</span>
       </div>
+      {hidden > 0 && (
+        <button className="stree-hidden" onClick={() => send({ type: 'setStart', rootId: root.id, stepId: null })} title="Show the steps above again">
+          <Icon name="chevronUp" size={12} />
+          {hidden} earlier step{hidden === 1 ? '' : 's'} hidden
+          <span>Show</span>
+        </button>
+      )}
       <div className="stree-scroll" ref={box}>
         <div className="stree-rows" style={{ height }}>
           <svg width="100%" height={height} className="stree-edges" aria-hidden>
@@ -118,13 +144,14 @@ export function StepTree({ rootId, selectedId, pathIds, onSelect }: { rootId: st
           </svg>
           {rows.map((t, i) => {
             const on = pathIds.has(t.id);
-            const starts = i > 0 && t.parentId && (nodes[t.parentId] as TurnNode | undefined)?.branchId !== t.branchId;
+            const starts = i > 0 && t.parentId && row.has(t.parentId) && (nodes[t.parentId] as TurnNode | undefined)?.branchId !== t.branchId;
             return (
               <button
                 key={t.id}
                 className={`stp ${on ? 'path' : ''} ${t.id === selectedId ? 'sel' : ''}`}
                 style={{ top: i * ROW, height: ROW, paddingLeft: pad, ['--branch' as any]: branchColor(t.branchId) }}
                 onClick={() => onSelect(t.id)}
+                onContextMenu={(e) => (e.preventDefault(), setMenu({ x: e.clientX, y: e.clientY, t }))}
                 title={`${starts && purpose(t) ? `${purpose(t)}\n` : ''}${t.prompt}\n${STATUS_LABEL[t.status]}`}
               >
                 <span className={`stp-dot ${dot(t)}`} style={{ left: laneX(lane(t)) - 5.5 }} />
@@ -136,6 +163,7 @@ export function StepTree({ rootId, selectedId, pathIds, onSelect }: { rootId: st
           })}
         </div>
       </div>
+      {menu && <ContextMenu x={menu.x} y={menu.y} items={menuFor(menu.t)} onClose={() => setMenu(null)} />}
     </nav>
   );
 }
@@ -180,9 +208,12 @@ export function ThreadReader({
   useEffect(() => {
     if (tip.id !== tipId) setTipId(tip.id);
   }, [tip.id]);
-  const path = pathTo(nodes, tip.id);
-  const pathIds = useMemo(() => new Set(path.map((t) => t.id)), [path.map((t) => t.id).join()]);
-  const root = path[0];
+  const fullPath = pathTo(nodes, tip.id);
+  const pathIds = useMemo(() => new Set(fullPath.map((t) => t.id)), [fullPath.map((t) => t.id).join()]);
+  const root = fullPath[0];
+  // Steps above where you started the tree are hidden here too, and numbering starts from there.
+  const from = root.startAt ? fullPath.findIndex((t) => t.id === root.startAt) : -1;
+  const path = from > 0 ? fullPath.slice(from) : fullPath;
   const row = useMemo(() => threadsOf(nodes, branches, boards, ready, root.boardId).find((t) => t.root.id === root.id), [nodes, branches, boards, ready, root.id]);
 
   // Branching from a step: the box under the thread says so, until you send or cancel.
@@ -219,6 +250,10 @@ export function ThreadReader({
   }, [streamed]);
 
   const index = path.findIndex((t) => t.id === stepId);
+  // Reading a step that's now hidden: go to where the tree starts.
+  useEffect(() => {
+    if (index < 0 && path[0]) onSelect(path[0].id);
+  }, [index, path[0]?.id]);
   // Which way you moved, so the step slides in from that side.
   const was = useRef(index);
   const dir = index > was.current ? 'next' : index < was.current ? 'prev' : 'same';

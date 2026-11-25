@@ -907,6 +907,15 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       broadcast({ type: 'node', node: root });
       return root.kept;
     }
+    case 'setStart': {
+      // Where a thread's tree starts. Only hides the steps above; Keep still covers all of them.
+      const root = getTurn(msg.rootId);
+      if (!root) throw new Error('Task not found');
+      root.startAt = msg.stepId && msg.stepId !== root.id ? msg.stepId : undefined;
+      save();
+      broadcast({ type: 'node', node: root });
+      return;
+    }
     case 'setDiscarded': {
       // Discarding only puts a task away: it stays in History, code and all, until deleted for good.
       const t = getTurn(msg.nodeId);

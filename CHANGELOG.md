@@ -3,6 +3,11 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.52.0
+
+- **Start the tree here.** Right-click a step on the left to hide every step above it. The tree moves up, numbering starts from that step, and the step list follows. Nothing is deleted, and Keep still includes those changes; "Show" at the top of the tree brings them back
+- Right-click a step to copy what you asked or what it said
+
 ## 0.51.0
 
 - **No more box above the reply.** Keep is a small green button in the header once a task finishes; its menu has the other ways to keep it, Done and Discard. Hover it to see which checks passed

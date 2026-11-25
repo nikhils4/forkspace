@@ -278,6 +278,8 @@ export interface TurnNode {
   kept?: { at: number; mode: 'commit' | 'folder'; commit?: string; files: number };
   /** When you discarded this task. It waits in History until you delete it for good. */
   discarded?: number;
+  /** On a thread's first step: the step its tree and numbering start from. Steps above it are hidden, not deleted. */
+  startAt?: string;
   id: string;
   boardId: string;
   parentId: string | null;
@@ -416,6 +418,7 @@ export type ClientMsg =
   | { type: 'termSettings'; reqId: string; remoteAllowed?: boolean }
   | { type: 'setCompleted'; nodeId: string; completed: boolean }
   | { type: 'setDiscarded'; nodeId: string; discarded: boolean }
+  | { type: 'setStart'; rootId: string; stepId: string | null }
   | { type: 'keep'; reqId: string; nodeId: string; mode: 'commit' | 'folder'; message?: string }
   | { type: 'enableTailscale'; reqId: string }
   | { type: 'setPublicUrl'; reqId: string; url: string }
