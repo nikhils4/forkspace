@@ -3,6 +3,10 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.59.0
+
+- **Steps show what Claude sent, as sent.** No more summary cards on top. Its messages and thinking appear in order, the tools it used stay as one quiet line between them, and its plan shows where it wrote it
+
 ## 0.58.0
 
 - **A sticky note on every task.** Add a note at the top of the step list, or press N. It stays in view, saves as you type, and shows when you hover the tab. The agent never sees it
