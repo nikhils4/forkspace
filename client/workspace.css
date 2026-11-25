@@ -1886,57 +1886,34 @@
   color: var(--text-2);
 }
 
-/* Where you are on this path: one segment per step, coloured by how it went. */
+/* Which step you're on; click to go to another. */
 .rd-pos {
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-3);
+  font: inherit;
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-3);
   font-variant-numeric: tabular-nums;
-}
-.rd-strip {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  height: 14px;
-  margin-top: 12px;
-}
-.rd-seg {
-  flex: 1;
-  min-width: 3px;
-  max-width: 64px;
-  height: 4px;
-  padding: 0;
-  border: 0;
-  border-radius: 3px;
-  background: var(--border-2);
   cursor: pointer;
-  transition:
-    height 0.12s,
-    background 0.12s;
 }
-.rd-seg.past {
-  background: color-mix(in srgb, var(--branch) 45%, var(--border-2));
+.rd-pos:hover {
+  color: var(--text);
+  border-color: var(--border-2);
+  background: var(--surface-2);
 }
-.rd-seg.on {
-  height: 8px;
-  background: var(--branch);
+/* Long menus (every step of a long thread) scroll instead of running off the screen. */
+.ctx {
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
 }
-.rd-seg:hover {
-  height: 8px;
-}
-.rd-seg.st-error {
-  background: var(--err);
-}
-.rd-seg.st-waiting {
-  background: var(--warn);
-}
-.rd-seg.st-running {
-  background: var(--accent);
-  animation: tk-pulse 1.4s ease-in-out infinite;
-}
-.rd-head {
-  padding-bottom: 10px;
-}
+
 
 /* =========================================================
    Status icons, one set everywhere (tabs, header, History, the box above the reply).

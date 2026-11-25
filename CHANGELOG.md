@@ -3,6 +3,11 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.48.0
+
+- **A calmer header.** The bar of step segments is gone. One small button shows which step you're on ("15/24"); click it for a list of every step, opening at the one you're on, and jump to any of them
+- Long menus scroll instead of running off the screen
+
 ## 0.47.0
 
 - **See where you are in a long thread.** A bar across the top has one segment per step, coloured by how it went (done, failed, needs you, working). Click any segment to go there; the count shows which step you're on

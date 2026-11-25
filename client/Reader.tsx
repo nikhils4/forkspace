@@ -188,6 +188,11 @@ export function ThreadReader({
   // Branching from a step: the box under the thread says so, until you send or cancel.
   const [branchFrom, setBranchFrom] = useState<string | null>(null);
   const [keeping, setKeeping] = useState<KeepMode | null>(null);
+  const [jump, setJump] = useState<{ x: number; y: number } | null>(null);
+  // The step list opens at the step you're on.
+  useEffect(() => {
+    if (jump) requestAnimationFrame(() => (document.querySelectorAll('.ctx .ctx-item')[index] as HTMLElement | undefined)?.scrollIntoView({ block: 'center' }));
+  }, [jump]);
   useEffect(() => (setBranchFrom(null), setKeeping(null)), [root.id]);
   const target = (branchFrom && (nodes[branchFrom] as TurnNode)) || tip;
 
@@ -247,27 +252,36 @@ export function ThreadReader({
             </span>
           )}
           <span className="spacer" />
-          <span className="rd-pos">
-            {index + 1} / {path.length}
-          </span>
+          {path.length > 1 && (
+            <button
+              className="rd-pos"
+              onClick={(e) => {
+                const r = e.currentTarget.getBoundingClientRect();
+                setJump({ x: r.right - 260, y: r.bottom + 6 });
+              }}
+              title="Go to a step"
+              aria-label={`Step ${index + 1} of ${path.length}. Go to a step`}
+            >
+              <Icon name="list" size={13} />
+              {index + 1}/{path.length}
+            </button>
+          )}
           <button className={`icon-btn sm ${sideOpen ? 'on' : ''}`} onClick={onToggleSide} title={sideOpen ? 'Hide changes (])' : 'Show changes (])'} aria-label="Changes panel" aria-pressed={sideOpen}>
             <Icon name="sidebar" size={15} />
           </button>
         </div>
-        {path.length > 1 && (
-          <div className="rd-strip" role="tablist" aria-label="Steps on this path">
-            {path.map((t, i) => (
-              <button
-                key={t.id}
-                role="tab"
-                aria-selected={i === index}
-                className={`rd-seg st-${t.status} ${i === index ? 'on' : i < index ? 'past' : ''}`}
-                style={{ ['--branch' as any]: branchColor(t.branchId) }}
-                onClick={() => select(t.id)}
-                title={`Step ${i + 1} · ${stepLabel(t)}`}
-              />
-            ))}
-          </div>
+        {jump && (
+          <ContextMenu
+            x={jump.x}
+            y={jump.y}
+            items={path.map((t, i) => ({
+              label: `${i + 1}. ${stepLabel(t)}`,
+              icon: i === index ? 'check' : t.status === 'error' ? 'x' : t.status === 'waiting' ? 'bell' : t.status === 'running' ? 'spark' : undefined,
+              hint: t.status === 'error' ? 'failed' : t.status === 'waiting' ? 'needs you' : t.status === 'running' ? 'working' : undefined,
+              onClick: () => select(t.id),
+            }))}
+            onClose={() => setJump(null)}
+          />
         )}
       </header>
       <div className="rd-scroll" ref={scroller}>
