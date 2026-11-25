@@ -20,17 +20,21 @@ export const setPrEmit = (fn: (m: ServerMsg) => void) => (emit = fn);
 const push = (b: Branch) => emit({ type: 'branch', branch: b });
 
 let ghOk: boolean | null = null;
+let ghAskedAt = 0;
 async function gh(cwd: string, ...args: string[]) {
   const { stdout } = await run('gh', args, { cwd, timeout: 20_000, maxBuffer: 16 * 1024 * 1024 });
   return stdout;
 }
-/** Is the GitHub CLI installed and signed in? Asked once. */
+/** Is the GitHub CLI installed and signed in? A yes is kept; a no is asked again a minute later
+ * (offline at start, a login fixed since). `gh auth token` only looks at the account in use, where
+ * `gh auth status` fails when any other saved account has an expired login. */
 async function haveGh() {
-  if (ghOk == null)
-    ghOk = await run('gh', ['auth', 'status'], { timeout: 10_000 }).then(
-      () => true,
-      () => false,
-    );
+  if (ghOk || (ghOk === false && Date.now() - ghAskedAt < 60_000)) return ghOk;
+  ghAskedAt = Date.now();
+  ghOk = await run('gh', ['auth', 'token'], { timeout: 10_000 }).then(
+    () => true,
+    () => false,
+  );
   return ghOk;
 }
 
@@ -56,8 +60,9 @@ const firstLine = (body: string, fallback: string) =>
 
 const QUERY = `query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){
   number url title state isDraft mergeable reviewDecision author{login}
-  commits(last:1){nodes{commit{committedDate statusCheckRollup{contexts(first:100){nodes{
-    __typename ... on CheckRun{name status conclusion detailsUrl} ... on StatusContext{context state targetUrl}}}}}}}
+  commits(last:1){nodes{commit{committedDate statusCheckRollup{state contexts(first:100){nodes{
+    __typename ... on CheckRun{name status conclusion detailsUrl startedAt completedAt checkSuite{workflowRun{workflow{name}}}}
+    ... on StatusContext{context state targetUrl createdAt}}}}}}}
   reviewThreads(first:100){nodes{isResolved isOutdated path line comments(first:1){nodes{author{__typename login} body url}}}}
   comments(last:40){nodes{author{__typename login} body url createdAt}}
 }}}`;
@@ -72,12 +77,23 @@ export async function readPr(url: string, cwd: string): Promise<PrInfo> {
 
   const items: PrItem[] = [];
   const last = pr.commits?.nodes?.[0]?.commit;
-  const contexts: any[] = last?.statusCheckRollup?.contexts?.nodes ?? [];
+  const rollup = last?.statusCheckRollup;
+  // A check that was re-run stays in the list next to its new run, so the old failure would still
+  // count. Keep only the latest run of each check, the way GitHub's own page (and gh pr checks) do.
+  const latest = new Map<string, any>();
+  const when = (c: any) => Date.parse(c.startedAt ?? c.completedAt ?? c.createdAt ?? '') || 0;
+  for (const c of (rollup?.contexts?.nodes ?? []) as any[]) {
+    const key = c.__typename === 'CheckRun' ? `${c.checkSuite?.workflowRun?.workflow?.name ?? ''}/${c.name}` : `status/${c.context}`;
+    const had = latest.get(key);
+    if (!had || when(c) >= when(had)) latest.set(key, c);
+  }
+  // GitHub's own verdict for the commit wins when it says everything passed.
+  const allGreen = rollup?.state === 'SUCCESS';
   const checks = { failing: 0, pending: 0, passing: 0 };
-  for (const c of contexts) {
+  for (const c of latest.values()) {
     const name = c.name ?? c.context ?? 'check';
     const done = c.__typename === 'CheckRun' ? c.status === 'COMPLETED' : c.state !== 'PENDING' && c.state !== 'EXPECTED';
-    const bad = FAILED.has(c.conclusion ?? c.state ?? '');
+    const bad = !allGreen && FAILED.has(c.conclusion ?? c.state ?? '');
     if (!done) checks.pending++;
     else if (bad) {
       checks.failing++;
@@ -130,12 +146,19 @@ const busy = new Set<string>();
 /** Read the branch's PR again now. */
 export async function refreshPr(branchId: string) {
   const b = getBranch(branchId);
-  if (!b?.pr || busy.has(branchId) || !(await haveGh())) return b?.pr;
+  if (!b?.pr || busy.has(branchId)) return b?.pr;
+  if (!(await haveGh())) {
+    // Say so instead of quietly showing what was read last time.
+    b.pr = { ...b.pr, error: 'The GitHub CLI is not signed in here. Run "gh auth login", then Check now.' };
+    push(b);
+    return b.pr;
+  }
   busy.add(branchId);
   try {
     b.pr = await readPr(b.pr.url, b.cwd);
   } catch (e: any) {
-    b.pr = { ...b.pr, error: clip(String(e?.stderr || e?.message || e).trim(), 200), checkedAt: Date.now() };
+    // Keep when it was last read right, so the panel doesn't claim a fresh read.
+    b.pr = { ...b.pr, error: clip(String(e?.stderr || e?.message || e).trim(), 200) };
   } finally {
     busy.delete(branchId);
   }

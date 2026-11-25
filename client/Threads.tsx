@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Branch, PrInfo, TurnNode } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
 import { branchColor } from './nodes.tsx';
@@ -180,6 +180,11 @@ export function PrSection({ branch, last }: { branch: Branch; last: TurnNode }) 
   const [busy, setBusy] = useState(false);
   const [linking, setLinking] = useState(false);
   const pr = branch.pr;
+  // Opening the panel reads the PR again when what's shown is more than half a minute old.
+  useEffect(() => {
+    if (!pr || pr.state === 'MERGED' || pr.state === 'CLOSED') return;
+    if (Date.now() - (pr.checkedAt ?? 0) > 30_000) request({ type: 'refreshPr', branchId: branch.id }).catch(() => {});
+  }, [branch.id, pr?.url]);
   const call = async (msg: object) => {
     setBusy(true);
     try {
@@ -222,7 +227,7 @@ export function PrSection({ branch, last }: { branch: Branch; last: TurnNode }) 
     <section className="ds ds-pr">
       <div className="ds-label">
         Pull request
-        <span className="ds-meta">{pr.checkedAt ? `checked ${timeAgo(pr.checkedAt)}` : 'reading…'}</span>
+        <span className="ds-meta">{pr.error ? (pr.checkedAt ? `last read ${timeAgo(pr.checkedAt)}` : 'not read yet') : pr.checkedAt ? `checked ${timeAgo(pr.checkedAt)}` : 'reading…'}</span>
       </div>
       <div className="pr-head">
         <a href={pr.url} target="_blank" rel="noreferrer" className="pr-title">
@@ -232,7 +237,7 @@ export function PrSection({ branch, last }: { branch: Branch; last: TurnNode }) 
       </div>
       {pr.error && <div className="ds-quiet">Couldn’t read it: {pr.error}</div>}
       {pr.checks && (
-        <div className="pr-counts">
+        <div className={`pr-counts ${pr.error ? 'stale' : ''}`} title={pr.error ? 'From the last good read' : undefined}>
           <span className={pr.checks.failing ? 'bad' : ''}>{pr.checks.failing} failing</span>
           <span>{pr.checks.pending} running</span>
           <span>{pr.checks.passing} passed</span>

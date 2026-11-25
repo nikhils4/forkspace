@@ -2545,3 +2545,7 @@
   max-height: 260px;
   overflow: auto;
 }
+
+.pr-counts.stale {
+  opacity: 0.55;
+}
