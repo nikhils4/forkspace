@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { nanoid } from 'nanoid';
 import { WebSocketServer, type WebSocket } from 'ws';
-import { EFFORT_LEVELS, type Board, type EffortLevel, type Branch, type ClientMsg, type ServerMsg, type TurnNode } from '../shared/types.ts';
+import { EFFORT_LEVELS, TAG_COLORS, type Board, type EffortLevel, type Branch, type ClientMsg, type ServerMsg, type TurnNode } from '../shared/types.ts';
 import { openFolder } from './editor.ts';
 import { listFiles, readFile } from './files.ts';
 import { importSessions, listImportable } from './importer.ts';
@@ -455,6 +455,13 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
         if (u && !/^https?:\/\/[^\s]+$/i.test(u)) throw new Error('Use a full address, like http://localhost:3000');
         board.previewUrl = u || undefined;
       }
+      if (Array.isArray(p.tags)) {
+        const seen = new Set<string>();
+        board.tags = p.tags
+          .filter((t: any) => t && typeof t.id === 'string' && typeof t.name === 'string' && t.name.trim() && !seen.has(t.id) && seen.add(t.id))
+          .slice(0, 40)
+          .map((t: any) => ({ id: t.id.slice(0, 24), name: t.name.trim().slice(0, 32), color: TAG_COLORS.includes(t.color) ? t.color : 'grey' }));
+      }
       if (Array.isArray(p.links))
         board.links = p.links
           .filter((l: any) => l && typeof l.id === 'string' && typeof l.source === 'string' && typeof l.target === 'string')
@@ -789,6 +796,7 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       const t = getTurn(msg.nodeId);
       if (!t) throw new Error('Step not found');
       t.title = String(msg.title ?? '').replace(/\s+/g, ' ').trim().slice(0, 80) || undefined;
+      t.named = !!t.title || undefined;
       save();
       broadcast({ type: 'node', node: t });
       return;
@@ -906,6 +914,15 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       save();
       broadcast({ type: 'node', node: root });
       return root.kept;
+    }
+    case 'setTaskTags': {
+      const t = getTurn(msg.nodeId);
+      if (!t) throw new Error('Task not found');
+      const ids = Array.isArray(msg.tags) ? [...new Set(msg.tags.filter((x) => typeof x === 'string'))].slice(0, 12) : [];
+      t.tags = ids.length ? ids : undefined;
+      save();
+      broadcast({ type: 'node', node: t });
+      return;
     }
     case 'setStart': {
       // Where a thread's tree starts. Only hides the steps above; Keep still covers all of them.

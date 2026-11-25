@@ -603,7 +603,6 @@
   box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
-
 /* =========================================================
    Task tabs: one per task, its title and where it stands. Tabs scrolled out of
    sight that need you or just finished show a beacon at that edge.
@@ -613,7 +612,7 @@
    split by thin dividers. */
 .tk-bar {
   --tabbar: color-mix(in srgb, var(--bg) 91%, var(--text) 9%);
-  height: 54px;
+  height: 46px;
   align-items: flex-end;
   gap: 8px;
   padding: 0 10px 0 4px;
@@ -646,9 +645,9 @@
 }
 .tk {
   position: relative;
-  flex: 0 0 214px;
+  flex: 0 0 200px;
   min-width: 0;
-  height: 46px;
+  height: 38px;
   display: flex;
   align-items: stretch;
   border-radius: 10px 10px 0 0;
@@ -659,8 +658,8 @@
   content: '';
   position: absolute;
   right: 0;
-  top: 13px;
-  bottom: 13px;
+  top: 11px;
+  bottom: 11px;
   width: 1px;
   background: var(--border-2);
 }
@@ -740,24 +739,9 @@
   gap: 7px;
   min-width: 0;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
 }
-.tk-word {
-  padding-left: 14px;
-  font-size: 11px;
-  color: var(--text-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.tk.stage-needs .tk-word,
-.tk.stage-feedback .tk-word {
-  color: var(--warn);
-  font-weight: 600;
-}
-.tk.stage-error .tk-word,
-.tk.stage-failing .tk-word {
-  color: var(--err);
+.tk.on .tk-title {
   font-weight: 600;
 }
 .tk-dot {
@@ -1847,7 +1831,6 @@
   overflow-y: auto;
 }
 
-
 /* =========================================================
    Status icons, one set everywhere (tabs, header, History, the box above the reply).
    ========================================================= */
@@ -1908,9 +1891,6 @@
 }
 .tk-title {
   gap: 8px;
-}
-.tk-word {
-  padding-left: 21px;
 }
 .tk.done:not(.on) .si {
   opacity: 0.8;
@@ -2106,4 +2086,189 @@
 .term-tab.on button,
 .term-tab button:focus-visible {
   opacity: 1;
+}
+
+/* ---------- Quick tags ---------- */
+.tg-red {
+  --tg: #e5484d;
+}
+.tg-orange {
+  --tg: #f76b15;
+}
+.tg-amber {
+  --tg: #e2a336;
+}
+.tg-green {
+  --tg: #30a46c;
+}
+.tg-teal {
+  --tg: #12a594;
+}
+.tg-blue {
+  --tg: #0090ff;
+}
+.tg-violet {
+  --tg: #8e4ec6;
+}
+.tg-pink {
+  --tg: #d6409f;
+}
+.tg-grey {
+  --tg: #8b8d98;
+}
+.tg-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tg, var(--text-3));
+}
+.tg-dots {
+  flex: none;
+  display: inline-flex;
+  gap: 3px;
+  margin-left: auto;
+  padding-left: 4px;
+}
+.tg-chips {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.tg-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 9px 0 8px;
+  border: 1px solid var(--border-2);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-2);
+  font: 500 12px var(--font, inherit);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.tg-chip:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--tg) 55%, var(--border-2));
+}
+.tg-add {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.tg-add:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.tg-pick {
+  position: fixed;
+  z-index: 60;
+  width: 248px;
+  padding: 6px;
+  border: 1px solid var(--border-2);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+}
+.tg-q {
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  margin-bottom: 4px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font: 13px var(--font, inherit);
+  outline: none;
+}
+.tg-list {
+  max-height: 280px;
+  overflow-y: auto;
+}
+.tg-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  border-radius: 6px;
+}
+.tg-row.hi {
+  background: var(--surface-2);
+}
+.tg-row-main,
+.tg-make {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: 13px var(--font, inherit);
+  text-align: left;
+  cursor: pointer;
+}
+.tg-make {
+  color: var(--text-2);
+  border-radius: 6px;
+}
+.tg-check {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--border-2);
+  border-radius: 4px;
+  color: var(--bg);
+}
+.tg-check.on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.tg-swatch,
+.tg-del {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  opacity: 0;
+}
+.tg-row.hi .tg-swatch,
+.tg-row.hi .tg-del {
+  opacity: 1;
+}
+.tg-swatch:hover,
+.tg-del:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.tg-swatch .tg-dot {
+  width: 10px;
+  height: 10px;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--tg) 30%, transparent);
+}
+.tg-empty {
+  padding: 8px;
+  color: var(--text-3);
+  font-size: 12px;
 }

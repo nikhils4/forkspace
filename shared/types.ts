@@ -26,7 +26,18 @@ export interface Board {
   learn?: LearnSettings;
   /** Unused since 0.2.1: whether a session is on the board comes from its cards. Kept so old state files load. */
   imported?: string[];
+  /** Quick tags you made for this project's tasks (security, infra…). */
+  tags?: TaskTag[];
 }
+
+export interface TaskTag {
+  id: string;
+  name: string;
+  /** One of TAG_COLORS. */
+  color: string;
+}
+
+export const TAG_COLORS = ['red', 'orange', 'amber', 'green', 'teal', 'blue', 'violet', 'pink', 'grey'] as const;
 
 export type LearnLevel = 'new' | 'growing' | 'expert';
 
@@ -280,6 +291,10 @@ export interface TurnNode {
   discarded?: number;
   /** On a thread's first step: the step its tree and numbering start from. Steps above it are hidden, not deleted. */
   startAt?: string;
+  /** Tags on a task (on its first step): ids from its board's tags. */
+  tags?: string[];
+  /** You named it yourself (Rename). Otherwise a task is called by the start of what you asked. */
+  named?: boolean;
   id: string;
   boardId: string;
   parentId: string | null;
@@ -354,7 +369,7 @@ export interface State {
 
 export type ClientMsg =
   | { type: 'createBoard'; reqId: string; name: string; cwd: string; isolation: Isolation; permissionMode: PermissionMode }
-  | { type: 'updateBoard'; id: string; patch: Partial<Pick<Board, 'name' | 'permissionMode' | 'model' | 'effort' | 'links' | 'learn' | 'previewUrl'>> }
+  | { type: 'updateBoard'; id: string; patch: Partial<Pick<Board, 'name' | 'permissionMode' | 'model' | 'effort' | 'links' | 'learn' | 'previewUrl' | 'tags'>> }
   /** Rewrite a thread's note now. */
   | { type: 'refreshNote'; reqId: string; branchId: string; mode?: 'sync' | 'rewrite' }
   /** Keep a thread's note in Concepts (updates it if it's already there). */
@@ -418,6 +433,7 @@ export type ClientMsg =
   | { type: 'termSettings'; reqId: string; remoteAllowed?: boolean }
   | { type: 'setCompleted'; nodeId: string; completed: boolean }
   | { type: 'setDiscarded'; nodeId: string; discarded: boolean }
+  | { type: 'setTaskTags'; nodeId: string; tags: string[] }
   | { type: 'setStart'; rootId: string; stepId: string | null }
   | { type: 'keep'; reqId: string; nodeId: string; mode: 'commit' | 'folder'; message?: string }
   | { type: 'enableTailscale'; reqId: string }

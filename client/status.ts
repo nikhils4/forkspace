@@ -69,6 +69,9 @@ export interface BranchRow {
   at: number;
   steps: number;
 }
+/** A task is called by the start of what you asked, unless you renamed it. */
+export const taskName = (root: TurnNode) => (root.named && root.title ? root.title : (root.prompt || root.title || 'Task').replace(/\s+/g, ' ').trim());
+
 export interface ThreadRow {
   root: TurnNode;
   board: Board | undefined;
@@ -118,7 +121,7 @@ export function threadsOf(nodes: Record<string, CanvasNode>, branches: Record<st
     out.push({
       root,
       board: boards.find((b) => b.id === root.boardId),
-      title: root.title || root.prompt,
+      title: taskName(root),
       stage: worst(rows.map((r) => r.stage)),
       at: Math.max(...rows.map((r) => r.at)),
       branches: rows,

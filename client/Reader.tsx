@@ -7,9 +7,10 @@ import { parseDiff } from './Drawer.tsx';
 import { Icon } from './icons.tsx';
 import { DiffStat, LiveLine, Md, Permission, STATUS_LABEL, ToolLine, branchColor } from './nodes.tsx';
 import { useReady } from './review.ts';
+import { TagChips, TagPicker, tagsOf } from './Tags.tsx';
 import { TaskShell, useTaskRun } from './RunBox.tsx';
 import { Attachments } from './Shots.tsx';
-import { STAGE_LABEL, threadsOf, turnsOfBranch, type Stage, type ThreadRow } from './status.ts';
+import { STAGE_LABEL, taskName, threadsOf, turnsOfBranch, type Stage, type ThreadRow } from './status.ts';
 import { isLocalPage, openTerminalFor, request, send, toast, useStore } from './store.ts';
 import { NoteButton, openThreadNote } from './ThreadNotes.tsx';
 import { PrSection } from './Threads.tsx';
@@ -220,6 +221,8 @@ export function ThreadReader({
   // Branching from a step: the box under the thread says so, until you send or cancel.
   const [branchFrom, setBranchFrom] = useState<string | null>(null);
   const [keeping, setKeeping] = useState<KeepMode | null>(null);
+  const [tagging, setTagging] = useState<{ x: number; y: number } | null>(null);
+  const board = boards.find((b) => b.id === root.boardId);
   const [jump, setJump] = useState<{ x: number; y: number } | null>(null);
   // The step list opens at the step you're on.
   useEffect(() => {
@@ -266,14 +269,18 @@ export function ThreadReader({
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       if (typing(e)) return;
-      if (e.key === 'j' && next) select(next.id);
+      if (e.key === 't' && board) {
+        e.preventDefault();
+        const r = document.querySelector('.rd-title-row .tg-chips')?.getBoundingClientRect();
+        setTagging({ x: r?.left ?? 300, y: (r?.bottom ?? 100) + 6 });
+      } else if (e.key === 'j' && next) select(next.id);
       else if (e.key === 'k' && prev) select(prev.id);
     };
     addEventListener('keydown', k);
     return () => removeEventListener('keydown', k);
   });
 
-  const title = root.title || root.prompt;
+  const title = taskName(root);
   return (
     <TaskShell rootId={root.id} branchId={tip.branchId}>
     <section className="rd">
@@ -282,6 +289,15 @@ export function ThreadReader({
           <h1 className="rd-title" title={title}>
             {title}
           </h1>
+          {board && (
+            <TagChips
+              tags={tagsOf(board, root)}
+              onEdit={(e) => {
+                const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                setTagging({ x: r.left, y: r.bottom + 6 });
+              }}
+            />
+          )}
           {row && (
             <span className={`rd-stage k-${statusKind(row)}`}>
               <StatusIcon kind={statusKind(row)} size={14} />
@@ -381,6 +397,7 @@ export function ThreadReader({
         )}
         {composer(target, () => setBranchFrom(null), !!branchFrom)}
       </div>
+      {tagging && board && <TagPicker board={board} root={root} x={tagging.x} y={tagging.y} onClose={() => setTagging(null)} />}
       {keeping && <KeepSheet root={root} tip={tip} start={keeping} onClose={() => setKeeping(null)} onAsk={(p) => onAsk(tip.id, p)} />}
     </section>
     </TaskShell>

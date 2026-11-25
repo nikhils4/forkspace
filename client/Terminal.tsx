@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Board, TerminalInfo } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
 import { onTerminal, request, send, toast, useStore } from './store.ts';
+import { taskName } from './status.ts';
 import { isTurn, pathTo } from './tree.ts';
 import { useResolvedTheme, useTheme } from './theme.ts';
 
@@ -286,7 +287,7 @@ export function TerminalPanel({ board, branchId, openFor, onClose, drawerOpen = 
   const place = (t: TerminalInfo) => {
     const task = t.tag?.startsWith('run:') ? (nodes[t.tag.slice(4)] as any) : undefined;
     if (task) {
-      const name = String(task.title || task.prompt || 'Task').replace(/\s+/g, ' ').trim();
+      const name = taskName(task);
       return name.length > 26 ? `${name.slice(0, 25)}…` : name;
     }
     const b = t.branchId ? branches[t.branchId] : undefined;

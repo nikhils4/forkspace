@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Board, CanvasNode, TurnNode } from '../shared/types.ts';
 import { ContextMenu, type MenuItem } from './ContextMenu.tsx';
+import { TagDots, TagPicker, tagsOf } from './Tags.tsx';
 import { Icon, type IconName } from './icons.tsx';
 import { useReady } from './review.ts';
 import { STAGE_LABEL, threadsOf, type Stage, type ThreadRow } from './status.ts';
@@ -182,6 +183,7 @@ export function TaskTabs({
   const [edges, setEdges] = useState<{ left: string[]; right: string[] }>({ left: [], right: [] });
   const [histAt, setHistAt] = useState<{ x: number; y: number } | null>(null);
   const [tabMenu, setTabMenu] = useState<{ x: number; y: number; t: ThreadRow } | null>(null);
+  const [tagging, setTagging] = useState<{ x: number; y: number; t: ThreadRow } | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const measure = () => {
     const el = strip.current;
@@ -269,6 +271,7 @@ export function TaskTabs({
     const done = isFinished(t);
     const finishedOpen = open.filter((x) => isFinished(x) && x.root.id !== t.root.id);
     return [
+      { label: 'Tags…', icon: 'tag', onClick: () => setTagging({ x: tabMenu?.x ?? 200, y: tabMenu?.y ?? 60, t }) },
       { label: 'Rename', icon: 'note', onClick: () => setRenaming(t.root.id) },
       { label: 'Copy title', icon: 'copy', onClick: () => navigator.clipboard?.writeText(t.title).then(() => toast('Title copied'), () => toast('Could not copy', 'error')) },
       'sep',
@@ -325,7 +328,7 @@ export function TaskTabs({
                   onClick={() => renaming !== t.root.id && onPick(tipFrom(nodes, t.root.id))}
                   onContextMenu={(e) => (e.preventDefault(), setTabMenu({ x: e.clientX, y: e.clientY, t }))}
                   onAuxClick={(e) => e.button === 1 && isFinished(t) && close(t)}
-                  title={t.title}
+                  title={`${t.title}\n${taskWord(t)}`}
                 >
                   <span className="tk-title">
                     <StatusIcon kind={statusKind(t)} size={13} fresh={alert === 'ready'} />
@@ -347,8 +350,8 @@ export function TaskTabs({
                     ) : (
                       <span className="ellipsis">{t.title}</span>
                     )}
+                    <TagDots tags={tagsOf(board, t.root)} />
                   </span>
-                  <span className="tk-word">{taskWord(t)}</span>
                 </button>
                 <button className="tk-x" onClick={() => close(t)} title={isFinished(t) ? 'Close tab (it stays in History)' : 'Mark done and close'} aria-label={`Close ${t.title}`}>
                   <Icon name="x" size={11} />
@@ -383,6 +386,7 @@ export function TaskTabs({
           <Icon name="search" size={15} />
         </button>
       </div>
+      {tagging && <TagPicker board={board} root={tagging.t.root} x={tagging.x} y={tagging.y} onClose={() => setTagging(null)} />}
       {tabMenu && <ContextMenu x={tabMenu.x} y={tabMenu.y} items={menuFor(tabMenu.t)} onClose={() => setTabMenu(null)} />}
       {histAt && <HistoryPanel at={histAt} rows={history} openIds={new Set(open.map((t) => t.root.id))} onOpen={openFromHistory} onClose={() => setHistAt(null)} />}
     </header>
