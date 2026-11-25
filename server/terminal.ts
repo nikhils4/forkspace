@@ -82,7 +82,7 @@ export function setTerminalRemoteAllowed(v: boolean) {
   fs.writeFileSync(FILE, JSON.stringify({ remoteAllowed: v }), { mode: 0o600 });
 }
 
-const info = (t: Term): TerminalInfo => ({ id: t.id, boardId: t.boardId, branchId: t.branchId, cwd: t.cwd, title: t.title, createdAt: t.createdAt, exited: t.exited, used: t.used, running: t.running });
+const info = (t: Term): TerminalInfo => ({ id: t.id, boardId: t.boardId, branchId: t.branchId, cwd: t.cwd, title: t.title, createdAt: t.createdAt, exited: t.exited, used: t.used, running: t.running, tag: t.tag });
 
 // Keep each tab's "what's running" up to date (yarn dev, node, vim…). Only tells screens when it changes.
 const SHELLS = new Set(['zsh', 'bash', 'sh', 'fish', 'login', '-zsh', '-bash', 'powershell.exe', 'cmd.exe', 'pwsh']);
@@ -103,7 +103,7 @@ setInterval(() => {
   for (const boardId of changed) emit({ type: 'termList', boardId });
 }, 1500).unref();
 
-export function openTerminal(boardId: string, cwd: string, branchId: string | undefined, cols: number, rows: number): TerminalInfo {
+export function openTerminal(boardId: string, cwd: string, branchId: string | undefined, cols: number, rows: number, tag?: string): TerminalInfo {
   const lib = loadPty();
   if (!lib) throw new Error('The terminal needs node-pty, which could not load here. On Linux, install build tools and run npm install.');
   if (terms.size >= MAX_TERMS) throw new Error(`Up to ${MAX_TERMS} terminals at once. Close one first.`);
@@ -123,7 +123,7 @@ export function openTerminal(boardId: string, cwd: string, branchId: string | un
     throw new Error(`Could not start a shell (${file}): ${e?.message ?? e}`);
   }
   const n = [...terms.values()].filter((t) => t.boardId === boardId).length + 1;
-  const t: Term = { id: nanoid(8), boardId, branchId, cwd, title: `${path.basename(file)} ${n}`, createdAt: Date.now(), pty, buffer: '' };
+  const t: Term = { id: nanoid(8), boardId, branchId, cwd, title: `${path.basename(file)} ${n}`, createdAt: Date.now(), pty, buffer: '', tag: typeof tag === 'string' ? tag.slice(0, 80) : undefined };
   terms.set(t.id, t);
   pty.onData((d) => {
     t.buffer = (t.buffer + d).slice(-MAX_BUFFER);

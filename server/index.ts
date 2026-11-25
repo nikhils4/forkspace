@@ -753,7 +753,7 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
         const board = getBoard(msg.boardId);
         if (!board) throw new Error('Board not found');
         const branch = msg.branchId ? getBranch(msg.branchId) : undefined;
-        return openTerminal(board.id, branch?.boardId === board.id ? branch.cwd : board.cwd, branch?.id, msg.cols, msg.rows);
+        return openTerminal(board.id, branch?.boardId === board.id ? branch.cwd : board.cwd, branch?.id, msg.cols, msg.rows, msg.tag);
       }
       if (msg.type === 'termList') return listTerminals(msg.boardId);
       if (msg.type === 'termAttach') return attachTerminal(msg.id);

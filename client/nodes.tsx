@@ -9,6 +9,7 @@ import { Markdown } from './Markdown.tsx';
 import { Attachments, ShotThumb, openShots, readImageText, stepShots, uploadNoteImage } from './Shots.tsx';
 import type { NoteNode, PendingPermission, TurnEvent, TurnNode } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
+import { runnable, useTaskRun } from './RunBox.tsx';
 import { openTerminalFor, send, useSelect, useStore, toast } from './store.ts';
 import { currentActivity, isLive, lastText } from './tree.ts';
 import { useReady } from './review.ts';
@@ -145,11 +146,25 @@ export function StatusDot({ status }: { status: TurnNode['status'] }) {
 
 /** Tiny, safe markdown: fenced code, inline code, bold. Rendered as React nodes, never HTML. */
 /** A code block with a copy button in its corner. */
-export function CodeBlock({ code, className = 'code' }: { code: string; className?: string }) {
+export function CodeBlock({ code, className = 'code', lang = '' }: { code: string; className?: string; lang?: string }) {
   const [done, setDone] = useState(false);
+  const run = useTaskRun();
   return (
     <div className="code-wrap">
       <pre className={className}>{code}</pre>
+      {run && runnable(code, lang) && (
+        <button
+          className="code-run"
+          title="Run it here"
+          aria-label="Run this command"
+          onClick={(e) => {
+            e.stopPropagation();
+            run(code);
+          }}
+        >
+          <Icon name="play" size={10} /> Run
+        </button>
+      )}
       <button
         className={`code-copy ${done ? 'done' : ''}`}
         title={done ? 'Copied' : 'Copy'}
@@ -174,7 +189,7 @@ export function CodeBlock({ code, className = 'code' }: { code: string; classNam
 export function Md({ text, partial }: { text: string; partial?: boolean }) {
   return (
     <div className={`md ${partial ? 'partial' : ''}`}>
-      <Markdown text={text} code={(code, _lang, key) => <CodeBlock key={key} code={code} />} />
+      <Markdown text={text} code={(code, lang, key) => <CodeBlock key={key} code={code} lang={lang} />} />
     </div>
   );
 }

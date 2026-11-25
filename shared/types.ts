@@ -407,7 +407,7 @@ export type ClientMsg =
   | { type: 'setComments'; nodeId: string; comments: CardComment[] }
   | { type: 'askAside'; reqId: string; nodeId: string; quote: string; question: string }
   | { type: 'dropAside'; nodeId: string; id: string }
-  | { type: 'termOpen'; reqId: string; boardId: string; branchId?: string; cols: number; rows: number }
+  | { type: 'termOpen'; reqId: string; boardId: string; branchId?: string; cols: number; rows: number; tag?: string }
   | { type: 'termList'; reqId: string; boardId: string }
   | { type: 'scripts'; reqId: string; boardId: string; branchId?: string }
   | { type: 'labelThread'; reqId: string; rootId: string }
@@ -559,6 +559,8 @@ export interface TerminalInfo {
   used?: boolean;
   /** What's running in it right now (e.g. "yarn", "node"), when it's not just the shell waiting. */
   running?: string;
+  /** Who opened it for what, e.g. "run:<task id>" for a task's Run shell. */
+  tag?: string;
 }
 
 /** A model you can pick for a board (from your Claude account's list). */

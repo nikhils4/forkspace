@@ -7,6 +7,7 @@ import { parseDiff } from './Drawer.tsx';
 import { Icon } from './icons.tsx';
 import { DiffStat, LiveLine, Md, Permission, STATUS_LABEL, ToolLine, branchColor } from './nodes.tsx';
 import { useReady } from './review.ts';
+import { TaskShell, TaskShellBox, useTaskRun } from './RunBox.tsx';
 import { Attachments } from './Shots.tsx';
 import { STAGE_LABEL, threadsOf, turnsOfBranch, type Stage, type ThreadRow } from './status.ts';
 import { isLocalPage, openTerminalFor, request, send, toast, useStore } from './store.ts';
@@ -274,6 +275,7 @@ export function ThreadReader({
 
   const title = root.title || root.prompt;
   return (
+    <TaskShell rootId={root.id} branchId={tip.branchId}>
     <section className="rd">
       <header className="rd-head">
         <div className="rd-title-row">
@@ -381,6 +383,7 @@ export function ThreadReader({
       </div>
       {keeping && <KeepSheet root={root} tip={tip} start={keeping} onClose={() => setKeeping(null)} onAsk={(p) => onAsk(tip.id, p)} />}
     </section>
+    </TaskShell>
   );
 }
 
@@ -566,6 +569,7 @@ type ToolEvent = Extract<TurnNode['events'][number], { t: 'tool' }>;
 /** The commands a step ran: one line each with how it went; click one for the end of its output. Failures open on their own. */
 function Commands({ node }: { node: TurnNode }) {
   const cmds = node.events.filter((e): e is ToolEvent => e.t === 'tool' && e.name === 'Bash');
+  const run = useTaskRun();
   if (!cmds.length) return null;
   const tail = (r: string) =>
     r
@@ -588,6 +592,20 @@ function Commands({ node }: { node: TurnNode }) {
               <summary title={full}>
                 <span className="sv-cmd-mark">{e.result == null ? <span className="spinner" /> : e.isError ? '✕' : '✓'}</span>
                 <code>{full.split('\n')[0]}</code>
+                {run && full.trim() && (
+                  <button
+                    className="sv-run"
+                    title={`Run it here\n${full}`}
+                    aria-label="Run this command"
+                    onClick={(ev) => {
+                      ev.preventDefault();
+                      ev.stopPropagation();
+                      run(full);
+                    }}
+                  >
+                    <Icon name="play" size={10} /> Run
+                  </button>
+                )}
                 {out && <Icon name="chevronRight" size={12} className="fr-caret" />}
               </summary>
               {out && <pre>{out}</pre>}
@@ -660,6 +678,7 @@ function StepSection({
         {node.error && <div className="error-box">{node.error}</div>}
       </div>
       <Commands node={node} />
+      <TaskShellBox />
       {edited.length > 0 && (
         <section className="sv-sec">
           <h3>

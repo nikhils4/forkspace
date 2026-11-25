@@ -33,7 +33,7 @@ function themeFor(dark: boolean) {
   };
 }
 
-function TermView({ info, active, side }: { info: TerminalInfo; active: boolean; side?: 'l' | 'r' }) {
+export function TermView({ info, active, side }: { info: TerminalInfo; active: boolean; side?: 'l' | 'r' }) {
   const host = useRef<HTMLDivElement>(null);
   const term = useRef<XTerm | null>(null);
   const fit = useRef<FitAddon | null>(null);
