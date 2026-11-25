@@ -119,6 +119,9 @@ export function StepTree({ rootId, selectedId, pathIds, onSelect }: { rootId: st
 
   return (
     <nav className="stree" aria-label="Steps">
+      <div className="stree-task" title={root.prompt}>
+        {root.title || stepLabel(root)}
+      </div>
       <div className="stree-h">
         Steps <span>{rows.length}{lanes.length > 1 ? ` · ${lanes.length} branches` : ''}</span>
       </div>
