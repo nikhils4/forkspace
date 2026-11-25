@@ -5,16 +5,17 @@ import { CardComments } from './Comments.tsx';
 import { ContextMenu, type MenuItem } from './ContextMenu.tsx';
 import { parseDiff } from './Drawer.tsx';
 import { Icon } from './icons.tsx';
-import { DiffStat, LiveLine, Md, Permission, STATUS_LABEL, ToolLine, branchColor } from './nodes.tsx';
+import { DiffStat, LiveLine, Permission, STATUS_LABEL, branchColor } from './nodes.tsx';
 import { useReady } from './review.ts';
+import { StepStory } from './StepStory.tsx';
 import { TagChips, TagPicker, tagsOf } from './Tags.tsx';
-import { TaskShell, useTaskRun } from './RunBox.tsx';
+import { TaskShell } from './RunBox.tsx';
 import { Attachments } from './Shots.tsx';
 import { STAGE_LABEL, taskName, threadsOf, turnsOfBranch, type Stage, type ThreadRow } from './status.ts';
 import { isLocalPage, openTerminalFor, request, send, toast, useStore } from './store.ts';
 import { NoteButton, openThreadNote } from './ThreadNotes.tsx';
 import { PrSection } from './Threads.tsx';
-import { ToolDiff, editsOf } from './ToolDiff.tsx';
+import { editsOf } from './ToolDiff.tsx';
 import { childrenOf, currentActivity, isLive, pathTo } from './tree.ts';
 import { timeAgo, useTick } from './ui.tsx';
 import { StatusIcon, statusKind, taskWord, tipFrom } from './Workspace.tsx';
@@ -249,12 +250,7 @@ export function ThreadReader({
     if (tip.id !== lastTip.current && stepId === lastTip.current && pathIds.has(tip.id)) onSelect(tip.id);
     lastTip.current = tip.id;
   }, [tip.id]);
-  // While the step you're reading streams, stay at the bottom if you were already there.
-  const streamed = isLive(step) ? step.events.length + (step.events.at(-1)?.t === 'text' ? (step.events.at(-1) as any).text.length : 0) : 0;
-  useEffect(() => {
-    const sc = scroller.current;
-    if (sc && streamed && sc.scrollHeight - sc.scrollTop - sc.clientHeight < 160) sc.scrollTop = sc.scrollHeight;
-  }, [streamed]);
+  // No following the stream to the bottom: what it's doing now sits near the top of the step.
 
   const index = path.findIndex((t) => t.id === stepId);
   // Reading a step that's now hidden: go to where the tree starts.
@@ -584,59 +580,8 @@ function KeepSheet({ root, tip, start, onClose, onAsk }: { root: TurnNode; tip: 
 
 // ---------------- one step: what you asked, what it said, what it ran ----------------
 
-type ToolEvent = Extract<TurnNode['events'][number], { t: 'tool' }>;
 
 /** The commands a step ran: one line each with how it went; click one for the end of its output. Failures open on their own. */
-function Commands({ node }: { node: TurnNode }) {
-  const cmds = node.events.filter((e): e is ToolEvent => e.t === 'tool' && e.name === 'Bash');
-  const run = useTaskRun();
-  if (!cmds.length) return null;
-  const tail = (r: string) =>
-    r
-      .split('\n')
-      .filter((l) => l.trim())
-      .slice(-6)
-      .join('\n')
-      .slice(-600);
-  return (
-    <section className="sv-sec">
-      <h3>
-        Ran <span>{cmds.length} command{cmds.length === 1 ? '' : 's'}</span>
-      </h3>
-      <div className="sv-cmds">
-        {cmds.map((e) => {
-          const full = String((e.input as any)?.command ?? '');
-          const out = e.result ? tail(e.result) : '';
-          return (
-            <details key={e.id} className={`sv-cmd ${e.isError ? 'fail' : e.result == null ? 'run' : 'ok'}`} open={!!e.isError}>
-              <summary title={full}>
-                <span className="sv-cmd-mark">{e.result == null ? <span className="spinner" /> : e.isError ? '✕' : '✓'}</span>
-                <code>{full.split('\n')[0]}</code>
-                {run && full.trim() && (
-                  <button
-                    className="sv-run"
-                    title={`Run it here\n${full}`}
-                    aria-label="Run this command"
-                    onClick={(ev) => {
-                      ev.preventDefault();
-                      ev.stopPropagation();
-                      run(full);
-                    }}
-                  >
-                    <Icon name="play" size={10} /> Run
-                  </button>
-                )}
-                {out && <Icon name="chevronRight" size={12} className="fr-caret" />}
-              </summary>
-              {out && <pre>{out}</pre>}
-            </details>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
 function StepSection({
   node,
   n,
@@ -662,7 +607,6 @@ function StepSection({
   const branch = branches[node.branchId];
   const working = isLive(node);
   const final = [...node.events].reverse().find((e) => e.t === 'text' && e.text.trim());
-  const tools = node.events.filter((e) => e.t === 'tool').length;
   const edited = [...new Set(node.events.flatMap((e) => (e.t === 'tool' ? [editsOf(e)?.path].filter((p): p is string => !!p) : [])))];
   const copy = () => final?.t === 'text' && navigator.clipboard?.writeText(final.text).then(() => toast('Copied'), () => toast('Could not copy', 'error'));
   return (
@@ -693,11 +637,7 @@ function StepSection({
           <Permission node={node} p={node.pending} />
         </div>
       )}
-      <div className="sv-answer">
-        {final && final.t === 'text' ? <Md text={final.text} partial={working && final.partial} /> : <div className="ss-quiet">{working ? 'Working on it…' : 'Finished without a message.'}</div>}
-        {node.error && <div className="error-box">{node.error}</div>}
-      </div>
-      <Commands node={node} />
+      <StepStory node={node} cwd={branch?.cwd} />
       {edited.length > 0 && (
         <section className="sv-sec">
           <h3>
@@ -742,34 +682,6 @@ function StepSection({
             </button>
           ))}
         </div>
-      )}
-      {tools > 0 && (
-        <details className="ss-how sv-how">
-          <summary>
-            <Icon name="chevronRight" size={12} className="fr-caret" />
-            Everything it did <span className="faint">· {tools} action{tools === 1 ? '' : 's'}</span>
-          </summary>
-          <div className="ds-steps">
-            {node.events.map((e, i) =>
-              e.t === 'text' ? (
-                <Md key={i} text={e.text} />
-              ) : e.t === 'thinking' ? (
-                <details key={i} className="block">
-                  <summary>Thinking</summary>
-                  <div className="md faint">{e.text}</div>
-                </details>
-              ) : (
-                <details key={i} className="block">
-                  <summary>
-                    <ToolLine e={e} cwd={branch?.cwd} />
-                  </summary>
-                  {editsOf(e) ? <ToolDiff e={e} cwd={branch?.cwd} /> : <pre className="pre">{JSON.stringify(e.input, null, 2)}</pre>}
-                  {e.result != null && <pre className={`pre ${e.isError ? 'err' : ''}`}>{e.result}</pre>}
-                </details>
-              ),
-            )}
-          </div>
-        </details>
       )}
     </article>
   );
