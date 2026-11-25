@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { TurnEvent, TurnNode } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
 import { Md, ToolLine } from './nodes.tsx';
-import { useTaskRun } from './RunBox.tsx';
+import { RunButton } from './RunBox.tsx';
 import { ToolDiff, editsOf } from './ToolDiff.tsx';
 import { isLive } from './tree.ts';
 
@@ -72,7 +72,6 @@ function toolSummary(list: Tool[]) {
 }
 
 function Tools({ list, cwd, live }: { list: Tool[]; cwd?: string; live: boolean }) {
-  const run = useTaskRun();
   const failed = list.filter((e) => e.isError).length;
   const going = live && list.some((e) => e.result == null);
   return (
@@ -90,19 +89,7 @@ function Tools({ list, cwd, live }: { list: Tool[]; cwd?: string; live: boolean 
             <details key={e.id} className="sy-tool" open={!!e.isError}>
               <summary>
                 <ToolLine e={e} cwd={cwd} />
-                {run && cmd.trim() && (
-                  <button
-                    className="sv-run"
-                    title={`Run it here\n${cmd}`}
-                    onClick={(ev) => {
-                      ev.preventDefault();
-                      ev.stopPropagation();
-                      run(cmd);
-                    }}
-                  >
-                    <Icon name="play" size={10} /> Run
-                  </button>
-                )}
+                {cmd.trim() && <RunButton cmd={cmd} className="sv-run" />}
               </summary>
               {editsOf(e) ? <ToolDiff e={e} cwd={cwd} /> : cmd ? null : <pre className="pre">{JSON.stringify(e.input, null, 2)}</pre>}
               {cmd && <pre className="pre">{cmd}</pre>}

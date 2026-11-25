@@ -4,6 +4,7 @@ import '@xterm/xterm/css/xterm.css';
 import { useEffect, useRef, useState } from 'react';
 import type { Board, TerminalInfo } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
+import { markRefused, markRunning, settleTag } from './RunBox.tsx';
 import { onTerminal, request, send, toast, useStore } from './store.ts';
 import { taskName } from './status.ts';
 import { isTurn, pathTo } from './tree.ts';
@@ -201,17 +202,20 @@ export function TerminalPanel({ board, branchId, openFor, onClose, drawerOpen = 
     const l = await load();
     let t: TerminalInfo | undefined = l.filter((x) => x.tag === tag && x.exited === undefined).at(-1);
     if (t) setActive(t.id);
-    if (t?.running) return toast(`Still running ${t.running}. Stop it first (Ctrl+C).`, 'error');
+    if (t?.running) return (markRefused(tag, cmd), toast(`Still running ${t.running}. Stop it first (Ctrl+C).`, 'error'));
     if (!t) t = await open(branchId, tag);
     if (!t) return;
     // Several lines go in as one paste so zsh takes them as one block; otherwise line by line.
     const multi = cmd.includes('\n');
     send({ type: 'termInput', id: t.id, data: multi && /zsh/.test(t.title) ? `\x1b[200~${cmd}\x1b[201~\r` : `${cmd.replace(/\r?\n/g, '\r')}\r` });
+
+    markRunning(board.id, t.id, tag, cmd);
   };
   // Fresh: close this shell and start a new one in the same folder, keeping its place (and tag).
   const fresh = async (t: TerminalInfo) => {
     send({ type: 'termClose', id: t.id });
     setList((l) => l.filter((x) => x.id !== t.id));
+    if (t.tag) settleTag(t.tag);
     await open(t.branchId, t.tag);
   };
 
