@@ -955,6 +955,64 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+.memo-add {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 10px 10px 0;
+  padding: 6px 8px;
+  border: 1px dashed var(--border-2);
+  border-radius: 8px;
+  background: none;
+  color: var(--text-3);
+  font: 500 12.5px var(--font, inherit);
+  cursor: pointer;
+  width: calc(100% - 20px);
+}
+.memo-add:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--memo) 70%, var(--border-2));
+  background: color-mix(in srgb, var(--memo) 8%, transparent);
+}
+/* The sticky note: warm yellow, like paper on the screen. */
+.stree,
+.memo-add {
+  --memo: #e9b949;
+}
+.memo {
+  flex: none;
+  margin: 10px 10px 0;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--memo) 22%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--memo) 45%, transparent);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+}
+.memo.editing {
+  border-color: color-mix(in srgb, var(--memo) 80%, transparent);
+}
+.memo-text,
+.memo textarea {
+  display: block;
+  width: 100%;
+  max-height: min(320px, 30vh);
+  overflow: auto;
+  padding: 9px 11px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: 450 13px/1.5 var(--font, inherit);
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  resize: none;
+  outline: none;
+}
+.memo-text {
+  cursor: text;
+}
+.memo textarea::placeholder {
+  color: color-mix(in srgb, var(--text) 45%, transparent);
+}
 .stree-h {
   display: flex;
   align-items: baseline;
@@ -972,6 +1030,9 @@
   font-weight: 500;
 }
 .stree-scroll {
+  /* Rows fade out under the header instead of being cut. */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
   flex: 1;
   min-height: 0;
   overflow-y: auto;

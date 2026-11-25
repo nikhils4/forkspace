@@ -928,6 +928,15 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       broadcast({ type: 'node', node: t });
       return;
     }
+    case 'setTaskMemo': {
+      const t = getTurn(msg.nodeId);
+      if (!t) throw new Error('Task not found');
+      const memo = typeof msg.memo === 'string' ? msg.memo.replace(/\s+$/, '').slice(0, 4000) : '';
+      t.memo = memo.trim() ? memo : undefined;
+      save();
+      broadcast({ type: 'node', node: t });
+      return;
+    }
     case 'setStart': {
       // Where a thread's tree starts. Only hides the steps above; Keep still covers all of them.
       const root = getTurn(msg.rootId);

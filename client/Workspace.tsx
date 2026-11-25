@@ -334,7 +334,7 @@ export function TaskTabs({
                   onClick={() => renaming !== t.root.id && onPick(tipFrom(nodes, t.root.id))}
                   onContextMenu={(e) => (e.preventDefault(), setTabMenu({ x: e.clientX, y: e.clientY, t }))}
                   onAuxClick={(e) => e.button === 1 && isFinished(t) && close(t)}
-                  title={`${t.title}\n${taskWord(t)}`}
+                  title={`${t.title}\n${taskWord(t)}${t.root.memo ? `\n\nNote: ${t.root.memo.slice(0, 200)}` : ''}`}
                 >
                   <span className="tk-title">
                     <StatusIcon kind={statusKind(t)} size={13} fresh={alert === 'ready'} />

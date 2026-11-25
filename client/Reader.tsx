@@ -7,6 +7,7 @@ import { DiffFile } from './DiffReview.tsx';
 import { ContextMenu, type MenuItem } from './ContextMenu.tsx';
 import { parseDiff } from './Drawer.tsx';
 import { Icon } from './icons.tsx';
+import { TaskMemo, editMemo } from './Memo.tsx';
 import { DiffStat, LiveLine, Permission, STATUS_LABEL, branchColor } from './nodes.tsx';
 import { useReady } from './review.ts';
 import { StepStory } from './StepStory.tsx';
@@ -125,6 +126,7 @@ export function StepTree({ rootId, selectedId, pathIds, onSelect }: { rootId: st
       <div className="stree-task" title={root.prompt}>
         {root.title || stepLabel(root)}
       </div>
+      <TaskMemo key={root.id} root={root} />
       <div className="stree-h">
         Steps <span>{rows.length}{lanes.length > 1 ? ` · ${lanes.length} branches` : ''}</span>
       </div>
@@ -274,6 +276,9 @@ export function ThreadReader({
         e.preventDefault();
         const r = document.querySelector('.rd-title-row .tg-chips')?.getBoundingClientRect();
         setTagging({ x: r?.left ?? 300, y: (r?.bottom ?? 100) + 6 });
+      } else if (e.key === 'n' && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        editMemo();
       } else if (e.key === 'j' && next) select(next.id);
       else if (e.key === 'k' && prev) select(prev.id);
     };

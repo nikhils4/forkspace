@@ -299,6 +299,8 @@ export interface TurnNode {
   tags?: string[];
   /** You named it yourself (Rename). Otherwise a task is called by the start of what you asked. */
   named?: boolean;
+  /** Your own sticky note on the task. Only you write it; the agent never sees it. */
+  memo?: string;
   id: string;
   boardId: string;
   parentId: string | null;
@@ -438,6 +440,7 @@ export type ClientMsg =
   | { type: 'setCompleted'; nodeId: string; completed: boolean }
   | { type: 'setDiscarded'; nodeId: string; discarded: boolean }
   | { type: 'setTaskTags'; nodeId: string; tags: string[] }
+  | { type: 'setTaskMemo'; nodeId: string; memo: string }
   | { type: 'setStart'; rootId: string; stepId: string | null }
   | { type: 'keep'; reqId: string; nodeId: string; mode: 'commit' | 'folder'; message?: string }
   | { type: 'enableTailscale'; reqId: string }
