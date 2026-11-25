@@ -1,7 +1,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { CanvasNode, TurnNode } from '../shared/types.ts';
 import { AsideList, SelectionAsk } from './Asides.tsx';
-import { CardComments } from './Comments.tsx';
+import { CardComments, reviewText } from './Comments.tsx';
+import { composerInsert } from './Composer.tsx';
+import { DiffFile } from './DiffReview.tsx';
 import { ContextMenu, type MenuItem } from './ContextMenu.tsx';
 import { parseDiff } from './Drawer.tsx';
 import { Icon } from './icons.tsx';
@@ -706,6 +708,7 @@ export function ChangesPane({ node }: { node: TurnNode }) {
   }, [toolsDone, node.status]);
   const files = parseDiff(diff ?? '');
   const working = isLive(node);
+  const review = (node.comments ?? []).filter((c) => c.path && !c.done);
   // An "Edited" chip in a step asks to see one file: open it here and bring it into view.
   const [want, setWant] = useState<string | null>(null);
   const scroll = useRef<HTMLDivElement>(null);
@@ -747,6 +750,18 @@ export function ChangesPane({ node }: { node: TurnNode }) {
           </span>
         )}
         <span className="spacer" />
+        {review.length > 0 && (
+          <button
+            className="cp-send"
+            onClick={() => {
+              composerInsert(reviewText(review));
+              toast('Your comments are in the message box. Add anything, then send.');
+            }}
+            title="Put your comments on these files into the message box, as one review"
+          >
+            <Icon name="send" size={11} /> Send {review.length} to agent
+          </button>
+        )}
         <button className="icon-btn sm" onClick={() => openTerminalFor(node.branchId)} title="Terminal in this step's folder" aria-label="Terminal here">
           <Icon name="terminal" size={14} />
         </button>
@@ -776,25 +791,7 @@ export function ChangesPane({ node }: { node: TurnNode }) {
         ) : (
           <div className="cp-files">
             {files.map((f, i) => (
-              <details key={f.path} className="cp-file" data-path={f.path} open={files.length <= 3 || i === 0}>
-                <summary>
-                  <Icon name="chevronRight" size={12} className="fr-caret" />
-                  <span className="cp-name ellipsis" title={f.path}>
-                    <b>{f.path.split('/').pop()}</b>
-                    {f.path.includes('/') && <span className="faint"> {f.path.slice(0, f.path.lastIndexOf('/'))}</span>}
-                  </span>
-                  {f.isNew && <span className="fr-tag">new</span>}
-                  <span className="add-text">+{f.add}</span>
-                  <span className="del-text">−{f.del}</span>
-                </summary>
-                <pre className="diff">
-                  {f.lines.map((l, j) => (
-                    <div key={j} className={l.startsWith('@@') ? 'hunk' : l.startsWith('+') ? 'add' : l.startsWith('-') ? 'del' : ''}>
-                      {l || ' '}
-                    </div>
-                  ))}
-                </pre>
-              </details>
+              <DiffFile key={f.path} node={node} f={f} open={files.length <= 3 || i === 0} />
             ))}
           </div>
         )}

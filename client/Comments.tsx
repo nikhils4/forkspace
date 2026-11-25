@@ -10,13 +10,19 @@ import { timeAgo, useTick } from './ui.tsx';
 // they are never sent to the agent unless you put them in a prompt. Tick one off when it's dealt
 // with. The Comments panel on the canvas lists every comment on the board, thread by thread.
 
-const uid = () => Math.random().toString(36).slice(2, 10);
+export const uid = () => Math.random().toString(36).slice(2, 10);
 
 /** Ask a card to open its comment box (from the right-click menu). */
 const openers = new Map<string, () => void>();
 export const startComment = (nodeId: string) => openers.get(nodeId)?.();
 
-const save = (node: TurnNode, comments: CardComment[]) => send({ type: 'setComments', nodeId: node.id, comments });
+/** A comment as you'd say it in a prompt: with its file and line when it has one. */
+export const commentText = (c: CardComment) =>
+  c.path ? `${c.path}${c.line ? `:${c.line}` : ''}${c.code?.trim() ? ` (\`${c.code.trim().slice(0, 120)}\`)` : ''}: ${c.text}` : c.text;
+/** Every open comment on a step's files, as one review for the next prompt. */
+export const reviewText = (list: CardComment[]) => `Review notes on your changes:\n${list.map((c) => `- ${commentText(c)}`).join('\n')}`;
+
+export const save = (node: TurnNode, comments: CardComment[]) => send({ type: 'setComments', nodeId: node.id, comments });
 
 const copy = (text: string) =>
   navigator.clipboard.writeText(text).then(
@@ -43,7 +49,7 @@ export const useCommentsPanel = () =>
   );
 
 /** One comment: its text (double-click to edit), when, and what you can do with it. */
-function CommentItem({ node, c, showTime = false }: { node: TurnNode; c: CardComment; showTime?: boolean }) {
+export function CommentItem({ node, c, showTime = false }: { node: TurnNode; c: CardComment; showTime?: boolean }) {
   const list = node.comments ?? [];
   const [editing, setEditing] = useState(false);
   const update = (patch: Partial<CardComment> | null) => save(node, patch ? list.map((x) => (x.id === c.id ? { ...x, ...patch } : x)) : list.filter((x) => x.id !== c.id));
@@ -65,12 +71,18 @@ function CommentItem({ node, c, showTime = false }: { node: TurnNode; c: CardCom
           {c.done && <Icon name="check" size={10} strokeWidth={3} />}
         </button>
         <div className="cmt-text" onDoubleClick={() => setEditing(true)} title="Double-click to edit">
+          {c.path && (
+            <button className="cmt-where" onClick={() => dispatchEvent(new CustomEvent('forkspace:file', { detail: c.path }))} title={`Show ${c.path} in Changes`}>
+              {c.path.split('/').pop()}
+              {c.line ? `:${c.line}` : ''}
+            </button>
+          )}
           {c.text}
         </div>
       </div>
       {showTime && <div className="cmt-when">{timeAgo(c.at)}</div>}
       <div className="cmt-tools">
-        <button onClick={() => composerInsert(c.text)} title="Add to my next prompt" aria-label="Add to my next prompt">
+        <button onClick={() => composerInsert(commentText(c))} title="Add to my next prompt" aria-label="Add to my next prompt">
           <Icon name="send" size={12} />
         </button>
         <button onClick={() => copy(c.text)} title="Copy" aria-label="Copy comment">
@@ -126,7 +138,7 @@ export function CardComments({ node, roomy = false }: { node: TurnNode; roomy?: 
             <Icon name="plus" size={11} /> Comment
           </button>
           {open.length > 1 && (
-            <button className="cmt-add" onClick={() => composerInsert(open.map((c) => `- ${c.text}`).join('\n'))} title="Put every open comment into the message box">
+            <button className="cmt-add" onClick={() => composerInsert(open.map((c) => `- ${commentText(c)}`).join('\n'))} title="Put every open comment into the message box">
               <Icon name="send" size={11} /> All to prompt
             </button>
           )}
@@ -260,7 +272,7 @@ export function CommentsPanel({ boardId, onGo, onClose }: { boardId: string; onG
   );
 }
 
-function CommentBox({ initial, onDone, onChange, placeholder = 'Edit comment…' }: { initial: string; onDone: (t: string | null) => void; onChange?: (t: string) => void; placeholder?: string }) {
+export function CommentBox({ initial, onDone, onChange, placeholder = 'Edit comment…' }: { initial: string; onDone: (t: string | null) => void; onChange?: (t: string) => void; placeholder?: string }) {
   const [v, setV] = useState(initial);
   const ref = useRef<HTMLTextAreaElement>(null);
   const finished = useRef(false);

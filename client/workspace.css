@@ -2549,3 +2549,149 @@
 .pr-counts.stale {
   opacity: 0.55;
 }
+
+/* ---------- Comments on changed files ---------- */
+.cp-file .dr {
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  font: 11.5px/1.6 var(--mono, ui-monospace, 'SF Mono', Menlo, monospace);
+  max-height: 520px;
+  overflow: auto;
+}
+.dr-line {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  padding: 0 10px 0 0;
+}
+.dr-line.add {
+  color: var(--add);
+  background: color-mix(in srgb, var(--add) 9%, transparent);
+}
+.dr-line.del {
+  color: var(--del);
+  background: color-mix(in srgb, var(--del) 9%, transparent);
+}
+.dr-line.hunk {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.dr-n {
+  flex: none;
+  width: 34px;
+  padding-right: 8px;
+  text-align: right;
+  color: var(--text-3);
+  opacity: 0.7;
+  user-select: none;
+}
+.dr-code {
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.dr-plus {
+  position: absolute;
+  left: 22px;
+  top: 1px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+.dr-line:hover .dr-plus,
+.dr-plus:focus-visible {
+  opacity: 1;
+}
+.dr-line:hover .dr-n {
+  opacity: 0;
+}
+.dr .dr-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px 8px 34px;
+  white-space: normal;
+  word-break: normal;
+  font-family: var(--font, inherit);
+  background: var(--bg-2);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.cp-file > .dr-thread.file {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-2);
+}
+.cp-fcomment {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-left: 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  opacity: 0;
+}
+.cp-file > summary:hover .cp-fcomment,
+.cp-fcomment:focus-visible {
+  opacity: 1;
+}
+.cp-fcomment:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.cp-ccount {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #c99a12;
+}
+.cmt-where {
+  margin-right: 6px;
+  padding: 0 5px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font: 11px var(--mono, ui-monospace, monospace);
+  cursor: pointer;
+}
+.cmt-where:hover {
+  color: var(--text);
+}
+.cp-send {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  font: 600 11.5px var(--font, inherit);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cp-send:hover {
+  filter: brightness(1.08);
+}

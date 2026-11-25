@@ -171,6 +171,10 @@ export interface CardComment {
   at: number;
   /** Ticked off: dealt with, kept for the record. */
   done?: boolean;
+  /** On a changed file (from the Changes panel): which file, which line in the new version, and that line's text. */
+  path?: string;
+  line?: number;
+  code?: string;
 }
 
 /** A quick side question about part of a card's answer: answered beside it, never added to the thread. */
