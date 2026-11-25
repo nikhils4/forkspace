@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Board, CanvasNode, TurnNode } from '../shared/types.ts';
 import { ContextMenu, type MenuItem } from './ContextMenu.tsx';
-import { TagDots, TagPicker, tagsOf } from './Tags.tsx';
+import { TagPill, TagPicker, tagsOf } from './Tags.tsx';
 import { Icon, type IconName } from './icons.tsx';
 import { useReady } from './review.ts';
 import { STAGE_LABEL, threadsOf, type Stage, type ThreadRow } from './status.ts';
@@ -319,8 +319,14 @@ export function TaskTabs({
           {open.map((t) => {
             const on = view === 'stacks' && t.root.id === currentRootId;
             const alert = alerts.get(t.root.id);
+            const tags = tagsOf(board, t.root);
             return (
-              <div key={t.root.id} className={`tk ${on ? 'on' : ''} stage-${t.stage} ${isFinished(t) ? 'done' : ''} ${t.root.discarded ? 'discarded' : ''}`} data-id={t.root.id} data-alert={alert ?? undefined}>
+              <div
+                key={t.root.id}
+                className={`tk ${on ? 'on' : ''} stage-${t.stage} ${isFinished(t) ? 'done' : ''} ${t.root.discarded ? 'discarded' : ''} ${tags.length ? `tagged tg-${tags[0].color}` : ''}`}
+                data-id={t.root.id}
+                data-alert={alert ?? undefined}
+              >
                 <button
                   className="tk-main"
                   role="tab"
@@ -350,7 +356,7 @@ export function TaskTabs({
                     ) : (
                       <span className="ellipsis">{t.title}</span>
                     )}
-                    <TagDots tags={tagsOf(board, t.root)} />
+                    <TagPill tags={tags} />
                   </span>
                 </button>
                 <button className="tk-x" onClick={() => close(t)} title={isFinished(t) ? 'Close tab (it stays in History)' : 'Mark done and close'} aria-label={`Close ${t.title}`}>

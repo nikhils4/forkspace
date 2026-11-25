@@ -10,14 +10,14 @@ export const tagsOf = (board: Board | undefined, root: TurnNode): TaskTag[] => {
   return (root.tags ?? []).map((id) => all.find((t) => t.id === id)).filter((t): t is TaskTag => !!t);
 };
 
-/** Small coloured dots, for a tab. */
-export function TagDots({ tags }: { tags: TaskTag[] }) {
+/** The first tag's name as a coloured pill, plus a count of the rest. For a tab. */
+export function TagPill({ tags }: { tags: TaskTag[] }) {
   if (!tags.length) return null;
+  const [first, ...rest] = tags;
   return (
-    <span className="tg-dots" title={tags.map((t) => t.name).join(', ')}>
-      {tags.slice(0, 3).map((t) => (
-        <span key={t.id} className={`tg-dot tg-${t.color}`} />
-      ))}
+    <span className={`tg-pill tg-${first.color}`} title={tags.map((t) => t.name).join(', ')}>
+      <span className="ellipsis">{first.name}</span>
+      {rest.length > 0 && <span className="tg-more">+{rest.length}</span>}
     </span>
   );
 }
