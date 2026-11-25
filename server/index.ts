@@ -907,10 +907,22 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       broadcast({ type: 'node', node: root });
       return root.kept;
     }
+    case 'setDiscarded': {
+      // Discarding only puts a task away: it stays in History, code and all, until deleted for good.
+      const t = getTurn(msg.nodeId);
+      if (!t) throw new Error('Task not found');
+      t.discarded = msg.discarded ? Date.now() : undefined;
+      t.completed = msg.discarded;
+      save();
+      broadcast({ type: 'node', node: t });
+      return;
+    }
     case 'setCompleted': {
       const t = getTurn(msg.nodeId);
       if (!t) throw new Error('Step not found');
       t.completed = !!msg.completed;
+      // Reopened: it's a live task again, not a discarded one.
+      if (!t.completed) t.discarded = undefined;
       save();
       broadcast({ type: 'node', node: t });
       return;

@@ -57,14 +57,14 @@ Maintainers: add a section to CHANGELOG.md, then `npm run release -- 0.3.0` (or 
 
 ### Tasks
 
-Every thread is a **task**, with its own tab along the top: its title, and under it where it stands (**Needs you**, **Working…**, **Failed**, **Ready to review**). Tabs keep their place like a browser's; `←` `→` move between them and `+` starts a new one. When there are more tabs than fit, a tab that needs you or just finished and is scrolled out of sight lights a beacon at that edge ("1 needs you ›"); click it to bring the tab into view. **×** marks a task done; **Done** lists them so you can open one again. **Canvas**, **Code** and **Map** sit as icons on the right (keys `1` to `4`).
+Every thread is a **task**, with its own tab along the top: its title, and under it where it stands (**Needs you**, **Working…**, **Failed**, **Ready to review**). Tabs keep their place like a browser's; `←` `→` move between them and `+` starts a new one. When there are more tabs than fit, a tab that needs you or just finished and is scrolled out of sight lights a beacon at that edge ("1 needs you ›"); click it to bring the tab into view. **×** on a live task marks it done. Finished, kept and discarded tasks all wait in **History**: click as many as you like and each opens as a tab, which stays until you close it. From History you can also reopen a task or delete it for good. **Discard** never deletes anything; it only puts the task in History. **Canvas**, **Code** and **Map** sit as icons on the right (keys `1` to `4`).
 
 Under the tab, three panes:
 
 | Pane | What's there |
 |---|---|
 | **Left** | The task's steps, one short line each (written by a small model once per step). Branches are side lanes, lettered B, C…, leaving from the step they grew from. A pulsing dot is working, amber needs you, red failed. Click a step to read it. |
-| **Middle** | What happened at each step, top to bottom: what you asked, what it said, the commands it ran with the end of their output and whether they worked, and the files it edited (click one to see its diff). Each step has **Branch from here**, **Redo this step** and **Copy**. Above the reply box sits the one thing to do next: answer what it's asking, stop it, or **Keep**, **Done** or **Discard** it. `J` `K` jump between steps. |
+| **Middle** | What happened at each step, top to bottom: what you asked, what it said, the commands it ran with the end of their output and whether they worked, and the files it edited (click one to see its diff). Each step has **Branch from here**, **Redo this step** and **Copy**. Above the reply box sits the one thing to do next: answer what it's asking, stop it, or **Keep**, **Done** or **Discard** it (Discard moves it to History; only *Delete for good* there removes it). `J` `K` jump between steps. |
 | **Right** | What the step you're reading changed, file by file, plus the pull request. `]` hides it for more reading room. |
 
 **Keep** is the only thing that commits, and only when you say so: **Commit it** (as you, with your message, just the task's files), **leave the changes in your folder** uncommitted, or **open a pull request** (the agent pushes a branch and opens one with `gh`). For a task that worked in its own copy, Keep brings its changes into your folder first.

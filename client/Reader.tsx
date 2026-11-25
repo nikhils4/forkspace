@@ -308,11 +308,11 @@ function CallBar({ row, tip, onJump, onKeep }: { row: ThreadRow; tip: TurnNode; 
   const steps = threadSteps(nodes, root.id);
   const waiting = steps.find((t) => t.status === 'waiting');
   const running = steps.find((t) => t.status === 'running');
-  if (root.kept || root.completed)
+  if (root.completed)
     return (
       <div className="call done">
         <Icon name="check" size={13} />
-        <span>{root.kept ? (root.kept.commit ? `Kept · committed ${root.kept.commit}` : 'Kept · the changes are in your folder, uncommitted') : 'Marked done'}</span>
+        <span>{root.discarded ? 'Discarded · it stays in History until you delete it for good' : root.kept ? (root.kept.commit ? `Kept · committed ${root.kept.commit}` : 'Kept · the changes are in your folder, uncommitted') : 'Marked done'}</span>
         <span className="spacer" />
         <button className="btn sm ghost" onClick={() => send({ type: 'setCompleted', nodeId: root.id, completed: false })}>
           Reopen
@@ -347,8 +347,8 @@ function CallBar({ row, tip, onJump, onKeep }: { row: ThreadRow; tip: TurnNode; 
     );
   const own = !branches[tip.branchId]?.worktree;
   const discard = () => {
-    const ok = confirm(`Discard “${row.title}”?\n\nThe task and all its steps are deleted.${own ? ' Files it changed in your folder stay as they are.' : ' Its copy of the code is deleted; your folder is untouched.'}`);
-    if (ok) send({ type: 'deleteNodes', ids: [root.id] });
+    send({ type: 'setDiscarded', nodeId: root.id, discarded: true });
+    toast(own ? 'Discarded. It’s in History; files it changed in your folder stay as they are.' : 'Discarded. It’s in History, with its copy of the code, until you delete it for good.');
   };
   return (
     <div className={`call ${tip.status === 'error' ? 'failed' : ''}`}>

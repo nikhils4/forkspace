@@ -276,6 +276,8 @@ export interface TurnNode {
   completed?: boolean;
   /** You kept this task's work: committed on your branch, or put in your folder uncommitted. */
   kept?: { at: number; mode: 'commit' | 'folder'; commit?: string; files: number };
+  /** When you discarded this task. It waits in History until you delete it for good. */
+  discarded?: number;
   id: string;
   boardId: string;
   parentId: string | null;
@@ -413,6 +415,7 @@ export type ClientMsg =
   | { type: 'termClose'; id: string }
   | { type: 'termSettings'; reqId: string; remoteAllowed?: boolean }
   | { type: 'setCompleted'; nodeId: string; completed: boolean }
+  | { type: 'setDiscarded'; nodeId: string; discarded: boolean }
   | { type: 'keep'; reqId: string; nodeId: string; mode: 'commit' | 'folder'; message?: string }
   | { type: 'enableTailscale'; reqId: string }
   | { type: 'setPublicUrl'; reqId: string; url: string }

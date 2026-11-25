@@ -3,6 +3,13 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.45.0
+
+- **Tabs look like tabs.** The open one joins the page below it; the others sit on the bar with thin dividers
+- **History** holds every finished task: kept, done and discarded. Click as many as you like and each opens as its own tab, staying until you close it
+- **Discard never deletes.** It moves the task to History, code and all. Reopen it from there, or delete it for good
+- Closing the tab you're on opens the one next to it
+
 ## 0.44.0
 
 - **Tasks, with a tab each.** Every thread gets a tab along the top with its title and where it stands: Needs you, Working, Failed or Ready to review. Tabs keep their place; `←` `→` move between them

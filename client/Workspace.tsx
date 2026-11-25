@@ -41,7 +41,8 @@ export const isFinished = (t: ThreadRow) => !!t.root.completed || t.stage === 'd
 
 /** What a task's tab says under its title. */
 export function taskWord(t: ThreadRow) {
-  if (t.root.kept) return t.root.kept.mode === 'commit' ? `Kept · ${t.root.kept.commit ?? 'committed'}` : 'Kept in your folder';
+  if (t.root.completed && t.root.discarded) return 'Discarded';
+  if (t.root.completed && t.root.kept) return t.root.kept.mode === 'commit' ? `Kept · ${t.root.kept.commit ?? 'committed'}` : 'Kept in your folder';
   if (t.stage === 'working' || t.stage === 'checking') return `${STAGE_LABEL[t.stage]}…`;
   if (t.stage === 'idle' || t.stage === 'review') return 'Ready to review';
   return STAGE_LABEL[t.stage];
@@ -52,6 +53,17 @@ const alertOf = (t: ThreadRow, ready: Set<string>, nodes: Record<string, CanvasN
   if (urgentStage(t.stage)) return 'needs';
   if (t.stage === 'working' || t.stage === 'checking') return null;
   return Object.values(nodes).some((n) => isTurn(n) && ready.has(n.id) && rootOf(nodes, n.id)?.id === t.root.id) ? 'ready' : null;
+};
+
+// Finished tasks you opened from History stay open as tabs until you close them. Kept per board,
+// in this browser.
+const TABS_KEY = 'forkspace:open-tabs';
+const loadTabs = (): Record<string, string[]> => {
+  try {
+    return JSON.parse(localStorage.getItem(TABS_KEY) || '{}');
+  } catch {
+    return {};
+  }
 };
 
 export function TaskTabs({
@@ -75,13 +87,32 @@ export function TaskTabs({
   const { nodes, branches, boards } = useStore();
   const ready = useReady();
   const threads = useMemo(() => threadsOf(nodes, branches, boards, ready, board.id), [nodes, branches, boards, ready, board.id]);
-  // Tabs keep their place, like a browser's: oldest on the left, new ones at the end.
-  const open = threads.filter((t) => !isFinished(t) || t.root.id === currentRootId).sort((a, b) => a.root.createdAt - b.root.createdAt);
-  const done = threads.filter((t) => isFinished(t) && t.root.id !== currentRootId);
+  const [kept, setKept] = useState(loadTabs);
+  const extra = (kept[board.id] ?? []).filter((id) => threads.some((t) => t.root.id === id && isFinished(t)));
+  const setExtra = (fn: (ids: string[]) => string[]) =>
+    setKept((all) => {
+      const next = { ...all, [board.id]: fn(all[board.id] ?? []) };
+      try {
+        localStorage.setItem(TABS_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  // A task that finishes while its tab is open keeps its tab, like any page you have open.
+  const current = threads.find((t) => t.root.id === currentRootId);
+  const currentDone = !!current && isFinished(current);
+  useEffect(() => {
+    if (currentDone && currentRootId && !extra.includes(currentRootId)) setExtra((ids) => [...ids, currentRootId]);
+  }, [currentDone, currentRootId]);
+  // Tabs keep their place, like a browser's: live tasks oldest first, then finished ones in the
+  // order you opened them.
+  const live = threads.filter((t) => !isFinished(t)).sort((a, b) => a.root.createdAt - b.root.createdAt);
+  const openDone = extra.map((id) => threads.find((t) => t.root.id === id)!).filter(Boolean);
+  const open = [...live, ...openDone, ...(current && isFinished(current) && !extra.includes(current.root.id) ? [current] : [])];
+  const history = threads.filter(isFinished).sort((a, b) => (b.root.discarded ?? b.root.kept?.at ?? b.at) - (a.root.discarded ?? a.root.kept?.at ?? a.at));
   const alerts = new Map(open.map((t) => [t.root.id, alertOf(t, ready, nodes)]));
   const strip = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState<{ left: string[]; right: string[] }>({ left: [], right: [] });
-  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const [histAt, setHistAt] = useState<{ x: number; y: number } | null>(null);
   const measure = () => {
     const el = strip.current;
     if (!el) return;
@@ -147,14 +178,26 @@ export function TaskTabs({
       </div>
     );
   };
+  // Closing a tab: a finished task just leaves the tabs (it's in History); a live one is marked
+  // done first. Either way, the tab next to it opens.
   const close = (t: ThreadRow) => {
-    send({ type: 'setCompleted', nodeId: t.root.id, completed: true });
-    toast('Marked done. Find it under Done.');
+    const at = open.findIndex((x) => x.root.id === t.root.id);
+    const rest = open.filter((x) => x.root.id !== t.root.id);
+    setExtra((ids) => ids.filter((id) => id !== t.root.id));
+    if (!isFinished(t)) {
+      send({ type: 'setCompleted', nodeId: t.root.id, completed: true });
+      toast('Marked done. It’s in History.');
+    }
+    if (t.root.id === currentRootId) {
+      const next = rest[Math.min(at, rest.length - 1)];
+      if (next) onPick(tipFrom(nodes, next.root.id));
+      else onNew();
+    }
   };
-  const doneItems = (): MenuItem[] =>
-    done.length
-      ? done.slice(0, 30).map((t) => ({ label: t.title, icon: (t.root.kept ? 'check' : 'clock') as IconName, hint: timeAgo(t.at), onClick: () => onPick(tipFrom(nodes, t.root.id)) }))
-      : [{ label: 'Nothing done yet', icon: 'check', disabled: true, onClick: () => {} }];
+  const openFromHistory = (t: ThreadRow) => {
+    if (!extra.includes(t.root.id)) setExtra((ids) => [...ids, t.root.id]);
+    onPick(tipFrom(nodes, t.root.id));
+  };
   return (
     <header className="ws-tabs tk-bar">
       <div className="tk-wrap">
@@ -164,7 +207,7 @@ export function TaskTabs({
             const on = view === 'stacks' && t.root.id === currentRootId;
             const alert = alerts.get(t.root.id);
             return (
-              <div key={t.root.id} className={`tk ${on ? 'on' : ''} stage-${t.stage} ${isFinished(t) ? 'done' : ''}`} data-id={t.root.id} data-alert={alert ?? undefined}>
+              <div key={t.root.id} className={`tk ${on ? 'on' : ''} stage-${t.stage} ${isFinished(t) ? 'done' : ''} ${t.root.discarded ? 'discarded' : ''}`} data-id={t.root.id} data-alert={alert ?? undefined}>
                 <button className="tk-main" role="tab" aria-selected={on} onClick={() => onPick(tipFrom(nodes, t.root.id))} title={t.title}>
                   <span className="tk-title">
                     <span className={`tk-dot ${alert ?? ''}`} />
@@ -172,11 +215,9 @@ export function TaskTabs({
                   </span>
                   <span className="tk-word">{taskWord(t)}</span>
                 </button>
-                {!isFinished(t) && (
-                  <button className="tk-x" onClick={() => close(t)} title="Mark done and close" aria-label={`Close ${t.title}`}>
-                    <Icon name="x" size={11} />
-                  </button>
-                )}
+                <button className="tk-x" onClick={() => close(t)} title={isFinished(t) ? 'Close tab (it stays in History)' : 'Mark done and close'} aria-label={`Close ${t.title}`}>
+                  <Icon name="x" size={11} />
+                </button>
               </div>
             );
           })}
@@ -188,14 +229,14 @@ export function TaskTabs({
       </div>
       <div className="tk-tools">
         <button
-          className="tk-tool"
+          className={`tk-tool ${histAt ? 'on' : ''}`}
           onClick={(e) => {
             const r = e.currentTarget.getBoundingClientRect();
-            setMenu({ x: r.right - 260, y: r.bottom + 6 });
+            setHistAt(histAt ? null : { x: Math.max(8, r.right - 380), y: r.bottom + 6 });
           }}
-          title="Finished tasks"
+          title="Finished and discarded tasks"
         >
-          Done{done.length ? <span className="tk-count">{done.length}</span> : null}
+          <Icon name="clock" size={14} /> History{history.length ? <span className="tk-count">{history.length}</span> : null}
         </button>
         <span className="tk-sep" />
         {PINNED.map((p, i) => (
@@ -207,8 +248,70 @@ export function TaskTabs({
           <Icon name="search" size={15} />
         </button>
       </div>
-      {menu && <ContextMenu x={menu.x} y={menu.y} items={doneItems()} onClose={() => setMenu(null)} />}
+      {histAt && <HistoryPanel at={histAt} rows={history} openIds={new Set(open.map((t) => t.root.id))} onOpen={openFromHistory} onClose={() => setHistAt(null)} />}
     </header>
+  );
+}
+
+/**
+ * Every finished task: kept, done or discarded. Click as many as you like; each opens as a tab and
+ * the list stays put. Reopen puts one back to work; Delete for good is the only real delete.
+ */
+function HistoryPanel({ at, rows, openIds, onOpen, onClose }: { at: { x: number; y: number }; rows: ThreadRow[]; openIds: Set<string>; onOpen: (t: ThreadRow) => void; onClose: () => void }) {
+  const [q, setQ] = useState('');
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const down = (e: MouseEvent) => !box.current?.contains(e.target as Node) && !(e.target as HTMLElement).closest?.('.tk-tool') && onClose();
+    const key = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    addEventListener('mousedown', down);
+    addEventListener('keydown', key);
+    return () => (removeEventListener('mousedown', down), removeEventListener('keydown', key));
+  }, []);
+  const shown = rows.filter((t) => !q.trim() || t.title.toLowerCase().includes(q.trim().toLowerCase()));
+  const when = (t: ThreadRow) => timeAgo(t.root.discarded ?? t.root.kept?.at ?? t.at);
+  const forget = (t: ThreadRow) => {
+    if (!confirm(`Delete “${t.title}” for good?\n\nIts steps and its copy of the code are removed. This can’t be undone.`)) return;
+    send({ type: 'deleteNodes', ids: [t.root.id] });
+  };
+  return (
+    <div className="hp" ref={box} style={{ left: at.x, top: at.y }} role="dialog" aria-label="History">
+      <div className="hp-head">
+        <b>History</b>
+        <span>{rows.length} finished</span>
+      </div>
+      {rows.length > 6 && (
+        <div className="hp-find">
+          <Icon name="search" size={13} />
+          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a task" />
+        </div>
+      )}
+      <div className="hp-list">
+        {!shown.length && <div className="hp-empty">{rows.length ? 'Nothing matches.' : 'Tasks you keep, finish or discard land here.'}</div>}
+        {shown.map((t) => (
+          <div key={t.root.id} className={`hp-row ${t.root.discarded ? 'discarded' : t.root.kept ? 'kept' : ''}`}>
+            <button className="hp-main" onClick={() => onOpen(t)} title="Open as a tab">
+              <span className="hp-icon">
+                <Icon name={t.root.discarded ? 'trash' : 'check'} size={12} />
+              </span>
+              <span className="hp-text">
+                <span className="hp-title">{t.title}</span>
+                <span className="hp-sub">
+                  {taskWord(t)} · {when(t)}
+                </span>
+              </span>
+              {openIds.has(t.root.id) && <span className="hp-open">open</span>}
+            </button>
+            <button className="hp-act" onClick={() => send({ type: 'setCompleted', nodeId: t.root.id, completed: false })} title="Reopen: put it back with your tasks">
+              <Icon name="refresh" size={13} />
+            </button>
+            <button className="hp-act danger" onClick={() => forget(t)} title="Delete for good">
+              <Icon name="trash" size={13} />
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="hp-foot">Click to open as a tab. Open as many as you like.</div>
+    </div>
   );
 }
 
