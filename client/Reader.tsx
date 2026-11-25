@@ -7,7 +7,7 @@ import { parseDiff } from './Drawer.tsx';
 import { Icon } from './icons.tsx';
 import { DiffStat, LiveLine, Md, Permission, STATUS_LABEL, ToolLine, branchColor } from './nodes.tsx';
 import { useReady } from './review.ts';
-import { TaskShell, TaskShellBox, useTaskRun } from './RunBox.tsx';
+import { TaskShell, useTaskRun } from './RunBox.tsx';
 import { Attachments } from './Shots.tsx';
 import { STAGE_LABEL, threadsOf, turnsOfBranch, type Stage, type ThreadRow } from './status.ts';
 import { isLocalPage, openTerminalFor, request, send, toast, useStore } from './store.ts';
@@ -678,7 +678,6 @@ function StepSection({
         {node.error && <div className="error-box">{node.error}</div>}
       </div>
       <Commands node={node} />
-      <TaskShellBox />
       {edited.length > 0 && (
         <section className="sv-sec">
           <h3>

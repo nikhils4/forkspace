@@ -87,11 +87,11 @@ function Shell() {
   const filedCount = Object.values(store.nodes).filter((n) => n.kind === 'note' && n.filed).length;
   const [termOpen, setTermOpen] = useState(false);
   // A card's "Terminal here": show the panel and open a terminal in that card's folder.
-  const [termFor, setTermFor] = useState<{ branchId: string; n: number; type?: string } | null>(null);
+  const [termFor, setTermFor] = useState<{ branchId: string; n: number; type?: string; tag?: string; run?: string } | null>(null);
   useEffect(() => {
     const on = (e: Event) => {
-      const d = (e as CustomEvent<{ branchId: string; type?: string }>).detail;
-      setTermFor({ branchId: d.branchId, type: d.type, n: Date.now() });
+      const d = (e as CustomEvent<{ branchId: string; type?: string; tag?: string; run?: string }>).detail;
+      setTermFor({ ...d, n: Date.now() });
       setTermOpen(true);
     };
     addEventListener('forkspace:term-for', on);

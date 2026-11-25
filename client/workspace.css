@@ -168,73 +168,6 @@
   border-top: 0 !important;
   animation: none;
 }
-.term-panel.split .term-view.l {
-  right: calc(50% + 1px);
-}
-.term-panel.split .term-view.r {
-  left: calc(50% + 12px);
-}
-.term-panel.split .term-body::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  width: 1px;
-  background: var(--border);
-}
-.term-tab.second {
-  box-shadow: inset 0 0 0 1px var(--border-2);
-}
-.term-here {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  height: 24px;
-  padding: 0 9px;
-  border-radius: 7px;
-  font: inherit;
-  font-size: 12px;
-  color: var(--accent);
-  background: var(--accent-soft);
-  border: 0;
-  cursor: pointer;
-  white-space: nowrap;
-  flex: none;
-}
-.term-scripts {
-  display: flex;
-  gap: 4px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  min-width: 0;
-  flex: 0 1 auto;
-}
-.term-script {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  height: 24px;
-  padding: 0 9px;
-  border-radius: 7px;
-  font-family: var(--mono);
-  font-size: 11.5px;
-  color: var(--text-2);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  cursor: pointer;
-  white-space: nowrap;
-  flex: none;
-}
-.term-script:hover {
-  color: var(--text);
-  border-color: var(--border-2);
-}
-.term-script svg {
-  color: var(--ok);
-}
-
-
 /* =========================================================
    Tasks: a tab per task on top; under it its steps on the left, what happened in
    the middle, what the step changed on the right.
@@ -2165,69 +2098,12 @@
 .code-wrap:has(.code-run) pre {
   padding-right: 110px;
 }
-.rb {
-  margin-top: 14px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--bg-2);
+
+.term-tab button {
+  opacity: 0;
 }
-.rb-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 6px 0 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-2);
-  font-size: 12px;
-}
-.rb-bar .spacer {
-  flex: 1;
-}
-.rb-where {
-  font-weight: 600;
-  color: var(--text);
-  flex: none;
-}
-.rb-last,
-.rb-state {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font: 11.5px var(--mono, ui-monospace, 'SF Mono', Menlo, monospace);
-  color: var(--text-3, var(--text-2));
-}
-.rb-state {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--accent);
-}
-.rb-state .spinner {
-  width: 10px;
-  height: 10px;
-}
-.rb-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 24px;
-  padding: 0 9px;
-  border: 1px solid var(--border-2);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-2);
-  font: 500 11.5px var(--font, inherit);
-  cursor: pointer;
-  flex: none;
-}
-.rb-btn:hover {
-  color: var(--text);
-  background: var(--surface-2);
-}
-.rb-body {
-  height: 260px;
+.term-tab:hover button,
+.term-tab.on button,
+.term-tab button:focus-visible {
+  opacity: 1;
 }

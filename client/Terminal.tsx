@@ -4,7 +4,7 @@ import '@xterm/xterm/css/xterm.css';
 import { useEffect, useRef, useState } from 'react';
 import type { Board, TerminalInfo } from '../shared/types.ts';
 import { Icon } from './icons.tsx';
-import { onTerminal, request, send, useStore } from './store.ts';
+import { onTerminal, request, send, toast, useStore } from './store.ts';
 import { isTurn, pathTo } from './tree.ts';
 import { useResolvedTheme, useTheme } from './theme.ts';
 
@@ -99,6 +99,21 @@ export function TermView({ info, active, side }: { info: TerminalInfo; active: b
   return <div className={`term-view ${active ? 'on' : ''} ${side ?? ''}`} ref={host} />;
 }
 
+/** A new shell needs its prompt fully drawn before it takes typing, or the first letters get lost.
+ * Resolves once it has printed something and then gone quiet. */
+function whenReady(id: string) {
+  return new Promise<void>((res) => {
+    let quiet: ReturnType<typeof setTimeout> | undefined;
+    const done = () => (off(), clearTimeout(quiet), clearTimeout(cap), res());
+    const off = onTerminal((m) => {
+      if (m.type !== 'termData' || m.id !== id) return;
+      clearTimeout(quiet);
+      quiet = setTimeout(done, 450);
+    });
+    const cap = setTimeout(done, 5000);
+  });
+}
+
 /**
  * The details panel floats over the right side. While it's open the terminal stops at its left
  * edge (the middle space), and takes the full width again once it closes.
@@ -134,13 +149,11 @@ function useDrawerCover(drawerOpen: boolean) {
   return { panel, cover };
 }
 
-export function TerminalPanel({ board, branchId, openFor, onClose, drawerOpen = false, docked = false }: { board: Board; branchId?: string; openFor?: { branchId: string; n: number; type?: string } | null; onClose: () => void; drawerOpen?: boolean; /** Part of the layout (desktop), not floating over it. */ docked?: boolean }) {
+export function TerminalPanel({ board, branchId, openFor, onClose, drawerOpen = false, docked = false }: { board: Board; branchId?: string; openFor?: { branchId: string; n: number; type?: string; tag?: string; run?: string } | null; onClose: () => void; drawerOpen?: boolean; /** Part of the layout (desktop), not floating over it. */ docked?: boolean }) {
   const { connected, branches, nodes } = useStore();
   const { panel, cover } = useDrawerCover(drawerOpen && !docked);
-  // Docked extras: fill the window, two side by side, the project's scripts one tap away.
+  // Docked extra: fill the window.
   const [max, setMax] = useState(false);
-  const [split, setSplit] = useState<string | null>(null);
-  const [scripts, setScripts] = useState<{ name: string; cmd: string }[]>([]);
   const [list, setList] = useState<TerminalInfo[]>([]);
   const [active, setActive] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -168,11 +181,13 @@ export function TerminalPanel({ board, branchId, openFor, onClose, drawerOpen = 
     );
 
   // A new terminal opens in the project's main folder; a card's "Terminal here" opens in its own.
-  const open = async (inBranch?: string) => {
+  const open = async (inBranch?: string, tag?: string) => {
     try {
-      const t = await request<TerminalInfo>({ type: 'termOpen', boardId: board.id, branchId: inBranch, cols: 100, rows: 24 });
+      const t = await request<TerminalInfo>({ type: 'termOpen', boardId: board.id, branchId: inBranch, cols: 100, rows: 24, tag });
+      const ready = whenReady(t.id);
       setList((l) => [...l.filter((x) => x.id !== t.id), t]);
       setActive(t.id);
+      await ready;
       return t;
     } catch (e: any) {
       setError(e.message);
@@ -180,6 +195,24 @@ export function TerminalPanel({ board, branchId, openFor, onClose, drawerOpen = 
   };
   // Put a command at the prompt without running it (no Enter): you read it, then press Enter.
   const typeInto = (id: string, text: string, wait: number) => setTimeout(() => send({ type: 'termInput', id, data: text.replace(/\r?\n/g, ' \\\r') }), wait);
+  // Run: in the task's own shell (found by its tag), so a `cd` from one Run carries to the next.
+  const runIn = async (branchId: string, tag: string, cmd: string) => {
+    const l = await load();
+    let t: TerminalInfo | undefined = l.filter((x) => x.tag === tag && x.exited === undefined).at(-1);
+    if (t) setActive(t.id);
+    if (t?.running) return toast(`Still running ${t.running}. Stop it first (Ctrl+C).`, 'error');
+    if (!t) t = await open(branchId, tag);
+    if (!t) return;
+    // Several lines go in as one paste so zsh takes them as one block; otherwise line by line.
+    const multi = cmd.includes('\n');
+    send({ type: 'termInput', id: t.id, data: multi && /zsh/.test(t.title) ? `\x1b[200~${cmd}\x1b[201~\r` : `${cmd.replace(/\r?\n/g, '\r')}\r` });
+  };
+  // Fresh: close this shell and start a new one in the same folder, keeping its place (and tag).
+  const fresh = async (t: TerminalInfo) => {
+    send({ type: 'termClose', id: t.id });
+    setList((l) => l.filter((x) => x.id !== t.id));
+    await open(t.branchId, t.tag);
+  };
 
   // First open on a board: start a terminal if there isn't one yet (unless a card asked for its own).
   const handled = useRef(0);
@@ -199,6 +232,7 @@ export function TerminalPanel({ board, branchId, openFor, onClose, drawerOpen = 
     if (!openFor || openFor.n === handled.current || !connected) return;
     handled.current = openFor.n;
     opened.current = true;
+    if (openFor.run && openFor.tag) return void runIn(openFor.branchId, openFor.tag, openFor.run);
     const mine = list.filter((t) => t.branchId === openFor.branchId && t.exited === undefined);
     const type = openFor.type;
     if (mine.length) {
@@ -207,24 +241,11 @@ export function TerminalPanel({ board, branchId, openFor, onClose, drawerOpen = 
       if (type) typeInto(id, type, 150);
     } else
       open(openFor.branchId).then((t) => {
-        // A new shell needs a moment to show its prompt before it takes typing.
-        if (t && type) typeInto(t.id, type, 900);
+        if (t && type) typeInto(t.id, type, 0);
       });
   }, [openFor?.n, connected]);
 
   useEffect(() => onTerminal((m) => m.type === 'termList' && m.boardId === board.id && void load()), [board.id]);
-  useEffect(() => {
-    if (!docked || !connected) return;
-    request<{ name: string; cmd: string }[]>({ type: 'scripts', boardId: board.id, branchId }).then(setScripts, () => setScripts([]));
-  }, [docked, board.id, branchId, connected]);
-  // Run a script in the terminal you're looking at (or a new one in this thread's folder).
-  const runScript = async (cmd: string) => {
-    const here = list.find((t) => t.id === active && t.exited === undefined && !t.running && (t.branchId ?? undefined) === (branchFolder ?? undefined));
-    if (here) return send({ type: 'termInput', id: here.id, data: `${cmd}\r` });
-    const t = await open(branchFolder);
-    if (t) setTimeout(() => send({ type: 'termInput', id: t.id, data: `${cmd}\r` }), 900);
-  };
-
   // Clicking a card while the terminal is open: if that card's folder already has a terminal,
   // show it. New ones only open when you ask (+ for the main folder, "Terminal here" on a card).
   const lastBranch = useRef(branchId);
@@ -236,7 +257,6 @@ export function TerminalPanel({ board, branchId, openFor, onClose, drawerOpen = 
   }, [branchId]);
 
   const close = (id: string) => {
-    if (split === id) setSplit(null);
     send({ type: 'termClose', id });
     setList((l) => l.filter((t) => t.id !== id));
     if (active === id) setActive(list.filter((t) => t.id !== id).at(-1)?.id ?? null);
@@ -261,8 +281,14 @@ export function TerminalPanel({ board, branchId, openFor, onClose, drawerOpen = 
   };
 
   // A tab is named after its place: the project folder, or the thread a card's own copy belongs to.
+  // A task's Run shell is named after the task.
   const folder = board.cwd.replace(/\/+$/, '').split('/').pop() || 'Project';
   const place = (t: TerminalInfo) => {
+    const task = t.tag?.startsWith('run:') ? (nodes[t.tag.slice(4)] as any) : undefined;
+    if (task) {
+      const name = String(task.title || task.prompt || 'Task').replace(/\s+/g, ' ').trim();
+      return name.length > 26 ? `${name.slice(0, 25)}…` : name;
+    }
     const b = t.branchId ? branches[t.branchId] : undefined;
     if (!b?.worktree) return folder;
     const first = Object.values(nodes)
@@ -279,25 +305,20 @@ export function TerminalPanel({ board, branchId, openFor, onClose, drawerOpen = 
     return same.length > 1 ? `${place(t)} ${same.indexOf(t) + 1}` : place(t);
   };
 
-  // The thread you're in works in its own copy: new terminals and scripts open there.
-  const branchFolder = branchId && branches[branchId]?.worktree ? branchId : undefined;
-  const hereMissing = !!branchFolder && !list.some((t) => t.branchId === branchFolder && t.exited === undefined);
-  const shown = (id: string) => id === active || id === split;
+  const current = list.find((t) => t.id === active);
 
   return (
-    <div className={`term-panel ${docked ? 'docked' : ''} ${max ? 'max' : ''} ${split ? 'split' : ''}`} ref={panel} style={{ height: max ? undefined : height, marginRight: cover || undefined }}>
+    <div className={`term-panel ${docked ? 'docked' : ''} ${max ? 'max' : ''}`} ref={panel} style={{ height: max ? undefined : height, marginRight: cover || undefined }}>
       <div className="term-grip" onPointerDown={drag} title="Drag to resize" />
       <div className="term-bar">
-        <Icon name="terminal" size={14} />
         <div className="term-tabs">
           {list.map((t) => (
             <div
               key={t.id}
-              className={`term-tab ${t.id === active ? 'on' : ''} ${t.id === split ? 'second' : ''} ${t.exited !== undefined ? 'exited' : ''} ${t.branchId && branches[t.branchId]?.worktree ? 'card' : ''}`}
-              onClick={() => (t.id === split ? (setSplit(active), setActive(t.id)) : setActive(t.id))}
+              className={`term-tab ${t.id === active ? 'on' : ''} ${t.exited !== undefined ? 'exited' : ''}`}
+              onClick={() => setActive(t.id)}
               title={`${t.cwd}${t.running ? `\nRunning: ${t.running}` : ''}`}
             >
-              <Icon name={t.branchId && branches[t.branchId]?.worktree ? 'branch' : 'folder'} size={12} />
               <span>{label(t)}</span>
               {t.exited !== undefined ? <em>ended</em> : t.running && <em className="term-running">{t.running}</em>}
               <button
@@ -316,30 +337,10 @@ export function TerminalPanel({ board, branchId, openFor, onClose, drawerOpen = 
             <Icon name="plus" size={13} />
           </button>
         </div>
-        {docked && hereMissing && (
-          <button className="term-here" onClick={() => open(branchFolder)} title={branches[branchFolder!]?.cwd}>
-            <Icon name="branch" size={12} /> Open in this thread’s copy
-          </button>
-        )}
         <span className="spacer" />
-        {docked && scripts.length > 0 && (
-          <div className="term-scripts" aria-label="Run a script">
-            {scripts.map((sc) => (
-              <button key={sc.name} className="term-script" onClick={() => void runScript(sc.cmd)} title={`Run: ${sc.cmd}`}>
-                <Icon name="play" size={10} /> {sc.name}
-              </button>
-            ))}
-          </div>
-        )}
-        {docked && list.length > 1 && (
-          <button
-            className={`icon-btn sm ${split ? 'on' : ''}`}
-            onClick={() => setSplit(split ? null : (list.filter((t) => t.id !== active).at(-1)?.id ?? null))}
-            title={split ? 'One at a time' : 'Two side by side'}
-            aria-label="Split"
-            aria-pressed={!!split}
-          >
-            <Icon name="sidebar" size={14} />
+        {current && (
+          <button className="icon-btn sm" onClick={() => void fresh(current)} title="Fresh: close this shell and start a new one in the same folder" aria-label="Fresh shell">
+            <Icon name="refresh" size={13} />
           </button>
         )}
         {docked && (
@@ -361,7 +362,7 @@ export function TerminalPanel({ board, branchId, openFor, onClose, drawerOpen = 
             </button>
           </div>
         ) : (
-          list.map((t) => <TermView key={t.id} info={t} active={shown(t.id)} side={split ? (t.id === split ? 'r' : t.id === active ? 'l' : undefined) : undefined} />)
+          list.map((t) => <TermView key={t.id} info={t} active={t.id === active} />)
         )}
       </div>
     </div>
