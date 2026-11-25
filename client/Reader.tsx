@@ -214,6 +214,12 @@ export function ThreadReader({
   }, [streamed]);
 
   const index = path.findIndex((t) => t.id === stepId);
+  // Which way you moved, so the step slides in from that side.
+  const was = useRef(index);
+  const dir = index > was.current ? 'next' : index < was.current ? 'prev' : 'same';
+  useEffect(() => {
+    was.current = index;
+  }, [index]);
   const prev = index > 0 ? path[index - 1] : null;
   const next = index >= 0 && index < path.length - 1 ? path[index + 1] : null;
   useEffect(() => {
@@ -236,14 +242,32 @@ export function ThreadReader({
           </h1>
           {row && <span className={`rd-stage stage-${row.root.kept ? 'done' : row.stage}`}>{taskWord(row)}</span>}
           <span className="spacer" />
+          <span className="rd-pos">
+            {index + 1} / {path.length}
+          </span>
           <button className={`icon-btn sm ${sideOpen ? 'on' : ''}`} onClick={onToggleSide} title={sideOpen ? 'Hide changes (])' : 'Show changes (])'} aria-label="Changes panel" aria-pressed={sideOpen}>
             <Icon name="sidebar" size={15} />
           </button>
         </div>
+        {path.length > 1 && (
+          <div className="rd-strip" role="tablist" aria-label="Steps on this path">
+            {path.map((t, i) => (
+              <button
+                key={t.id}
+                role="tab"
+                aria-selected={i === index}
+                className={`rd-seg st-${t.status} ${i === index ? 'on' : i < index ? 'past' : ''}`}
+                style={{ ['--branch' as any]: branchColor(t.branchId) }}
+                onClick={() => select(t.id)}
+                title={`Step ${i + 1} · ${stepLabel(t)}`}
+              />
+            ))}
+          </div>
+        )}
       </header>
       <div className="rd-scroll" ref={scroller}>
         <SelectionAsk scroller={scroller} node={step} onBranch={(p) => onBranch(step.id, p)} />
-        <div className="rd-doc sv-doc" key={stepId}>
+        <div className={`rd-doc sv-doc go-${dir}`} key={stepId}>
           <div className="rd-note">
             <NoteBar branchId={step.branchId} />
           </div>
@@ -516,16 +540,22 @@ function StepSection({
   const copy = () => final?.t === 'text' && navigator.clipboard?.writeText(final.text).then(() => toast('Copied'), () => toast('Could not copy', 'error'));
   return (
     <article className={`sv ${from ? 'from' : ''} st-${node.status}`} data-step={node.id} style={{ ['--branch' as any]: branchColor(node.branchId) }}>
-      <div className="sv-eyebrow">
-        <span className="sv-n">
-          Step {n} of {total}
+      <header className="sv-head">
+        <span className="sv-badge" title={`Step ${n} of ${total}`}>
+          {n}
         </span>
-        {working ? <LiveLine node={node} /> : <span className={`ss-status s-${node.status}`}>{STATUS_LABEL[node.status]}</span>}
-        <span>{timeAgo(node.finishedAt ?? node.createdAt)}</span>
-        {node.durationMs ? <span>{took(node.durationMs)}</span> : null}
-        <DiffStat s={node.diffStat} />
-      </div>
-      <h2 className="sv-title">{stepLabel(node)}</h2>
+        <div className="sv-head-text">
+          <h2 className="sv-title">{stepLabel(node)}</h2>
+          <div className="sv-meta">
+            {working ? <LiveLine node={node} /> : <span className={`sv-state s-${node.status}`}>{STATUS_LABEL[node.status]}</span>}
+            <span title={new Date(node.finishedAt ?? node.createdAt).toLocaleString()}>
+              <Icon name="clock" size={12} /> {timeAgo(node.finishedAt ?? node.createdAt)}
+            </span>
+            {node.durationMs ? <span>took {took(node.durationMs)}</span> : null}
+            <DiffStat s={node.diffStat} />
+          </div>
+        </div>
+      </header>
       <blockquote className="sv-you" title="What you asked">
         {node.prompt}
       </blockquote>

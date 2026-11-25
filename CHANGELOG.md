@@ -3,6 +3,12 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.47.0
+
+- **See where you are in a long thread.** A bar across the top has one segment per step, coloured by how it went (done, failed, needs you, working). Click any segment to go there; the count shows which step you're on
+- **A clearer step header.** The step number sits in a badge in its branch's colour, with the title beside it and its status, time and changes spaced out underneath
+- Next slides in from the right and Previous from the left, so moving between steps feels like turning pages
+
 ## 0.46.0
 
 - **One step at a time.** Picking a step on the left swaps the page to it, from the top, instead of scrolling through everything before it. Previous and Next at the bottom, or `J` `K`
