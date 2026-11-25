@@ -3,6 +3,12 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.55.0
+
+- **Quick tags.** Make your own tags (security, infra…) and put them on tasks. Right-click a tab and choose Tags…, or press T while reading a task. Each tag has a colour; click its dot to change it
+- **Simpler tabs.** One line: status, the start of what you asked, and tag dots. A name you give with Rename still wins
+- **Short summary on the left.** The step tree starts with the task in a few words; the page title keeps your question
+
 ## 0.54.0
 
 - **Run opens the terminal at the bottom.** The command runs in the task's own tab, named after the task, so you see the output right away
