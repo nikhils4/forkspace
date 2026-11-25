@@ -39,6 +39,74 @@ export function rootOf(nodes: Record<string, CanvasNode>, id: string) {
 const urgentStage = (s: Stage) => s === 'needs' || s === 'error' || s === 'failing' || s === 'feedback';
 export const isFinished = (t: ThreadRow) => !!t.root.completed || t.stage === 'done' || t.stage === 'merged';
 
+export type StatusKind = 'needs' | 'failed' | 'working' | 'ready' | 'idle' | 'kept' | 'done' | 'discarded';
+
+/** One status for a task, for its icon. */
+export function statusKind(t: ThreadRow): StatusKind {
+  if (t.root.completed) return t.root.discarded ? 'discarded' : t.root.kept ? 'kept' : 'done';
+  if (t.stage === 'needs' || t.stage === 'feedback') return 'needs';
+  if (t.stage === 'error' || t.stage === 'failing') return 'failed';
+  if (t.stage === 'working' || t.stage === 'checking') return 'working';
+  if (t.stage === 'merged' || t.stage === 'done') return 'done';
+  return 'ready';
+}
+
+/** A small status mark, the same everywhere: a ring when ready, a half circle while working, a check when kept. */
+export function StatusIcon({ kind, size = 14, fresh = false }: { kind: StatusKind; size?: number; fresh?: boolean }) {
+  const c = 7;
+  const body = (() => {
+    switch (kind) {
+      case 'working':
+        return (
+          <>
+            <circle cx={c} cy={c} r={5.5} fill="none" stroke="currentColor" strokeWidth={1.5} />
+            <path d={`M${c} ${c} L${c} 3.5 A3.5 3.5 0 0 1 ${c} 10.5 Z`} fill="currentColor" />
+          </>
+        );
+      case 'ready':
+        return (
+          <>
+            <circle cx={c} cy={c} r={5.5} fill="none" stroke="currentColor" strokeWidth={1.5} />
+            <path d={`M${c} ${c} L${c} 3.5 A3.5 3.5 0 1 1 3.5 ${c} Z`} fill="currentColor" />
+          </>
+        );
+      case 'needs':
+        return (
+          <>
+            <circle cx={c} cy={c} r={6.5} fill="currentColor" />
+            <path d="M7 3.8v3.9" stroke="var(--si-fg)" strokeWidth={1.6} strokeLinecap="round" />
+            <circle cx={7} cy={10} r={0.95} fill="var(--si-fg)" />
+          </>
+        );
+      case 'failed':
+      case 'discarded':
+        return (
+          <>
+            <circle cx={c} cy={c} r={6.5} fill="currentColor" />
+            <path d="M4.9 4.9l4.2 4.2M9.1 4.9l-4.2 4.2" stroke="var(--si-fg)" strokeWidth={1.5} strokeLinecap="round" />
+          </>
+        );
+      case 'kept':
+      case 'done':
+        return (
+          <>
+            <circle cx={c} cy={c} r={6.5} fill="currentColor" />
+            <path d="M4.3 7.2l1.8 1.8 3.6-3.8" fill="none" stroke="var(--si-fg)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+          </>
+        );
+      default:
+        return <circle cx={c} cy={c} r={5.5} fill="none" stroke="currentColor" strokeWidth={1.5} strokeDasharray="2.2 2" />;
+    }
+  })();
+  return (
+    <span className={`si si-${kind} ${fresh ? 'fresh' : ''}`} style={{ width: size, height: size }} aria-hidden>
+      <svg viewBox="0 0 14 14" width={size} height={size}>
+        {body}
+      </svg>
+    </span>
+  );
+}
+
 /** What a task's tab says under its title. */
 export function taskWord(t: ThreadRow) {
   if (t.root.completed && t.root.discarded) return 'Discarded';
@@ -210,7 +278,7 @@ export function TaskTabs({
               <div key={t.root.id} className={`tk ${on ? 'on' : ''} stage-${t.stage} ${isFinished(t) ? 'done' : ''} ${t.root.discarded ? 'discarded' : ''}`} data-id={t.root.id} data-alert={alert ?? undefined}>
                 <button className="tk-main" role="tab" aria-selected={on} onClick={() => onPick(tipFrom(nodes, t.root.id))} title={t.title}>
                   <span className="tk-title">
-                    <span className={`tk-dot ${alert ?? ''}`} />
+                    <StatusIcon kind={statusKind(t)} size={13} fresh={alert === 'ready'} />
                     <span className="ellipsis">{t.title}</span>
                   </span>
                   <span className="tk-word">{taskWord(t)}</span>
@@ -290,9 +358,7 @@ function HistoryPanel({ at, rows, openIds, onOpen, onClose }: { at: { x: number;
         {shown.map((t) => (
           <div key={t.root.id} className={`hp-row ${t.root.discarded ? 'discarded' : t.root.kept ? 'kept' : ''}`}>
             <button className="hp-main" onClick={() => onOpen(t)} title="Open as a tab">
-              <span className="hp-icon">
-                <Icon name={t.root.discarded ? 'trash' : 'check'} size={12} />
-              </span>
+              <StatusIcon kind={statusKind(t)} size={15} />
               <span className="hp-text">
                 <span className="hp-title">{t.title}</span>
                 <span className="hp-sub">

@@ -8,6 +8,8 @@ To cut one: add a section below, then run `npm run release -- <version>`.
 - **See where you are in a long thread.** A bar across the top has one segment per step, coloured by how it went (done, failed, needs you, working). Click any segment to go there; the count shows which step you're on
 - **A clearer step header.** The step number sits in a badge in its branch's colour, with the title beside it and its status, time and changes spaced out underneath
 - Next slides in from the right and Previous from the left, so moving between steps feels like turning pages
+- **One set of status icons everywhere**, like Linear's: a ring when ready, a turning half circle while working, amber when it needs you, red when it failed, a filled check once kept
+- **A merge box above the reply**, like a pull request's: whether its checks passed (the tests, lint and builds it ran), and a green **Keep** with a menu for the other ways to keep: leave it uncommitted or open a pull request
 
 ## 0.46.0
 

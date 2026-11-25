@@ -15,7 +15,7 @@ import { PrSection } from './Threads.tsx';
 import { ToolDiff, editsOf } from './ToolDiff.tsx';
 import { childrenOf, currentActivity, isLive, pathTo } from './tree.ts';
 import { timeAgo, useTick } from './ui.tsx';
-import { taskWord, tipFrom } from './Workspace.tsx';
+import { StatusIcon, statusKind, taskWord, tipFrom } from './Workspace.tsx';
 
 // The desktop's three panes for the task in the open tab: its steps and branches on the left, one
 // short line each; what happened at each step in the middle (what you asked, what it said, the
@@ -187,8 +187,8 @@ export function ThreadReader({
 
   // Branching from a step: the box under the thread says so, until you send or cancel.
   const [branchFrom, setBranchFrom] = useState<string | null>(null);
-  const [keeping, setKeeping] = useState(false);
-  useEffect(() => (setBranchFrom(null), setKeeping(false)), [root.id]);
+  const [keeping, setKeeping] = useState<KeepMode | null>(null);
+  useEffect(() => (setBranchFrom(null), setKeeping(null)), [root.id]);
   const target = (branchFrom && (nodes[branchFrom] as TurnNode)) || tip;
 
   // Reading position. Scrolling picks the step you're on (the steps on the left and the changes
@@ -240,7 +240,12 @@ export function ThreadReader({
           <h1 className="rd-title" title={title}>
             {title}
           </h1>
-          {row && <span className={`rd-stage stage-${row.root.kept ? 'done' : row.stage}`}>{taskWord(row)}</span>}
+          {row && (
+            <span className={`rd-stage k-${statusKind(row)}`}>
+              <StatusIcon kind={statusKind(row)} size={14} />
+              {taskWord(row)}
+            </span>
+          )}
           <span className="spacer" />
           <span className="rd-pos">
             {index + 1} / {path.length}
@@ -322,11 +327,11 @@ export function ThreadReader({
             <button onClick={() => setBranchFrom(null)}>Cancel</button>
           </div>
         ) : (
-          row && <CallBar row={row} tip={tip} onJump={(id) => select(id)} onKeep={() => setKeeping(true)} />
+          row && <CallBar row={row} tip={tip} onJump={(id) => select(id)} onKeep={setKeeping} />
         )}
         {composer(target, () => setBranchFrom(null), !!branchFrom)}
       </div>
-      {keeping && <KeepSheet root={root} tip={tip} onClose={() => setKeeping(false)} onAsk={(p) => onAsk(tip.id, p)} />}
+      {keeping && <KeepSheet root={root} tip={tip} start={keeping} onClose={() => setKeeping(null)} onAsk={(p) => onAsk(tip.id, p)} />}
     </section>
   );
 }
@@ -337,8 +342,11 @@ const PR_PROMPT =
   'Open a pull request for this work: make a new git branch, commit the changes with a clear message, push it, and open a PR with gh. Give it a short title and a description of what changed and why.';
 
 /** Above the reply box: what this task needs from you now, with the buttons for it. */
-function CallBar({ row, tip, onJump, onKeep }: { row: ThreadRow; tip: TurnNode; onJump: (id: string) => void; onKeep: () => void }) {
+type KeepMode = 'commit' | 'folder' | 'pr';
+
+function CallBar({ row, tip, onJump, onKeep }: { row: ThreadRow; tip: TurnNode; onJump: (id: string) => void; onKeep: (mode: KeepMode) => void }) {
   const { nodes, branches } = useStore();
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const root = row.root;
   const steps = threadSteps(nodes, root.id);
   const waiting = steps.find((t) => t.status === 'waiting');
@@ -346,7 +354,7 @@ function CallBar({ row, tip, onJump, onKeep }: { row: ThreadRow; tip: TurnNode; 
   if (root.completed)
     return (
       <div className="call done">
-        <Icon name="check" size={13} />
+        <StatusIcon kind={root.discarded ? 'discarded' : root.kept ? 'kept' : 'done'} size={16} />
         <span>{root.discarded ? 'Discarded · it stays in History until you delete it for good' : root.kept ? (root.kept.commit ? `Kept · committed ${root.kept.commit}` : 'Kept · the changes are in your folder, uncommitted') : 'Marked done'}</span>
         <span className="spacer" />
         <button className="btn sm ghost" onClick={() => send({ type: 'setCompleted', nodeId: root.id, completed: false })}>
@@ -357,7 +365,7 @@ function CallBar({ row, tip, onJump, onKeep }: { row: ThreadRow; tip: TurnNode; 
   if (waiting)
     return (
       <div className="call needs">
-        <span className="call-pulse" />
+        <StatusIcon kind="needs" size={16} />
         <span>
           <b>It's asking you</b> at “{stepLabel(waiting)}”
         </span>
@@ -370,7 +378,7 @@ function CallBar({ row, tip, onJump, onKeep }: { row: ThreadRow; tip: TurnNode; 
   if (running)
     return (
       <div className="call working">
-        <span className="spinner" />
+        <StatusIcon kind="working" size={16} />
         <span>
           Working on “{stepLabel(running)}” · <span className="faint">{currentActivity(running) || 'thinking'}</span>
         </span>
@@ -385,32 +393,71 @@ function CallBar({ row, tip, onJump, onKeep }: { row: ThreadRow; tip: TurnNode; 
     send({ type: 'setDiscarded', nodeId: root.id, discarded: true });
     toast(own ? 'Discarded. It’s in History; files it changed in your folder stay as they are.' : 'Discarded. It’s in History, with its copy of the code, until you delete it for good.');
   };
+  // Like a pull request's checks: the latest run of each test, lint, type or build command.
+  const checks = new Map<string, boolean>();
+  for (const t of pathTo(nodes, tip.id))
+    for (const e of t.events)
+      if (e.t === 'tool' && e.name === 'Bash' && e.result != null) {
+        const cmd = String((e.input as any)?.command ?? '').split('\n')[0].trim();
+        if (/\b(test|tests|lint|typecheck|tsc|build|check|vitest|jest|pytest|bench)\b/.test(cmd)) checks.set(cmd, !e.isError);
+      }
+  const failing = [...checks].filter(([, ok]) => !ok).map(([c]) => c);
+  const failed = tip.status === 'error' || failing.length > 0;
+  const checkLine = !checks.size ? 'No checks ran' : failing.length ? `${failing.length} of ${checks.size} check${checks.size === 1 ? '' : 's'} failing · ${failing[0]}` : `${checks.size === 1 ? 'Check' : `All ${checks.size} checks`} passed · ${[...checks.keys()].slice(0, 2).join(', ')}`;
+  const keepMenu = (e: React.MouseEvent) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setMenu({ x: r.right - 240, y: r.top - 8 });
+  };
   return (
-    <div className={`call ${tip.status === 'error' ? 'failed' : ''}`}>
-      <span className="call-label">{tip.status === 'error' ? 'It stopped with an error' : 'Your call'}</span>
-      <span className="call-hint">{root.baseCommit ? 'Nothing is committed until you keep it.' : 'Reply below, or close it when you’re done.'}</span>
+    <div className={`mb ${failed ? 'failed' : ''}`}>
+      <StatusIcon kind={failed ? 'failed' : 'ready'} size={20} />
+      <div className="mb-text">
+        <b>{tip.status === 'error' ? 'It stopped with an error' : failed ? 'Ready, but a check is failing' : 'Ready to keep'}</b>
+        <span>
+          {checkLine}
+          {root.baseCommit ? ' · not committed yet' : ''}
+        </span>
+      </div>
       <span className="spacer" />
       {root.baseCommit && (
-        <button className="btn sm keep" onClick={onKeep}>
-          <Icon name="check" size={13} /> Keep…
-        </button>
+        <span className={`mb-split ${failed ? 'quiet' : ''}`}>
+          <button onClick={() => onKeep('commit')} title="Commit it as you, with your message">
+            Keep
+          </button>
+          <button className="mb-more" onClick={keepMenu} aria-label="Other ways to keep" title="Other ways to keep">
+            <Icon name="chevronDown" size={13} />
+          </button>
+        </span>
       )}
-      <button className="btn sm" onClick={() => send({ type: 'setCompleted', nodeId: root.id, completed: true })} title="Close it without keeping anything">
+      <button className="btn sm ghost" onClick={() => send({ type: 'setCompleted', nodeId: root.id, completed: true })} title="Close it without keeping anything">
         Done
       </button>
-      <button className="btn sm ghost danger" onClick={discard}>
+      <button className="btn sm ghost danger" onClick={discard} title="Put it away in History">
         Discard
       </button>
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          above
+          items={[
+            { label: 'Commit it', icon: 'check', hint: 'as you', onClick: () => onKeep('commit') },
+            { label: own ? 'Leave it uncommitted' : 'Put the changes in my folder', icon: 'folder', onClick: () => onKeep('folder') },
+            { label: 'Open a pull request', icon: 'branch', hint: 'gh', onClick: () => onKeep('pr') },
+          ]}
+          onClose={() => setMenu(null)}
+        />
+      )}
     </div>
   );
 }
 
 /** Keep: commit on your branch, leave the changes in your folder, or have it open a PR. */
-function KeepSheet({ root, tip, onClose, onAsk }: { root: TurnNode; tip: TurnNode; onClose: () => void; onAsk: (prompt: string) => void }) {
+function KeepSheet({ root, tip, start, onClose, onAsk }: { root: TurnNode; tip: TurnNode; start: KeepMode; onClose: () => void; onAsk: (prompt: string) => void }) {
   const { branches, boards } = useStore();
   const own = !branches[tip.branchId]?.worktree;
   const board = boards.find((b) => b.id === root.boardId);
-  const [mode, setMode] = useState<'commit' | 'folder' | 'pr'>('commit');
+  const [mode, setMode] = useState<KeepMode>(start);
   const [msg, setMsg] = useState((root.title || root.prompt).split('\n')[0].slice(0, 72));
   const [busy, setBusy] = useState(false);
   useEffect(() => {
