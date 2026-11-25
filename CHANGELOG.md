@@ -3,6 +3,11 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.54.0
+
+- **Run opens the terminal at the bottom.** The command runs in the task's own tab, named after the task, so you see the output right away
+- **Simpler terminal bar.** Just the tabs, a new terminal, Fresh, fill the window and hide. The script buttons and split are gone
+
 ## 0.53.0
 
 - **Run commands right in the step.** Every command it ran, and every shell block in its answer, has a Run button. It runs in one shell per task that starts in the task's folder, so a `cd` carries to the next command. The output shows right below
