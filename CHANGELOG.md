@@ -3,6 +3,12 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.56.0
+
+- **Steps read as a story.** Each step opens on where it landed (or what it's doing now), then its plan and how it thought its way there. The tools it used shrink to one quiet line you can open
+- **Comment on changes.** In Changes, hover a line and click + to leave a note, or comment on a whole file. Send N to agent puts them all in the message box as one review with file and line
+- **Accurate PR checks.** Only the latest run of each check counts, and GitHub's own all green wins. If gh isn't signed in it says so, old results show when they were last read, and opening the panel checks again
+
 ## 0.55.0
 
 - **Quick tags.** Make your own tags (security, infra…) and put them on tasks. Right-click a tab and choose Tags…, or press T while reading a task. Each tag has a colour; click its dot to change it
