@@ -181,6 +181,8 @@ export function TaskTabs({
   const strip = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState<{ left: string[]; right: string[] }>({ left: [], right: [] });
   const [histAt, setHistAt] = useState<{ x: number; y: number } | null>(null);
+  const [tabMenu, setTabMenu] = useState<{ x: number; y: number; t: ThreadRow } | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
   const measure = () => {
     const el = strip.current;
     if (!el) return;
@@ -262,6 +264,46 @@ export function TaskTabs({
       else onNew();
     }
   };
+  // Right-click a tab: what a browser tab offers, plus what a task can do.
+  const menuFor = (t: ThreadRow): MenuItem[] => {
+    const done = isFinished(t);
+    const finishedOpen = open.filter((x) => isFinished(x) && x.root.id !== t.root.id);
+    return [
+      { label: 'Rename', icon: 'note', onClick: () => setRenaming(t.root.id) },
+      { label: 'Copy title', icon: 'copy', onClick: () => navigator.clipboard?.writeText(t.title).then(() => toast('Title copied'), () => toast('Could not copy', 'error')) },
+      'sep',
+      ...(done
+        ? [{ label: 'Reopen', icon: 'refresh' as const, onClick: () => send({ type: 'setCompleted', nodeId: t.root.id, completed: false }) }]
+        : [
+            { label: 'Mark done', icon: 'check' as const, onClick: () => send({ type: 'setCompleted', nodeId: t.root.id, completed: true }) },
+            {
+              label: 'Discard',
+              icon: 'trash' as const,
+              danger: true,
+              onClick: () => (send({ type: 'setDiscarded', nodeId: t.root.id, discarded: true }), toast('Discarded. It’s in History.')),
+            },
+          ]),
+      'sep',
+      { label: 'Close tab', icon: 'x', hint: done ? undefined : 'marks it done', onClick: () => close(t) },
+      ...(finishedOpen.length
+        ? [
+            {
+              label: `Close finished tabs (${finishedOpen.length})`,
+              icon: 'x' as const,
+              onClick: () => {
+                const ids = new Set(finishedOpen.map((x) => x.root.id));
+                setExtra((list) => list.filter((id) => !ids.has(id)));
+                if (currentRootId && ids.has(currentRootId)) onPick(tipFrom(nodes, t.root.id));
+              },
+            },
+          ]
+        : []),
+    ];
+  };
+  const rename = (t: ThreadRow, title: string) => {
+    setRenaming(null);
+    if (title.trim() && title.trim() !== t.title) send({ type: 'setTitle', nodeId: t.root.id, title: title.trim() });
+  };
   const openFromHistory = (t: ThreadRow) => {
     if (!extra.includes(t.root.id)) setExtra((ids) => [...ids, t.root.id]);
     onPick(tipFrom(nodes, t.root.id));
@@ -276,10 +318,35 @@ export function TaskTabs({
             const alert = alerts.get(t.root.id);
             return (
               <div key={t.root.id} className={`tk ${on ? 'on' : ''} stage-${t.stage} ${isFinished(t) ? 'done' : ''} ${t.root.discarded ? 'discarded' : ''}`} data-id={t.root.id} data-alert={alert ?? undefined}>
-                <button className="tk-main" role="tab" aria-selected={on} onClick={() => onPick(tipFrom(nodes, t.root.id))} title={t.title}>
+                <button
+                  className="tk-main"
+                  role="tab"
+                  aria-selected={on}
+                  onClick={() => renaming !== t.root.id && onPick(tipFrom(nodes, t.root.id))}
+                  onContextMenu={(e) => (e.preventDefault(), setTabMenu({ x: e.clientX, y: e.clientY, t }))}
+                  onAuxClick={(e) => e.button === 1 && isFinished(t) && close(t)}
+                  title={t.title}
+                >
                   <span className="tk-title">
                     <StatusIcon kind={statusKind(t)} size={13} fresh={alert === 'ready'} />
-                    <span className="ellipsis">{t.title}</span>
+                    {renaming === t.root.id ? (
+                      <input
+                        className="tk-rename"
+                        defaultValue={t.title}
+                        autoFocus
+                        onFocus={(e) => e.currentTarget.select()}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => {
+                          e.stopPropagation();
+                          if (e.key === 'Enter') rename(t, e.currentTarget.value);
+                          if (e.key === 'Escape') setRenaming(null);
+                        }}
+                        onBlur={(e) => rename(t, e.currentTarget.value)}
+                        aria-label="Task name"
+                      />
+                    ) : (
+                      <span className="ellipsis">{t.title}</span>
+                    )}
                   </span>
                   <span className="tk-word">{taskWord(t)}</span>
                 </button>
@@ -316,6 +383,7 @@ export function TaskTabs({
           <Icon name="search" size={15} />
         </button>
       </div>
+      {tabMenu && <ContextMenu x={tabMenu.x} y={tabMenu.y} items={menuFor(tabMenu.t)} onClose={() => setTabMenu(null)} />}
       {histAt && <HistoryPanel at={histAt} rows={history} openIds={new Set(open.map((t) => t.root.id))} onOpen={openFromHistory} onClose={() => setHistAt(null)} />}
     </header>
   );

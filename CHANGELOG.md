@@ -3,6 +3,11 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.50.0
+
+- **Right-click a tab** for Rename (right in the tab), Copy title, Mark done or Reopen, Discard, Close tab, and Close finished tabs
+- Middle-click closes a finished tab, like a browser
+
 ## 0.49.0
 
 - **The thread notes bar is gone from the top of the page.** The notes are one small icon in the header instead, with a dot when new steps aren't in them yet; click it to open them (they catch up on their own)

@@ -2086,3 +2086,19 @@
   width: 12px;
   height: 12px;
 }
+
+.tk-rename {
+  flex: 1;
+  min-width: 0;
+  height: 22px;
+  margin: -2px 0;
+  padding: 0 6px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+}
