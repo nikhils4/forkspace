@@ -10,7 +10,7 @@ import { isLive } from './tree.ts';
 // way there. The tools it used shrink to one quiet line between thoughts; open it for the detail.
 
 type Tool = Extract<TurnEvent, { t: 'tool' }>;
-type Beat = { k: 'say'; text: string; partial?: boolean } | { k: 'think'; text: string } | { k: 'tools'; list: Tool[] };
+type Beat = { k: 'say'; text: string; partial?: boolean } | { k: 'think'; text: string } | { k: 'tools'; list: Tool[] } | { k: 'plan' };
 
 /** The latest plan it wrote (TodoWrite), if any. */
 export function planOf(node: TurnNode) {
@@ -20,25 +20,17 @@ export function planOf(node: TurnNode) {
   return todos.map((t: any) => ({ text: String(t.content ?? t.activeForm ?? ''), status: String(t.status ?? 'pending'), now: String(t.activeForm ?? t.content ?? '') }));
 }
 
-/** What it said last, once it has finished: where it landed. */
-export function landingOf(node: TurnNode) {
-  if (isLive(node)) return null;
-  for (let i = node.events.length - 1; i >= 0; i--) {
-    const e = node.events[i];
-    if (e.t === 'text' && e.text.trim()) return { i, text: e.text };
-  }
-  return null;
-}
-
-function beatsOf(node: TurnNode, skip: number) {
+function beatsOf(node: TurnNode) {
   const out: Beat[] = [];
+  const lastPlan = node.events.findLastIndex((e) => e.t === 'tool' && e.name === 'TodoWrite');
   node.events.forEach((e, i) => {
-    if (i === skip) return;
     if (e.t === 'text') {
       if (e.text.trim()) out.push({ k: 'say', text: e.text, partial: e.partial });
     } else if (e.t === 'thinking') {
       if (e.text.trim()) out.push({ k: 'think', text: e.text });
-    } else if (e.name !== 'TodoWrite') {
+    } else if (e.name === 'TodoWrite') {
+      if (i === lastPlan) out.push({ k: 'plan' });
+    } else {
       const prev = out.at(-1);
       if (prev?.k === 'tools') prev.list.push(e);
       else out.push({ k: 'tools', list: [e] });
@@ -124,7 +116,7 @@ export function Plan({ node }: { node: TurnNode }) {
   return (
     <section className="sy-sec">
       <h3>
-        Heading to <span>{done} of {plan.length} done</span>
+        Plan <span>{done} of {plan.length} done</span>
       </h3>
       <ol className="sy-plan">
         {plan.map((t, i) => (
@@ -138,58 +130,28 @@ export function Plan({ node }: { node: TurnNode }) {
   );
 }
 
-/** Where it landed (when finished), what it's doing now (while working), then the plan and the story. */
+/** The step as Claude sent it, in order: its messages and thinking in full, its plan where it wrote
+ * it, and the tools it used as one quiet line between them. */
 export function StepStory({ node, cwd }: { node: TurnNode; cwd?: string }) {
   const live = isLive(node);
-  const landing = landingOf(node);
-  const beats = beatsOf(node, landing?.i ?? -1);
-  const thoughts = beats.filter((b) => b.k !== 'tools').length;
-  const lastThought = [...beats].reverse().find((b) => b.k !== 'tools') as Exclude<Beat, { k: 'tools' }> | undefined;
+  const beats = beatsOf(node);
   return (
-    <>
-      {live ? (
-        <section className="sy-now">
-          <h3 className="sy-h">
-            <span className="sy-pulse" /> Now
-          </h3>
-          {lastThought ? (
-            lastThought.k === 'say' ? (
-              <Md text={lastThought.text} partial={lastThought.partial} />
-            ) : (
-              <div className="sy-think-text">{lastThought.text.slice(-600)}</div>
-            )
-          ) : (
-            <div className="ss-quiet">Getting started…</div>
-          )}
-        </section>
-      ) : (
-        <section className="sv-answer sy-landed">
-          <h3 className="sy-h">Where it landed</h3>
-          {landing ? <Md text={landing.text} /> : <div className="ss-quiet">Finished without a message.</div>}
-          {node.error && <div className="error-box">{node.error}</div>}
-        </section>
+    <div className="sy-flow">
+      {beats.map((b, i) =>
+        b.k === 'say' ? (
+          <div key={i} className="sy-say">
+            <Md text={b.text} partial={b.partial} />
+          </div>
+        ) : b.k === 'think' ? (
+          <Thought key={i} text={b.text} />
+        ) : b.k === 'plan' ? (
+          <Plan key={i} node={node} />
+        ) : (
+          <Tools key={i} list={b.list} cwd={cwd} live={live} />
+        ),
       )}
-      <Plan node={node} />
-      {beats.length > 0 && (thoughts > 0 || live) && (
-        <section className="sy-sec">
-          <h3>
-            How it got there <span>{thoughts ? `${thoughts} thought${thoughts === 1 ? '' : 's'}` : ''}</span>
-          </h3>
-          <ol className="sy-story">
-            {beats.map((b, i) => (
-              <li key={i} className={`sy-${b.k} ${live && i === beats.length - 1 ? 'latest' : ''}`}>
-                {b.k === 'say' ? <Md text={b.text} partial={b.partial} /> : b.k === 'think' ? <Thought text={b.text} /> : <Tools list={b.list} cwd={cwd} live={live} />}
-              </li>
-            ))}
-          </ol>
-        </section>
-      )}
-      {beats.length > 0 && !thoughts && !live && (
-        <section className="sy-sec">
-          <h3>What it did</h3>
-          {beats.map((b, i) => b.k === 'tools' && <Tools key={i} list={b.list} cwd={cwd} live={false} />)}
-        </section>
-      )}
-    </>
+      {!beats.length && <div className="ss-quiet">{live ? 'Getting started…' : 'Finished without a message.'}</div>}
+      {node.error && <div className="error-box">{node.error}</div>}
+    </div>
   );
 }

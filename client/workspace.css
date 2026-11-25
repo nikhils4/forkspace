@@ -2492,6 +2492,26 @@
   border-radius: 50%;
   background: var(--accent);
 }
+/* A step as Claude sent it: messages in order, tools as quiet lines between. */
+.sy-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sy-flow > .sy-sec {
+  padding: 2px 0 0;
+  border-top: 0;
+}
+.sy-say .md {
+  font-size: 14.5px;
+  line-height: 1.65;
+}
+.sy-say .md > :first-child {
+  margin-top: 0;
+}
+.sy-say .md > :last-child {
+  margin-bottom: 0;
+}
 /* the story: a quiet line down the left, a dot per beat */
 .sy-story {
   list-style: none;
