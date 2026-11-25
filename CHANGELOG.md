@@ -3,6 +3,11 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.57.0
+
+- **Tags you can see.** A tab shows its tag's name as a coloured pill and a band of that colour across its top. Header chips are filled with their colour
+- **Run remembers.** A Run button shows Running, then a green Ran that stays, with a short note when it finishes. Running it again takes a second click, so you don't repeat it by accident
+
 ## 0.56.0
 
 - **Steps read as a story.** Each step opens on where it landed (or what it's doing now), then its plan and how it thought its way there. The tools it used shrink to one quiet line you can open
