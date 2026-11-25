@@ -3,6 +3,12 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.51.0
+
+- **No more box above the reply.** Keep is a small green button in the header once a task finishes; its menu has the other ways to keep it, Done and Discard. Hover it to see which checks passed
+- A task with nothing to keep shows **Finish** there instead, and a finished one shows **Reopen**
+- The line above the reply box now only appears while it's working (with Stop) or needs you (with Show me)
+
 ## 0.50.0
 
 - **Right-click a tab** for Rename (right in the tab), Copy title, Mark done or Reopen, Discard, Close tab, and Close finished tabs

@@ -252,6 +252,7 @@ export function ThreadReader({
             </span>
           )}
           <span className="spacer" />
+          {row && <KeepButton row={row} tip={tip} onKeep={setKeeping} />}
           {path.length > 1 && (
             <button
               className="rd-pos"
@@ -339,7 +340,7 @@ export function ThreadReader({
             <button onClick={() => setBranchFrom(null)}>Cancel</button>
           </div>
         ) : (
-          row && <CallBar row={row} tip={tip} onJump={(id) => select(id)} onKeep={setKeeping} />
+          row && <CallBar row={row} onJump={(id) => select(id)} />
         )}
         {composer(target, () => setBranchFrom(null), !!branchFrom)}
       </div>
@@ -356,24 +357,13 @@ const PR_PROMPT =
 /** Above the reply box: what this task needs from you now, with the buttons for it. */
 type KeepMode = 'commit' | 'folder' | 'pr';
 
-function CallBar({ row, tip, onJump, onKeep }: { row: ThreadRow; tip: TurnNode; onJump: (id: string) => void; onKeep: (mode: KeepMode) => void }) {
-  const { nodes, branches } = useStore();
-  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+function CallBar({ row, onJump }: { row: ThreadRow; onJump: (id: string) => void }) {
+  const { nodes } = useStore();
   const root = row.root;
   const steps = threadSteps(nodes, root.id);
   const waiting = steps.find((t) => t.status === 'waiting');
   const running = steps.find((t) => t.status === 'running');
-  if (root.completed)
-    return (
-      <div className="call done">
-        <StatusIcon kind={root.discarded ? 'discarded' : root.kept ? 'kept' : 'done'} size={16} />
-        <span>{root.discarded ? 'Discarded · it stays in History until you delete it for good' : root.kept ? (root.kept.commit ? `Kept · committed ${root.kept.commit}` : 'Kept · the changes are in your folder, uncommitted') : 'Marked done'}</span>
-        <span className="spacer" />
-        <button className="btn sm ghost" onClick={() => send({ type: 'setCompleted', nodeId: root.id, completed: false })}>
-          Reopen
-        </button>
-      </div>
-    );
+  if (root.completed) return null;
   if (waiting)
     return (
       <div className="call needs">
@@ -400,12 +390,29 @@ function CallBar({ row, tip, onJump, onKeep }: { row: ThreadRow; tip: TurnNode; 
         </button>
       </div>
     );
+  return null;
+}
+
+/**
+ * In the header, once a task has finished: a small green Keep, with a menu for the other ways to
+ * keep it and for Done and Discard. Its checks (tests, lint, builds it ran) show on hover.
+ */
+function KeepButton({ row, tip, onKeep }: { row: ThreadRow; tip: TurnNode; onKeep: (mode: KeepMode) => void }) {
+  const { nodes, branches } = useStore();
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const root = row.root;
+  if (root.completed)
+    return (
+      <button className="hk-reopen" onClick={() => send({ type: 'setCompleted', nodeId: root.id, completed: false })} title="Put it back with your tasks">
+        Reopen
+      </button>
+    );
+  if (threadSteps(nodes, root.id).some(isLive)) return null;
   const own = !branches[tip.branchId]?.worktree;
   const discard = () => {
     send({ type: 'setDiscarded', nodeId: root.id, discarded: true });
     toast(own ? 'Discarded. It’s in History; files it changed in your folder stay as they are.' : 'Discarded. It’s in History, with its copy of the code, until you delete it for good.');
   };
-  // Like a pull request's checks: the latest run of each test, lint, type or build command.
   const checks = new Map<string, boolean>();
   for (const t of pathTo(nodes, tip.id))
     for (const e of t.events)
@@ -415,52 +422,40 @@ function CallBar({ row, tip, onJump, onKeep }: { row: ThreadRow; tip: TurnNode; 
       }
   const failing = [...checks].filter(([, ok]) => !ok).map(([c]) => c);
   const failed = tip.status === 'error' || failing.length > 0;
-  const checkLine = !checks.size ? 'No checks ran' : failing.length ? `${failing.length} of ${checks.size} check${checks.size === 1 ? '' : 's'} failing · ${failing[0]}` : `${checks.size === 1 ? 'Check' : `All ${checks.size} checks`} passed · ${[...checks.keys()].slice(0, 2).join(', ')}`;
-  const keepMenu = (e: React.MouseEvent) => {
+  const checkLine = !checks.size ? 'No checks ran' : failing.length ? `${failing.length} of ${checks.size} check${checks.size === 1 ? '' : 's'} failing: ${failing.join(', ')}` : `${checks.size === 1 ? 'Check' : `All ${checks.size} checks`} passed: ${[...checks.keys()].join(', ')}`;
+  const open = (e: React.MouseEvent) => {
     const r = e.currentTarget.getBoundingClientRect();
-    setMenu({ x: r.right - 240, y: r.top - 8 });
+    setMenu({ x: r.right - 240, y: r.bottom + 6 });
   };
+  const items: MenuItem[] = [
+    ...(root.baseCommit
+      ? [
+          { label: 'Commit it', icon: 'check' as const, hint: 'as you', onClick: () => onKeep('commit') },
+          { label: own ? 'Leave it uncommitted' : 'Put the changes in my folder', icon: 'folder' as const, onClick: () => onKeep('folder') },
+          { label: 'Open a pull request', icon: 'branch' as const, hint: 'gh', onClick: () => onKeep('pr') },
+          'sep' as const,
+        ]
+      : []),
+    { label: 'Done', icon: 'check', hint: 'keep nothing', onClick: () => send({ type: 'setCompleted', nodeId: root.id, completed: true }) },
+    { label: 'Discard', icon: 'trash', danger: true, onClick: discard },
+  ];
   return (
-    <div className={`mb ${failed ? 'failed' : ''}`}>
-      <StatusIcon kind={failed ? 'failed' : 'ready'} size={20} />
-      <div className="mb-text">
-        <b>{tip.status === 'error' ? 'It stopped with an error' : failed ? 'Ready, but a check is failing' : 'Ready to keep'}</b>
-        <span>
-          {checkLine}
-          {root.baseCommit ? ' · not committed yet' : ''}
-        </span>
-      </div>
-      <span className="spacer" />
-      {root.baseCommit && (
-        <span className={`mb-split ${failed ? 'quiet' : ''}`}>
-          <button onClick={() => onKeep('commit')} title="Commit it as you, with your message">
+    <>
+      <span className={`hk ${failed ? 'quiet' : ''}`} title={`${checkLine}${root.baseCommit ? '\nNothing is committed until you keep it.' : ''}`}>
+        {root.baseCommit ? (
+          <button onClick={() => onKeep('commit')}>
+            <StatusIcon kind={failed ? 'failed' : 'done'} size={13} />
             Keep
           </button>
-          <button className="mb-more" onClick={keepMenu} aria-label="Other ways to keep" title="Other ways to keep">
-            <Icon name="chevronDown" size={13} />
-          </button>
-        </span>
-      )}
-      <button className="btn sm ghost" onClick={() => send({ type: 'setCompleted', nodeId: root.id, completed: true })} title="Close it without keeping anything">
-        Done
-      </button>
-      <button className="btn sm ghost danger" onClick={discard} title="Put it away in History">
-        Discard
-      </button>
-      {menu && (
-        <ContextMenu
-          x={menu.x}
-          y={menu.y}
-          above
-          items={[
-            { label: 'Commit it', icon: 'check', hint: 'as you', onClick: () => onKeep('commit') },
-            { label: own ? 'Leave it uncommitted' : 'Put the changes in my folder', icon: 'folder', onClick: () => onKeep('folder') },
-            { label: 'Open a pull request', icon: 'branch', hint: 'gh', onClick: () => onKeep('pr') },
-          ]}
-          onClose={() => setMenu(null)}
-        />
-      )}
-    </div>
+        ) : (
+          <button onClick={open}>Finish</button>
+        )}
+        <button className="hk-more" onClick={open} aria-label="More ways to finish" title="More">
+          <Icon name="chevronDown" size={12} />
+        </button>
+      </span>
+      {menu && <ContextMenu x={menu.x} y={menu.y} items={items} onClose={() => setMenu(null)} />}
+    </>
   );
 }
 
