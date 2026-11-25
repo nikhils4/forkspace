@@ -55,15 +55,19 @@ Maintainers: add a section to CHANGELOG.md, then `npm run release -- 0.3.0` (or 
 - **Screenshots:** set your app's address (like `http://localhost:3000`) in board settings and Forkspace snaps it after each step that changes files, using the Chrome you already have. The newest screenshot becomes the thread's cover, so you can see at a glance what each thread built. You can also paste (`⌘V`) onto a selected step, drop an image on a card, or pick one from the card's menu.
 - **Complete:** each thread has a circle above its first card. Click it when the thread is finished: it fills with a green tick and the whole thread fades back, so what's left stands out.
 
-### Three panes
+### Tasks
 
-Along the top: **Threads**, **Canvas**, **Code** and **Map** (keys `1` to `4`). Threads is home, and it's three panes:
+Every thread is a **task**, with its own tab along the top: its title, and under it where it stands (**Needs you**, **Working…**, **Failed**, **Ready to review**). Tabs keep their place like a browser's; `←` `→` move between them and `+` starts a new one. When there are more tabs than fit, a tab that needs you or just finished and is scrolled out of sight lights a beacon at that edge ("1 needs you ›"); click it to bring the tab into view. **×** marks a task done; **Done** lists them so you can open one again. **Canvas**, **Code** and **Map** sit as icons on the right (keys `1` to `4`).
+
+Under the tab, three panes:
 
 | Pane | What's there |
 |---|---|
-| **Left** | Every thread, grouped by what needs you, what's working, what's recent and what's done. Each one says in a line what it's doing, what it needs, or the path it took. A spinner means working, an amber dot means it needs you. `↑` `↓` move between threads. |
-| **Middle** | The open thread. On top, its **map**: a lane per branch with what that branch is for, and a stop per step saying in a few words what happened there (written by a small model once per step). Click any stop to read it. Below, the steps read top to bottom as one document: what you asked, the answer, side questions, how it got there, and where branches leave. Scrolling moves the map with you; `J` `K` jump between steps. **Branch from here** on any step tries something else from that point. |
+| **Left** | The task's steps, one short line each (written by a small model once per step). Branches are side lanes, lettered B, C…, leaving from the step they grew from. A pulsing dot is working, amber needs you, red failed. Click a step to read it. |
+| **Middle** | What happened at each step, top to bottom: what you asked, what it said, the commands it ran with the end of their output and whether they worked, and the files it edited (click one to see its diff). Each step has **Branch from here**, **Redo this step** and **Copy**. Above the reply box sits the one thing to do next: answer what it's asking, stop it, or **Keep**, **Done** or **Discard** it. `J` `K` jump between steps. |
 | **Right** | What the step you're reading changed, file by file, plus the pull request. `]` hides it for more reading room. |
+
+**Keep** is the only thing that commits, and only when you say so: **Commit it** (as you, with your message, just the task's files), **leave the changes in your folder** uncommitted, or **open a pull request** (the agent pushes a branch and opens one with `gh`). For a task that worked in its own copy, Keep brings its changes into your folder first.
 
 Clicking a card on the canvas, a search result or a running agent opens it here. The status bar along the bottom holds the board switcher, **Work**, **Notes**, **Concepts**, running agents, **Terminal** and **Settings**. On a phone it stays the familiar chat, with tabs at the bottom.
 
@@ -95,7 +99,7 @@ With **Separate copy per branch** (the default for git repos):
 2. Forkspace never commits. After every step it saves a hidden snapshot of the worktree (a git object on no branch), so the step's changes can be shown. The work stays uncommitted for you to review and commit.
 3. Branching from a step starts a new worktree with that step's code laid on top, uncommitted, so the branch sees the code exactly as it was then.
 
-Branches never overwrite each other. To keep a result, merge its `forkspace/<id>` branch like any other. A step's **Details** panel shows the branch, folder and diff, plus a command to continue from that exact point in your terminal.
+Branches never overwrite each other. To keep a result, click **Keep** on the task, or merge its `forkspace/<id>` branch like any other. A step's **Details** panel shows the branch, folder and diff, plus a command to continue from that exact point in your terminal.
 
 **Same folder** mode works without git, but every agent edits the same files. Agents start from your last commit, so commit anything they need first.
 
@@ -166,14 +170,14 @@ Anything waiting on you glows amber, shows in the status bar, and adds a count t
 | `Enter` | Send (`Shift+Enter` for a new line) |
 | `/` or `r` | Focus the message box |
 | `⌘K` or `⌘P` | Search boards, branches, files and actions |
-| `1` `2` `3` `4` | Threads, Canvas, Code, Map |
-| `↑` `↓` | Previous or next thread |
+| `1` `2` `3` `4` | Tasks, Canvas, Code, Map |
+| `←` `→` | Previous or next task tab |
 | `J` `K` | Next or previous step |
 | `]` | Show or hide what changed |
 | `n` | New note |
 | `Ctrl+`` ` | Terminal |
 | `Backspace` | Delete selected steps (and their branches) or notes |
-| Click a step | Read it in Threads |
+| Click a step | Read it in Tasks |
 | Right-click (long-press on a phone) | Menu for a step, note or empty canvas: reply, branch, explain, copy, recolour, delete |
 | Right-click a board, or its `···` | Board settings, **Start fresh** (clear every card, keep the board), Delete board |
 

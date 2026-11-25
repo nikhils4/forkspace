@@ -862,6 +862,51 @@ async function handle(msg: ClientMsg, currentWs: WebSocket): Promise<unknown> {
       if (!getTurn(String(msg.nodeId))) throw new Error('Step not found');
       return linkCheck(board.id, Number(msg.at), String(msg.nodeId));
     }
+    case 'keep': {
+      // Lands a task's work in your own folder: everything from where the task started to how its
+      // copy looks now. Committed only when you ask, as you, with your message.
+      const tip = getTurn(msg.nodeId);
+      const board = tip && getBoard(tip.boardId);
+      const branch = tip && getBranch(tip.branchId);
+      if (!tip || !board || !branch) throw new Error('Task not found');
+      if (!board.repoRoot) throw new Error('Keep works for projects in git.');
+      let root: TurnNode = tip;
+      for (let p: TurnNode | undefined = tip; p; p = p.parentId ? getTurn(p.parentId) : undefined) {
+        if (isRunning(p.id)) throw new Error('It is still working. Wait for it to finish, or stop it first.');
+        root = p;
+      }
+      const base = root.baseCommit;
+      if (!base) throw new Error('This task has no recorded starting point, so there is nothing to keep.');
+      const dir = branch.worktree ?? board.repoRoot;
+      const snap = await g.snapshot(dir);
+      const files = (await g.git(dir, 'diff', '--name-only', '--no-renames', base, snap)).split('\n').filter(Boolean);
+      if (!files.length) throw new Error('There are no changes to keep.');
+      if (branch.worktree) {
+        const patch = await g.git(dir, 'diff', '--binary', '--no-renames', base, snap);
+        const file = path.join(os.tmpdir(), `forkspace-keep-${process.pid}-${Date.now()}.patch`);
+        fs.writeFileSync(file, patch + '\n');
+        try {
+          await g.git(board.repoRoot, 'apply', '--whitespace=nowarn', file);
+        } catch (e: any) {
+          const why = String(e?.stderr || e?.message || '').split('\n').find((l: string) => l.trim()) ?? '';
+          throw new Error(`These changes don't fit your folder as it is now${why ? ` (${why.replace(/^error:\s*/, '')})` : ''}. Commit or stash your own edits there, then try again.`);
+        } finally {
+          fs.rmSync(file, { force: true });
+        }
+      }
+      let commit: string | undefined;
+      if (msg.mode === 'commit') {
+        const message = msg.message?.trim() || (root.title || root.prompt).split('\n')[0].slice(0, 72);
+        await g.git(board.repoRoot, 'add', '-A', '--', ...files);
+        await g.git(board.repoRoot, 'commit', '-q', '-m', message, '--', ...files);
+        commit = await g.git(board.repoRoot, 'rev-parse', '--short', 'HEAD');
+      }
+      root.kept = { at: Date.now(), mode: msg.mode, commit, files: files.length };
+      root.completed = true;
+      save();
+      broadcast({ type: 'node', node: root });
+      return root.kept;
+    }
     case 'setCompleted': {
       const t = getTurn(msg.nodeId);
       if (!t) throw new Error('Step not found');

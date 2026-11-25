@@ -9,22 +9,19 @@ import { DiffStat, LiveLine, Md, Permission, STATUS_LABEL, ToolLine, branchColor
 import { useReady } from './review.ts';
 import { Attachments } from './Shots.tsx';
 import { STAGE_LABEL, threadsOf, turnsOfBranch, type Stage, type ThreadRow } from './status.ts';
-import { isLocalPage, openTerminalFor, request, toast, useStore } from './store.ts';
+import { isLocalPage, openTerminalFor, request, send, toast, useStore } from './store.ts';
 import { NoteBar, openThreadNote } from './ThreadNotes.tsx';
-import { PrSection, StageChip } from './Threads.tsx';
+import { PrSection } from './Threads.tsx';
 import { ToolDiff, editsOf } from './ToolDiff.tsx';
-import { childrenOf, isLive, lastText, pathTo } from './tree.ts';
+import { childrenOf, currentActivity, isLive, pathTo } from './tree.ts';
 import { timeAgo, useTick } from './ui.tsx';
-import { tipFrom } from './Workspace.tsx';
+import { taskWord, tipFrom } from './Workspace.tsx';
 
-// The desktop's three panes: every thread on the left; the open one in the middle, a map of its
-// steps and branches on top and the steps themselves below, read like one document; and what the
-// step you're reading changed on the right.
+// The desktop's three panes for the task in the open tab: its steps and branches on the left, one
+// short line each; what happened at each step in the middle (what you asked, what it said, the
+// commands it ran), with what to do next above the reply box; what the step changed on the right.
 
 const typing = (e: KeyboardEvent) => e.metaKey || e.ctrlKey || e.altKey || !!(e.target as HTMLElement)?.closest?.('input, textarea, select, [contenteditable], .cm-editor, .xterm');
-const urgent = (s: Stage) => s === 'needs' || s === 'error' || s === 'failing' || s === 'feedback';
-const busy = (s: Stage) => s === 'working' || s === 'checking';
-const finished = (t: ThreadRow) => !!t.root.completed || t.stage === 'done' || t.stage === 'merged';
 
 /** A step's map label: the written one, or the first few words of what was asked. */
 export function stepLabel(t: TurnNode) {
@@ -52,157 +49,18 @@ function threadSteps(nodes: Record<string, CanvasNode>, rootId: string) {
   return all;
 }
 
-// ---------------- left: every thread ----------------
+// ---------------- left: the task's steps, one line each ----------------
 
-function ThreadIcon({ stage }: { stage: Stage }) {
-  if (busy(stage)) return <span className="ti ti-work" title={STAGE_LABEL[stage]} />;
-  if (stage === 'needs' || stage === 'feedback') return <span className="ti ti-needs" title={STAGE_LABEL[stage]} />;
-  if (stage === 'error' || stage === 'failing') return <span className="ti ti-err" title={STAGE_LABEL[stage]} />;
-  if (stage === 'done' || stage === 'merged')
-    return (
-      <span className="ti ti-done" title={STAGE_LABEL[stage]}>
-        <Icon name="check" size={10} strokeWidth={3} />
-      </span>
-    );
-  return <span className="ti ti-idle" title={STAGE_LABEL[stage]} />;
-}
-
-export function ThreadList({ boardId, current, onPick, onNew }: { boardId: string; current: TurnNode | null; onPick: (t: TurnNode) => void; onNew: () => void }) {
-  useTick();
-  const { nodes, branches, boards } = useStore();
-  const ready = useReady();
-  const threads = useMemo(() => threadsOf(nodes, branches, boards, ready, boardId), [nodes, branches, boards, ready, boardId]);
-  const [q, setQ] = useState('');
-  const [showDone, setShowDone] = useState(false);
-  const root = current ? pathTo(nodes, current.id)[0] : null;
-  const match = (t: ThreadRow) => !q.trim() || `${t.title} ${t.branches.map((b) => b.label).join(' ')}`.toLowerCase().includes(q.trim().toLowerCase());
-  const shown = threads.filter(match);
-  const groups: [string, ThreadRow[]][] = [
-    ['Needs you', shown.filter((t) => !finished(t) && urgent(t.stage))],
-    ['Working', shown.filter((t) => !finished(t) && busy(t.stage))],
-    ['Recent', shown.filter((t) => !finished(t) && !urgent(t.stage) && !busy(t.stage))],
-    ['Done', shown.filter(finished)],
-  ];
-  const order = groups.flatMap(([label, list]) => (label === 'Done' && !showDone && !q ? [] : list));
-  const pick = (t: ThreadRow) => onPick(tipFrom(nodes, t.root.id));
-  useEffect(() => {
-    const k = (e: KeyboardEvent) => {
-      if (typing(e) || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') || !order.length) return;
-      e.preventDefault();
-      const at = order.findIndex((t) => t.root.id === root?.id);
-      const next = e.key === 'ArrowDown' ? order[Math.min(order.length - 1, at + 1)] : order[Math.max(0, at - 1)];
-      if (next && next.root.id !== root?.id) pick(next);
-    };
-    addEventListener('keydown', k);
-    return () => removeEventListener('keydown', k);
-  });
-  const list = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    list.current?.querySelector('.tl-row.on')?.scrollIntoView({ block: 'nearest' });
-  }, [root?.id]);
-
-  // The second line says the one thing worth knowing: what it's doing now, what it needs, or
-  // the path it took (from the map's labels).
-  const line = (t: ThreadRow) => {
-    if (busy(t.stage) || urgent(t.stage)) return t.now || STAGE_LABEL[t.stage];
-    const tip = tipFrom(nodes, t.root.id);
-    const path = pathTo(nodes, tip.id);
-    // The path it took, once the map has labels for it; until then, what it last said.
-    if (path.length > 1 && path.every((s) => s.label)) {
-      const labels = path.map((s) => s.label!);
-      return labels.length > 3 ? `… → ${labels.slice(-3).join(' → ')}` : labels.join(' → ');
-    }
-    return lastText(tip) || tip.error || STATUS_LABEL[tip.status];
-  };
-
-  return (
-    <aside className="tl">
-      <div className="tl-head">
-        <div className="tl-find">
-          <Icon name="search" size={13} />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a thread" onKeyDown={(e) => e.key === 'Escape' && (setQ(''), (e.target as HTMLInputElement).blur())} />
-        </div>
-        <button className="tl-new" onClick={onNew} title="New thread" aria-label="New thread">
-          <Icon name="plus" size={15} />
-        </button>
-      </div>
-      <div className="tl-scroll" ref={list}>
-        {!threads.length && <div className="tl-empty">No threads yet.</div>}
-        {groups.map(([label, rows]) => {
-          if (!rows.length) return null;
-          const folded = label === 'Done' && !showDone && !q;
-          return (
-            <section key={label} className={`tl-group g-${label.split(' ')[0].toLowerCase()}`}>
-              {label === 'Done' ? (
-                <button className="tl-group-head" onClick={() => setShowDone(!showDone)}>
-                  {label} <span>{rows.length}</span>
-                  <Icon name={folded ? 'chevronRight' : 'chevronDown'} size={11} />
-                </button>
-              ) : (
-                <div className="tl-group-head">
-                  {label} <span>{rows.length}</span>
-                </div>
-              )}
-              {!folded &&
-                rows.map((t) => {
-                  const on = t.root.id === root?.id;
-                  return (
-                    <button key={t.root.id} className={`tl-row ${on ? 'on' : ''}`} onClick={() => pick(t)} title={t.title}>
-                      <ThreadIcon stage={t.stage} />
-                      <span className="tl-text">
-                        <span className="tl-title">{t.title}</span>
-                        <span className="tl-sub">{line(t)}</span>
-                      </span>
-                      <span className="tl-side">
-                        <span className="tl-when">{timeAgo(t.at)}</span>
-                        {t.branches.length > 1 && (
-                          <span className="tl-forks" title={`${t.branches.length} branches`}>
-                            <Icon name="branch" size={10} />
-                            {t.branches.length}
-                          </span>
-                        )}
-                      </span>
-                    </button>
-                  );
-                })}
-            </section>
-          );
-        })}
-      </div>
-    </aside>
-  );
-}
-
-// ---------------- middle: the map ----------------
-
-const GAP_X = 30;
-const LANE = 62;
-const STOP_H = 48;
-
-const mapOpen = () => {
-  try {
-    return localStorage.getItem('forkspace:map') !== 'closed';
-  } catch {
-    return true;
-  }
-};
+const ROW = 34;
+const laneX = (lane: number) => 13 + lane * 16;
 
 /**
- * The thread as a map: a lane per branch, a stop per step saying what happened there. A branch's
- * purpose sits in its lane, just before where it leaves. Click any stop to read it. Folds down to
- * a one-line trail when you want the room.
+ * The task as a short vertical list: one dot and a few words per step, branches as side lanes
+ * that leave from the step they grew from. Click a step to read it.
  */
-export function ThreadMap({ rootId, selectedId, pathIds, onSelect }: { rootId: string; selectedId: string; pathIds: Set<string>; onSelect: (id: string) => void }) {
+export function StepTree({ rootId, selectedId, pathIds, onSelect }: { rootId: string; selectedId: string; pathIds: Set<string>; onSelect: (id: string) => void }) {
   const { nodes, branches } = useStore();
   const all = threadSteps(nodes, rootId);
-  const root = nodes[rootId] as TurnNode | undefined;
-  const [open, setOpen] = useState(mapOpen);
-  const toggle = () => {
-    setOpen(!open);
-    try {
-      localStorage.setItem('forkspace:map', open ? 'closed' : 'open');
-    } catch {}
-  };
 
   // Labels: asked for once per thread whenever a finished step or a branch doesn't have one yet.
   const missing = all.filter((t) => !t.label && !isLive(t)).length + new Set(all.map((t) => t.branchId)).size - new Set(all.filter((t) => branches[t.branchId]?.purpose).map((t) => t.branchId)).size;
@@ -215,130 +73,70 @@ export function ThreadMap({ rootId, selectedId, pathIds, onSelect }: { rootId: s
   }, [rootId, missing]);
 
   const box = useRef<HTMLDivElement>(null);
-  // Stops share the room there is, so the whole thread usually fits.
-  const [room, setRoom] = useState(700);
   useEffect(() => {
-    const el = box.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setRoom(el.clientWidth));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [open]);
-  useEffect(() => {
-    const el = box.current?.querySelector('.tm-stop.sel') as HTMLElement | null;
-    el?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
-  }, [selectedId, open]);
+    (box.current?.querySelector('.stp.sel') as HTMLElement | null)?.scrollIntoView({ block: 'nearest' });
+  }, [selectedId]);
 
-  if (!root) return null;
-  const path = all.filter((t) => pathIds.has(t.id)).sort((a, b) => a.createdAt - b.createdAt);
-
-  if (!open || all.length < 2)
-    return (
-      <div className="tm-trail">
-        {(all.length < 2 ? all : path).map((t, i) => (
-          <span key={t.id} className="tm-trail-item">
-            {i > 0 && <Icon name="chevronRight" size={11} />}
-            <button className={t.id === selectedId ? 'on' : ''} onClick={() => onSelect(t.id)} style={{ ['--branch' as any]: branchColor(t.branchId) }} title={t.prompt}>
-              <span className={`tm-dot st-${t.status}`} />
-              {stepLabel(t)}
-            </button>
-          </span>
-        ))}
-        {all.length >= 2 && (
-          <button className="tm-fold" onClick={toggle} title="Show the map">
-            <Icon name="chevronDown" size={13} /> Map
-          </button>
-        )}
-      </div>
-    );
-
+  const root = nodes[rootId] as TurnNode | undefined;
+  if (!root) return <nav className="stree" />;
+  // Depth first, a step's own continuation before the branches that leave it.
+  const rows: TurnNode[] = [];
+  const walk = (t: TurnNode) => {
+    rows.push(t);
+    const kids = childrenOf(nodes, t.id).sort((a, b) => a.createdAt - b.createdAt);
+    [...kids.filter((k) => k.branchId === t.branchId), ...kids.filter((k) => k.branchId !== t.branchId)].forEach(walk);
+  };
+  walk(root);
   const lanes: string[] = [];
-  for (const t of [...all].sort((a, b) => a.createdAt - b.createdAt)) if (!lanes.includes(t.branchId)) lanes.push(t.branchId);
-  const depth = new Map<string, number>();
-  for (const t of all) depth.set(t.id, t.parentId && depth.has(t.parentId) ? depth.get(t.parentId)! + 1 : 0);
-  const maxD = Math.max(0, ...all.map((t) => depth.get(t.id)!));
-  const PILL = Math.round(Math.max(130, Math.min(230, (room - maxD * GAP_X) / (maxD + 1))));
-  const at = (t: TurnNode) => ({ x: depth.get(t.id)! * (PILL + GAP_X), y: lanes.indexOf(t.branchId) * LANE });
-  const width = Math.max((maxD + 1) * (PILL + GAP_X) - GAP_X, room - 6);
-  const height = (lanes.length - 1) * LANE + STOP_H;
-  const firstOf = (id: string) => all.filter((t) => t.branchId === id).sort((a, b) => a.createdAt - b.createdAt)[0];
-  const purpose = (id: string) => branches[id]?.purpose || (id === root.branchId ? 'Main line' : stepLabel(firstOf(id)));
-  const took = (t: TurnNode) => (t.durationMs ? (t.durationMs < 60000 ? `${Math.round(t.durationMs / 1000)}s` : `${Math.round(t.durationMs / 60000)}m`) : '');
+  for (const t of rows) if (!lanes.includes(t.branchId)) lanes.push(t.branchId);
+  const row = new Map(rows.map((t, i) => [t.id, i]));
+  const lane = (t: TurnNode) => lanes.indexOf(t.branchId);
+  const pad = laneX(lanes.length - 1) + 16;
+  const height = rows.length * ROW;
+  const purpose = (t: TurnNode) => branches[t.branchId]?.purpose;
+  const dot = (t: TurnNode) => (t.status === 'running' ? 'run' : t.status === 'waiting' ? 'needs' : t.status === 'error' ? 'err' : t.completed ? 'kept' : '');
 
   return (
-    <div className="tm">
-      <div className="tm-scroll" ref={box}>
-        <div className="tm-canvas" style={{ width, height }}>
-          <svg width={width} height={height} className="tm-edges">
-            {all.map((t) => {
-              const parent = t.parentId ? (nodes[t.parentId] as TurnNode | undefined) : undefined;
-              if (!parent) return null;
-              const a = at(parent);
-              const b = at(t);
+    <nav className="stree" aria-label="Steps">
+      <div className="stree-h">
+        Steps <span>{rows.length}{lanes.length > 1 ? ` · ${lanes.length} branches` : ''}</span>
+      </div>
+      <div className="stree-scroll" ref={box}>
+        <div className="stree-rows" style={{ height }}>
+          <svg width="100%" height={height} className="stree-edges" aria-hidden>
+            {rows.map((t) => {
+              const p = t.parentId ? (nodes[t.parentId] as TurnNode | undefined) : undefined;
+              if (!p || !row.has(p.id)) return null;
+              const px = laneX(lane(p));
+              const py = row.get(p.id)! * ROW + ROW / 2;
+              const cx = laneX(lane(t));
+              const cy = row.get(t.id)! * ROW + ROW / 2;
               const on = pathIds.has(t.id);
-              const style = on ? { stroke: branchColor(t.branchId) } : undefined;
-              // Same lane: straight on. A new branch: down from under the stop it leaves, then along.
-              if (a.y === b.y) return <path key={t.id} d={`M${a.x + PILL} ${a.y + STOP_H / 2} L${b.x} ${b.y + STOP_H / 2}`} className={on ? 'on' : ''} style={style} />;
-              const x = a.x + PILL / 2;
-              const y2 = b.y + STOP_H / 2;
-              return <path key={t.id} d={`M${x} ${a.y + STOP_H} L${x} ${y2 - 10} Q${x} ${y2} ${x + 10} ${y2} L${b.x} ${y2}`} className={on ? 'on' : ''} style={style} />;
+              const d = px === cx ? `M${px} ${py}V${cy}` : `M${px} ${py}C${px} ${py + 14} ${cx} ${py + 8} ${cx} ${py + 24}V${cy}`;
+              return <path key={t.id} d={d} className={on ? 'on' : ''} style={on ? { stroke: branchColor(t.branchId) } : undefined} />;
             })}
           </svg>
-          {/* A branch's purpose, in the free room after its last stop (the main line's is the title). */}
-          {lanes.map((l, i) => {
-            if (l === root.branchId) return null;
-            const last = all.filter((t) => t.branchId === l).sort((a, b) => depth.get(b.id)! - depth.get(a.id)!)[0];
-            const first = firstOf(l);
-            const after = at(last).x + PILL + 12;
-            // No room after it: say it before the branch starts instead, on the empty part of its lane.
-            const before = after > width - 110;
-            const box = before ? { left: 0, width: at(first).x - 12, justifyContent: 'flex-end' as const } : { left: after, maxWidth: width - after };
-            return (
-              <div key={l} className={`tm-purpose ${before ? 'before' : ''} ${pathIds.has(first.id) ? 'on' : ''}`} style={{ ...box, top: i * LANE, height: STOP_H, ['--branch' as any]: branchColor(l) }} title={purpose(l)}>
-                <Icon name="branch" size={11} />
-                <span>{purpose(l)}</span>
-              </div>
-            );
-          })}
-          {all.map((t) => {
-            const p = at(t);
+          {rows.map((t, i) => {
             const on = pathIds.has(t.id);
-            const live = isLive(t);
-            const d = t.diffStat;
+            const starts = i > 0 && t.parentId && (nodes[t.parentId] as TurnNode | undefined)?.branchId !== t.branchId;
             return (
               <button
                 key={t.id}
-                className={`tm-stop ${t.id === selectedId ? 'sel' : ''} ${on ? 'path' : ''} st-${t.status}`}
-                style={{ left: p.x, top: p.y, width: PILL, height: STOP_H, ['--branch' as any]: branchColor(t.branchId) }}
+                className={`stp ${on ? 'path' : ''} ${t.id === selectedId ? 'sel' : ''}`}
+                style={{ top: i * ROW, height: ROW, paddingLeft: pad, ['--branch' as any]: branchColor(t.branchId) }}
                 onClick={() => onSelect(t.id)}
-                title={`${t.prompt}\n${STATUS_LABEL[t.status]}`}
+                title={`${starts && purpose(t) ? `${purpose(t)}\n` : ''}${t.prompt}\n${STATUS_LABEL[t.status]}`}
               >
-                <span className="tm-label">{stepLabel(t)}</span>
-                <span className="tm-meta">
-                  <span className={`tm-dot st-${t.status}`} />
-                  {live ? (
-                    <span className="tm-live">{t.status === 'waiting' ? 'needs you' : 'working…'}</span>
-                  ) : t.status === 'error' ? (
-                    <span className="del-text">failed</span>
-                  ) : d && d.files ? (
-                    <>
-                      <span className="add-text">+{d.insertions}</span>
-                      <span className="del-text">−{d.deletions}</span>
-                    </>
-                  ) : (
-                    <span>no changes</span>
-                  )}
-                  <span className="tm-took">{took(t)}</span>
-                </span>
+                <span className={`stp-dot ${dot(t)}`} style={{ left: laneX(lane(t)) - 5.5 }} />
+                {starts && lanes.length > 1 && <span className="stp-lane">{'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[lane(t)] ?? '·'}</span>}
+                <span className="stp-label">{stepLabel(t)}</span>
+                {isLive(t) && <span className="stp-live">{t.status === 'waiting' ? 'needs you' : 'working'}</span>}
               </button>
             );
           })}
         </div>
       </div>
-      <button className="tm-fold tm-fold-abs" onClick={toggle} title="Fold the map into one line">
-        <Icon name="chevronUp" size={13} />
-      </button>
-    </div>
+    </nav>
   );
 }
 
@@ -353,13 +151,19 @@ export function ThreadReader({
   sideOpen,
   onToggleSide,
   onBranch,
+  onAsk,
+  onRedo,
 }: {
   stepId: string;
   /** Start a branch from a step with this prompt (a side question turned into a branch). */
   onBranch: (fromId: string, prompt: string) => void;
+  /** Send a follow-up to a step (opening a PR, say). */
+  onAsk: (nodeId: string, prompt: string) => void;
+  /** Run a step's prompt again, as a new branch from the step before it. */
+  onRedo: (node: TurnNode) => void;
   onSelect: (id: string) => void;
   /** The box under the thread: replies to `target` (the end of what you're reading, or a step you chose to branch from). */
-  composer: (target: TurnNode, done: () => void) => ReactNode;
+  composer: (target: TurnNode, done: () => void, fork: boolean) => ReactNode;
   sideOpen: boolean;
   onToggleSide: () => void;
 }) {
@@ -369,7 +173,7 @@ export function ThreadReader({
   const step = nodes[stepId] as TurnNode;
 
   // The path being read stays put while you scroll through it; it only changes when you pick a
-  // step that isn't on it (another branch on the map, a new reply).
+  // step that isn't on it (another branch on the left, a new reply).
   const [tipId, setTipId] = useState(() => tipFrom(nodes, stepId).id);
   const tipOk = !!nodes[tipId] && pathTo(nodes, tipId).some((t) => t.id === stepId);
   const tip = tipOk ? tipFrom(nodes, tipId) : tipFrom(nodes, stepId);
@@ -381,13 +185,14 @@ export function ThreadReader({
   const root = path[0];
   const row = useMemo(() => threadsOf(nodes, branches, boards, ready, root.boardId).find((t) => t.root.id === root.id), [nodes, branches, boards, ready, root.id]);
 
-  // Branching from an earlier step: the box under the thread says so, until you send or cancel.
+  // Branching from a step: the box under the thread says so, until you send or cancel.
   const [branchFrom, setBranchFrom] = useState<string | null>(null);
-  useEffect(() => setBranchFrom(null), [root.id]);
+  const [keeping, setKeeping] = useState(false);
+  useEffect(() => (setBranchFrom(null), setKeeping(false)), [root.id]);
   const target = (branchFrom && (nodes[branchFrom] as TurnNode)) || tip;
 
-  // Reading position. Scrolling picks the step you're on (the map and the changes follow);
-  // picking a step on the map or with J/K scrolls to it.
+  // Reading position. Scrolling picks the step you're on (the steps on the left and the changes
+  // follow); picking a step on the left or with J/K scrolls to it.
   const scroller = useRef<HTMLDivElement>(null);
   const quiet = useRef(false);
   const until = useRef(0);
@@ -440,17 +245,12 @@ export function ThreadReader({
           <h1 className="rd-title" title={title}>
             {title}
           </h1>
-          {row && <StageChip stage={row.stage} small />}
-          <span className="rd-count">
-            {path.length} step{path.length === 1 ? '' : 's'}
-            {row && row.branches.length > 1 ? ` · ${row.branches.length} branches` : ''}
-          </span>
+          {row && <span className={`rd-stage stage-${row.root.kept ? 'done' : row.stage}`}>{taskWord(row)}</span>}
           <span className="spacer" />
           <button className={`icon-btn sm ${sideOpen ? 'on' : ''}`} onClick={onToggleSide} title={sideOpen ? 'Hide changes (])' : 'Show changes (])'} aria-label="Changes panel" aria-pressed={sideOpen}>
             <Icon name="sidebar" size={15} />
           </button>
         </div>
-        <ThreadMap rootId={root.id} selectedId={stepId} pathIds={pathIds} onSelect={(id) => select(id)} />
       </header>
       <div className="rd-scroll" ref={scroller} onScroll={onScroll}>
         <SelectionAsk scroller={scroller} node={step} onBranch={(p) => onBranch(step.id, p)} />
@@ -465,9 +265,11 @@ export function ThreadReader({
               n={i + 1}
               on={s.id === stepId}
               last={i === path.length - 1}
+              from={branchFrom === s.id}
               others={childrenOf(nodes, s.id).filter((k) => !pathIds.has(k.id))}
               onPoint={() => s.id !== stepId && select(s.id, false)}
-              onBranchHere={() => (setBranchFrom(s.id), select(s.id, false))}
+              onBranchHere={() => (setBranchFrom(s.id), select(s.id, false), setTimeout(() => (document.querySelector('.rd-composer textarea') as HTMLTextAreaElement | null)?.focus(), 30))}
+              onRedo={() => onRedo(s)}
               onGo={(id) => select(tipFrom(nodes, id).id)}
               onBranch={(p) => onBranch(s.id, p)}
             />
@@ -476,29 +278,233 @@ export function ThreadReader({
         </div>
       </div>
       <div className="rd-composer">
-        {branchFrom && target.id !== tip.id && (
+        {branchFrom ? (
           <div className="rd-branching" style={{ ['--branch' as any]: branchColor(target.branchId) }}>
             <Icon name="branch" size={12} />
-            Branching from step {path.findIndex((t) => t.id === target.id) + 1}: <b>{stepLabel(target)}</b>
+            New branch from step {path.findIndex((t) => t.id === target.id) + 1}: <b>{stepLabel(target)}</b>
+            <span className="faint">Your other work stays as it is.</span>
             <span className="spacer" />
             <button onClick={() => setBranchFrom(null)}>Cancel</button>
           </div>
+        ) : (
+          row && <CallBar row={row} tip={tip} onJump={(id) => select(id)} onKeep={() => setKeeping(true)} />
         )}
-        {composer(target, () => setBranchFrom(null))}
+        {composer(target, () => setBranchFrom(null), !!branchFrom)}
       </div>
+      {keeping && <KeepSheet root={root} tip={tip} onClose={() => setKeeping(false)} onAsk={(p) => onAsk(tip.id, p)} />}
     </section>
   );
 }
 
-function StepSection({ node, n, on, last, others, onPoint, onBranchHere, onGo, onBranch }: { node: TurnNode; n: number; on: boolean; last: boolean; others: TurnNode[]; onPoint: () => void; onBranchHere: () => void; onGo: (id: string) => void; onBranch: (prompt: string) => void }) {
+// ---------------- the one thing to do next ----------------
+
+const PR_PROMPT =
+  'Open a pull request for this work: make a new git branch, commit the changes with a clear message, push it, and open a PR with gh. Give it a short title and a description of what changed and why.';
+
+/** Above the reply box: what this task needs from you now, with the buttons for it. */
+function CallBar({ row, tip, onJump, onKeep }: { row: ThreadRow; tip: TurnNode; onJump: (id: string) => void; onKeep: () => void }) {
+  const { nodes, branches } = useStore();
+  const root = row.root;
+  const steps = threadSteps(nodes, root.id);
+  const waiting = steps.find((t) => t.status === 'waiting');
+  const running = steps.find((t) => t.status === 'running');
+  if (root.kept || root.completed)
+    return (
+      <div className="call done">
+        <Icon name="check" size={13} />
+        <span>{root.kept ? (root.kept.commit ? `Kept · committed ${root.kept.commit}` : 'Kept · the changes are in your folder, uncommitted') : 'Marked done'}</span>
+        <span className="spacer" />
+        <button className="btn sm ghost" onClick={() => send({ type: 'setCompleted', nodeId: root.id, completed: false })}>
+          Reopen
+        </button>
+      </div>
+    );
+  if (waiting)
+    return (
+      <div className="call needs">
+        <span className="call-pulse" />
+        <span>
+          <b>It's asking you</b> at “{stepLabel(waiting)}”
+        </span>
+        <span className="spacer" />
+        <button className="btn sm primary" onClick={() => onJump(waiting.id)}>
+          Show me
+        </button>
+      </div>
+    );
+  if (running)
+    return (
+      <div className="call working">
+        <span className="spinner" />
+        <span>
+          Working on “{stepLabel(running)}” · <span className="faint">{currentActivity(running) || 'thinking'}</span>
+        </span>
+        <span className="spacer" />
+        <button className="btn sm ghost" onClick={() => send({ type: 'stop', nodeId: running.id })}>
+          Stop
+        </button>
+      </div>
+    );
+  const own = !branches[tip.branchId]?.worktree;
+  const discard = () => {
+    const ok = confirm(`Discard “${row.title}”?\n\nThe task and all its steps are deleted.${own ? ' Files it changed in your folder stay as they are.' : ' Its copy of the code is deleted; your folder is untouched.'}`);
+    if (ok) send({ type: 'deleteNodes', ids: [root.id] });
+  };
+  return (
+    <div className={`call ${tip.status === 'error' ? 'failed' : ''}`}>
+      <span className="call-label">{tip.status === 'error' ? 'It stopped with an error' : 'Your call'}</span>
+      <span className="call-hint">{root.baseCommit ? 'Nothing is committed until you keep it.' : 'Reply below, or close it when you’re done.'}</span>
+      <span className="spacer" />
+      {root.baseCommit && (
+        <button className="btn sm keep" onClick={onKeep}>
+          <Icon name="check" size={13} /> Keep…
+        </button>
+      )}
+      <button className="btn sm" onClick={() => send({ type: 'setCompleted', nodeId: root.id, completed: true })} title="Close it without keeping anything">
+        Done
+      </button>
+      <button className="btn sm ghost danger" onClick={discard}>
+        Discard
+      </button>
+    </div>
+  );
+}
+
+/** Keep: commit on your branch, leave the changes in your folder, or have it open a PR. */
+function KeepSheet({ root, tip, onClose, onAsk }: { root: TurnNode; tip: TurnNode; onClose: () => void; onAsk: (prompt: string) => void }) {
+  const { branches, boards } = useStore();
+  const own = !branches[tip.branchId]?.worktree;
+  const board = boards.find((b) => b.id === root.boardId);
+  const [mode, setMode] = useState<'commit' | 'folder' | 'pr'>('commit');
+  const [msg, setMsg] = useState((root.title || root.prompt).split('\n')[0].slice(0, 72));
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    addEventListener('keydown', k);
+    return () => removeEventListener('keydown', k);
+  }, []);
+  const go = async () => {
+    if (mode === 'pr') {
+      onAsk(PR_PROMPT);
+      toast('Asked it to open a pull request');
+      return onClose();
+    }
+    setBusy(true);
+    try {
+      const k = await request<{ commit?: string; files: number }>({ type: 'keep', nodeId: tip.id, mode, message: msg });
+      toast(k.commit ? `Committed ${k.commit} · ${k.files} file${k.files === 1 ? '' : 's'}` : `${k.files} file${k.files === 1 ? ' is' : 's are'} in your folder, uncommitted`);
+      onClose();
+    } catch (e: any) {
+      toast(e.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const opt = (id: typeof mode, title: string, body: string, extra?: ReactNode) => (
+    <label className={`ks-opt ${mode === id ? 'on' : ''}`}>
+      <input type="radio" name="keep" checked={mode === id} onChange={() => setMode(id)} />
+      <span>
+        <b>{title}</b>
+        <span>{body}</span>
+        {mode === id && extra}
+      </span>
+    </label>
+  );
+  return (
+    <div className="ks-veil" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="ks" role="dialog" aria-modal="true" aria-label="Keep this work">
+        <h3>Keep “{root.title || stepLabel(root)}”</h3>
+        {opt(
+          'commit',
+          'Commit it',
+          `${own ? 'Commits the files it changed' : 'Brings the changes into your folder and commits them'}, as you, on the branch ${board?.name ? `your ${board.name} folder is on` : 'you are on'}.`,
+          <input className="ks-msg" value={msg} onChange={(e) => setMsg(e.target.value)} aria-label="Commit message" autoFocus onKeyDown={(e) => e.key === 'Enter' && go()} />,
+        )}
+        {opt('folder', own ? 'Leave it uncommitted' : 'Just put the changes in my folder', own ? 'The changes are already in your folder. Close the task and commit them yourself later.' : 'Uncommitted, for you to look over and commit yourself.')}
+        {opt('pr', 'Open a pull request', 'Asks the agent to push a new branch and open a PR with gh.')}
+        <div className="ks-actions">
+          <button className="btn primary keep" onClick={go} disabled={busy || (mode === 'commit' && !msg.trim())}>
+            {busy ? 'Keeping…' : mode === 'pr' ? 'Ask for a PR' : 'Keep'}
+          </button>
+          <button className="btn ghost" onClick={onClose}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------- one step: what you asked, what it said, what it ran ----------------
+
+/** The commands a step ran, newest last: the command, the end of its output, and whether it worked. */
+function Commands({ node }: { node: TurnNode }) {
+  const cmds = node.events.filter((e): e is Extract<TurnNode['events'][number], { t: 'tool' }> => e.t === 'tool' && e.name === 'Bash');
+  if (!cmds.length) return null;
+  const shown = cmds.slice(-4);
+  const tail = (r: string) =>
+    r
+      .split('\n')
+      .filter((l) => l.trim())
+      .slice(-4)
+      .join('\n')
+      .slice(-420);
+  return (
+    <div className="ss-cmds">
+      {cmds.length > shown.length && <div className="ss-cmds-more">{cmds.length - shown.length} earlier command{cmds.length - shown.length === 1 ? '' : 's'} in “How it got there”</div>}
+      {shown.map((e) => {
+        const cmd = String((e.input as any)?.command ?? '').split('\n')[0];
+        const out = e.result ? tail(e.result) : '';
+        return (
+          <div key={e.id} className="ss-cmd">
+            <div className="ss-cmd-line">
+              <span className="ss-cmd-p">$</span>
+              <code title={String((e.input as any)?.command ?? '')}>{cmd}</code>
+              {e.result == null ? <span className="ss-cmd-r run">running</span> : e.isError ? <span className="ss-cmd-r fail">✕ failed</span> : <span className="ss-cmd-r ok">✓</span>}
+            </div>
+            {out && <pre className="ss-cmd-out">{out}</pre>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function StepSection({
+  node,
+  n,
+  on,
+  last,
+  from,
+  others,
+  onPoint,
+  onBranchHere,
+  onRedo,
+  onGo,
+  onBranch,
+}: {
+  node: TurnNode;
+  n: number;
+  on: boolean;
+  last: boolean;
+  from: boolean;
+  others: TurnNode[];
+  onPoint: () => void;
+  onBranchHere: () => void;
+  onRedo: () => void;
+  onGo: (id: string) => void;
+  onBranch: (prompt: string) => void;
+}) {
   const { branches } = useStore();
   const branch = branches[node.branchId];
   const [long, setLong] = useState(false);
   const working = isLive(node);
   const final = [...node.events].reverse().find((e) => e.t === 'text' && e.text.trim());
   const tools = node.events.filter((e) => e.t === 'tool').length;
+  const edited = [...new Set(node.events.flatMap((e) => (e.t === 'tool' ? [editsOf(e)?.path].filter((p): p is string => !!p) : [])))];
+  const copy = () => final?.t === 'text' && navigator.clipboard?.writeText(final.text).then(() => toast('Copied'), () => toast('Could not copy', 'error'));
   return (
-    <article className={`ss ${on ? 'on' : ''} ${last ? 'last' : ''} st-${node.status}`} data-step={node.id} onPointerDown={onPoint} style={{ ['--branch' as any]: branchColor(node.branchId) }}>
+    <article className={`ss ${on ? 'on' : ''} ${last ? 'last' : ''} ${from ? 'from' : ''} st-${node.status}`} data-step={node.id} onPointerDown={onPoint} style={{ ['--branch' as any]: branchColor(node.branchId) }}>
       <div className="ss-rail">
         <span className="ss-num">{n}</span>
         <span className="ss-line" />
@@ -507,16 +513,11 @@ function StepSection({ node, n, on, last, others, onPoint, onBranchHere, onGo, o
         <div className="ss-head">
           <span className="ss-label">{stepLabel(node)}</span>
           <span className="ss-meta">
-            {working ? <LiveLine node={node} /> : <span className={`ss-status s-${node.status}`}>{node.completed ? 'Completed' : STATUS_LABEL[node.status]}</span>}
+            {working ? <LiveLine node={node} /> : <span className={`ss-status s-${node.status}`}>{STATUS_LABEL[node.status]}</span>}
             <span>{timeAgo(node.finishedAt ?? node.createdAt)}</span>
             {node.durationMs ? <span>{took(node.durationMs)}</span> : null}
             <DiffStat s={node.diffStat} />
           </span>
-          {!working && node.sessionId && !last && (
-            <button className="ss-branch" onClick={onBranchHere} title="Try something else from this step">
-              <Icon name="branch" size={12} /> Branch from here
-            </button>
-          )}
         </div>
         <div className={`ss-you ${long ? 'open' : ''}`} onClick={() => setLong(!long)}>
           <span className="ss-you-tag">You</span>
@@ -533,7 +534,37 @@ function StepSection({ node, n, on, last, others, onPoint, onBranchHere, onGo, o
             <Permission node={node} p={node.pending} />
           </div>
         )}
+        <Commands node={node} />
+        {edited.length > 0 && (
+          <div className="ss-edits">
+            <span>Edited</span>
+            {edited.map((p) => (
+              <button key={p} onClick={() => dispatchEvent(new CustomEvent('forkspace:file', { detail: p }))} title={`${p}\nShow its changes`}>
+                {p.split('/').pop()}
+              </button>
+            ))}
+          </div>
+        )}
         <AsideList node={node} onBranch={onBranch} />
+        {!working && (
+          <div className="ss-acts">
+            {node.sessionId && (
+              <button onClick={onBranchHere} title="Try something different from this point. Your other work stays as it is.">
+                <Icon name="branch" size={12} /> Branch from here
+              </button>
+            )}
+            {node.parentId && (
+              <button onClick={onRedo} title="Run this step again as a new branch, to compare">
+                <Icon name="refresh" size={12} /> Redo this step
+              </button>
+            )}
+            {final && (
+              <button onClick={copy} title="Copy what it said">
+                <Icon name="copy" size={12} /> Copy
+              </button>
+            )}
+          </div>
+        )}
         {tools > 0 && (
           <details className="ss-how">
             <summary>
@@ -597,6 +628,26 @@ export function ChangesPane({ node }: { node: TurnNode }) {
   }, [toolsDone, node.status]);
   const files = parseDiff(diff ?? '');
   const working = isLive(node);
+  // An "Edited" chip in a step asks to see one file: open it here and bring it into view.
+  const [want, setWant] = useState<string | null>(null);
+  const scroll = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const on = (e: Event) => setWant(String((e as CustomEvent).detail));
+    addEventListener('forkspace:file', on);
+    return () => removeEventListener('forkspace:file', on);
+  }, []);
+  useEffect(() => {
+    if (!want || diff == null) return;
+    const f = files.find((x) => want === x.path || want.endsWith('/' + x.path));
+    setWant(null);
+    if (!f) return void toast('No changes to that file in this step');
+    const el = scroll.current?.querySelector(`[data-path="${CSS.escape(f.path)}"]`) as HTMLDetailsElement | null;
+    if (!el) return;
+    el.open = true;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    el.classList.add('flash');
+    setTimeout(() => el.classList.remove('flash'), 1200);
+  }, [want, diff]);
   const copy = (text: string, what: string) => navigator.clipboard?.writeText(text).then(() => toast(`${what} copied`), () => toast('Could not copy', 'error'));
   const cmd = node.sessionId && branch ? `cd ${JSON.stringify(branch.cwd)} && claude --resume ${node.sessionId} --fork-session` : '';
   const items: MenuItem[] = [
@@ -634,7 +685,7 @@ export function ChangesPane({ node }: { node: TurnNode }) {
         </button>
       </div>
       {menu && <ContextMenu x={menu.x} y={menu.y} items={items} onClose={() => setMenu(null)} />}
-      <div className="cp-scroll">
+      <div className="cp-scroll" ref={scroll}>
         {branch?.pr && <PrSection branch={branch} last={last} />}
         {!node.baseCommit ? (
           <div className="cp-quiet">{node.imported ? 'Made in Claude Code before it came here, so changes weren’t recorded.' : 'Changes show for projects in git.'}</div>
@@ -647,7 +698,7 @@ export function ChangesPane({ node }: { node: TurnNode }) {
         ) : (
           <div className="cp-files">
             {files.map((f, i) => (
-              <details key={f.path} className="cp-file" open={files.length <= 3 || i === 0}>
+              <details key={f.path} className="cp-file" data-path={f.path} open={files.length <= 3 || i === 0}>
                 <summary>
                   <Icon name="chevronRight" size={12} className="fr-caret" />
                   <span className="cp-name ellipsis" title={f.path}>

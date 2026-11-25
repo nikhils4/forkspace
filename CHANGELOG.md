@@ -3,6 +3,16 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.44.0
+
+- **Tasks, with a tab each.** Every thread gets a tab along the top with its title and where it stands: Needs you, Working, Failed or Ready to review. Tabs keep their place; `←` `→` move between them
+- **Beacons for hidden tabs.** With more tabs than fit, one that needs you or just finished lights a beacon at that edge. Click it to bring the tab into view
+- **The steps, one line each, on the left.** Branches are lettered side lanes leaving from the step they grew from
+- **Each step explained in the middle:** what you asked, what it said, the commands it ran with their output and whether they worked, and the files it edited (click one for its diff). Branch from here, Redo this step and Copy on every step
+- **One thing to do next**, above the reply box: answer what it's asking, stop it, or Keep, Done or Discard
+- **Keep is the only way anything gets committed.** Commit it as you with your message, leave the changes in your folder, or have the agent open a pull request
+- Done tasks close their tab and wait in the **Done** list. Canvas, Code and Map moved to icons on the right of the tabs
+
 ## 0.43.0
 
 - **A clearer thread map.** Each stop shows what happened, what it changed (+/−) and how long it took, or that it's still working or needs you

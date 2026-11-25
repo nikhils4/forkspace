@@ -18,8 +18,8 @@ import { PairScreen, Splash, StartCommand, UnreachableScreen } from './Gate.tsx'
 import { Icon } from './icons.tsx';
 import { Inbox, useAgents } from './Inbox.tsx';
 import { WorkPage } from './Threads.tsx';
-import { Dock, TabStrip, type ActiveTab } from './Workspace.tsx';
-import { ChangesPane, NewThreadPane, ThreadList, ThreadReader } from './Reader.tsx';
+import { Dock, TaskTabs, rootOf, tipFrom, type ActiveTab } from './Workspace.tsx';
+import { ChangesPane, NewThreadPane, StepTree, ThreadReader } from './Reader.tsx';
 import { threadsOf } from './status.ts';
 import { ImportSessions } from './Import.tsx';
 import { LearnLibrary } from './Learn.tsx';
@@ -32,7 +32,7 @@ import { Palette, type PaletteItem } from './Palette.tsx';
 import { Settings, settingsTab } from './Settings.tsx';
 import { request, send, toast, useStore } from './store.ts';
 import { branchColor, STATUS_LABEL } from './nodes.tsx';
-import { isLive, isTurn, latestLeaf, leaves } from './tree.ts';
+import { isLive, isTurn, latestLeaf, leaves, pathTo } from './tree.ts';
 import { clearReady, useReady, useWatchFinishes } from './review.ts';
 import { Segmented, Sheet, useIsMobile } from './ui.tsx';
 
@@ -687,7 +687,19 @@ function Shell() {
   return (
     <div className="app ws">
       {board ? (
-        <TabStrip board={board} active={page === 'board' ? desk : ('' as ActiveTab)} onPick={pickTab} onSearch={() => setPalette(true)} />
+        <TaskTabs
+          board={board}
+          currentRootId={reading ? (rootOf(store.nodes, reading.id)?.id ?? null) : null}
+          view={page === 'board' ? desk : ''}
+          onPick={(tip) => {
+            setPage('board');
+            setActiveBy((x) => ({ ...x, [board.id]: 'stacks' }));
+            setOpenId(tip.id);
+          }}
+          onNew={newThread}
+          onView={pickTab}
+          onSearch={() => setPalette(true)}
+        />
       ) : (
         <header className="ws-tabs" />
       )}
@@ -725,19 +737,21 @@ function Shell() {
           {boardView}
         </div>
         {board && page === 'board' && desk === 'stacks' && (
-          <div className={`tp ${reading && sideOpen ? '' : 'no-side'}`}>
-            <ThreadList boardId={board.id} current={reading} onPick={(t) => setOpenId(t.id)} onNew={newThread} />
+          <div className={`tp ${!reading ? 'new' : sideOpen ? '' : 'no-side'}`}>
+            {reading && <StepTree rootId={rootOf(store.nodes, reading.id).id} selectedId={reading.id} pathIds={new Set(pathTo(store.nodes, tipFrom(store.nodes, reading.id).id).map((t: TurnNode) => t.id))} onSelect={(id) => setOpenId(id)} />}
             {reading ? (
               <ThreadReader
                 stepId={reading.id}
                 onSelect={(id) => setOpenId(id)}
                 onBranch={(from, p) => void submit(p, [], from, true)}
+                onAsk={(id, p) => void submit(p, [], id)}
+                onRedo={(t) => void submit(t.prompt, t.attachments ?? [], t.parentId ?? null, true)}
                 sideOpen={sideOpen}
                 onToggleSide={() => setSideOpen(!sideOpen)}
-                composer={(t, done) =>
+                composer={(t, done, fork) =>
                   t.sessionId ? (
                     <Composer key={t.id} docked target={t} board={board} onSubmit={async (p, a, f) => {
-                      const ok = await submit(p, a, t.id, f);
+                      const ok = await submit(p, a, t.id, f || fork);
                       if (ok) done();
                       return ok;
                     }} />
