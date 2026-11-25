@@ -3,6 +3,13 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.46.0
+
+- **One step at a time.** Picking a step on the left swaps the page to it, from the top, instead of scrolling through everything before it. Previous and Next at the bottom, or `J` `K`
+- **Easier to read.** What it said comes first; what you asked is a quiet quote above it; the commands it ran are one line each with ✓ or ✕ (click for the output, failures open on their own); edited files and actions follow
+- On the latest step, a new step opens by itself as it starts
+- Taller tabs with room around the text, and hovering a tab shows it in its own shape
+
 ## 0.45.0
 
 - **Tabs look like tabs.** The open one joins the page below it; the others sit on the bar with thin dividers

@@ -193,45 +193,34 @@ export function ThreadReader({
 
   // Reading position. Scrolling picks the step you're on (the steps on the left and the changes
   // follow); picking a step on the left or with J/K scrolls to it.
+  // One step at a time: picking another step swaps the page to it, from the top, with no
+  // scrolling through everything in between.
   const scroller = useRef<HTMLDivElement>(null);
-  const quiet = useRef(false);
-  const until = useRef(0);
-  const select = (id: string, scroll = true) => {
-    quiet.current = !scroll;
-    onSelect(id);
-  };
+  const select = (id: string) => onSelect(id);
   useLayoutEffect(() => {
-    if (quiet.current) return void (quiet.current = false);
-    const el = scroller.current?.querySelector(`[data-step="${stepId}"]`) as HTMLElement | null;
-    if (!el || !scroller.current) return;
-    until.current = Date.now() + 700;
-    scroller.current.scrollTo({ top: Math.max(0, el.offsetTop - 16), behavior: 'smooth' });
+    if (scroller.current) scroller.current.scrollTop = 0;
   }, [stepId]);
-  const onScroll = () => {
-    const sc = scroller.current;
-    if (!sc || Date.now() < until.current) return;
-    const secs = [...sc.querySelectorAll<HTMLElement>('[data-step]')];
-    const line = sc.scrollTop + sc.clientHeight * 0.3;
-    let cur = secs[0];
-    for (const s of secs) if (s.offsetTop <= line) cur = s;
-    if (sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 4) cur = secs[secs.length - 1];
-    const id = cur?.dataset.step;
-    if (id && id !== stepId) select(id, false);
-  };
-  // While the last step streams, stay at the bottom if you were already there.
-  const live = path.find(isLive);
-  const streamed = live ? live.events.length + (live.events.at(-1)?.t === 'text' ? (live.events.at(-1) as any).text.length : 0) : 0;
+  // When the step you're reading is the latest and a new one starts after it, follow along.
+  const lastTip = useRef(tip.id);
+  useEffect(() => {
+    if (tip.id !== lastTip.current && stepId === lastTip.current && pathIds.has(tip.id)) onSelect(tip.id);
+    lastTip.current = tip.id;
+  }, [tip.id]);
+  // While the step you're reading streams, stay at the bottom if you were already there.
+  const streamed = isLive(step) ? step.events.length + (step.events.at(-1)?.t === 'text' ? (step.events.at(-1) as any).text.length : 0) : 0;
   useEffect(() => {
     const sc = scroller.current;
-    if (sc && live && sc.scrollHeight - sc.scrollTop - sc.clientHeight < 140) sc.scrollTop = sc.scrollHeight;
+    if (sc && streamed && sc.scrollHeight - sc.scrollTop - sc.clientHeight < 160) sc.scrollTop = sc.scrollHeight;
   }, [streamed]);
 
   const index = path.findIndex((t) => t.id === stepId);
+  const prev = index > 0 ? path[index - 1] : null;
+  const next = index >= 0 && index < path.length - 1 ? path[index + 1] : null;
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       if (typing(e)) return;
-      if (e.key === 'j' && index < path.length - 1) select(path[index + 1].id);
-      else if (e.key === 'k' && index > 0) select(path[index - 1].id);
+      if (e.key === 'j' && next) select(next.id);
+      else if (e.key === 'k' && prev) select(prev.id);
     };
     addEventListener('keydown', k);
     return () => removeEventListener('keydown', k);
@@ -252,28 +241,50 @@ export function ThreadReader({
           </button>
         </div>
       </header>
-      <div className="rd-scroll" ref={scroller} onScroll={onScroll}>
+      <div className="rd-scroll" ref={scroller}>
         <SelectionAsk scroller={scroller} node={step} onBranch={(p) => onBranch(step.id, p)} />
-        <div className="rd-doc">
+        <div className="rd-doc sv-doc" key={stepId}>
           <div className="rd-note">
             <NoteBar branchId={step.branchId} />
           </div>
-          {path.map((s, i) => (
+          {index >= 0 && (
             <StepSection
-              key={s.id}
-              node={s}
-              n={i + 1}
-              on={s.id === stepId}
-              last={i === path.length - 1}
-              from={branchFrom === s.id}
-              others={childrenOf(nodes, s.id).filter((k) => !pathIds.has(k.id))}
-              onPoint={() => s.id !== stepId && select(s.id, false)}
-              onBranchHere={() => (setBranchFrom(s.id), select(s.id, false), setTimeout(() => (document.querySelector('.rd-composer textarea') as HTMLTextAreaElement | null)?.focus(), 30))}
-              onRedo={() => onRedo(s)}
+              key={step.id}
+              node={step}
+              n={index + 1}
+              total={path.length}
+              from={branchFrom === step.id}
+              others={childrenOf(nodes, step.id).filter((k) => !pathIds.has(k.id))}
+              onBranchHere={() => (setBranchFrom(step.id), setTimeout(() => (document.querySelector('.rd-composer textarea') as HTMLTextAreaElement | null)?.focus(), 30))}
+              onRedo={() => onRedo(step)}
               onGo={(id) => select(tipFrom(nodes, id).id)}
-              onBranch={(p) => onBranch(s.id, p)}
+              onBranch={(p) => onBranch(step.id, p)}
             />
-          ))}
+          )}
+          {(prev || next) && (
+            <nav className="sv-pager" aria-label="Steps">
+              {prev ? (
+                <button onClick={() => select(prev.id)} title="Previous step (K)">
+                  <Icon name="chevronLeft" size={14} />
+                  <span>
+                    <small>Step {index}</small>
+                    {stepLabel(prev)}
+                  </span>
+                </button>
+              ) : (
+                <span />
+              )}
+              {next && (
+                <button className="next" onClick={() => select(next.id)} title="Next step (J)">
+                  <span>
+                    <small>Step {index + 2}</small>
+                    {stepLabel(next)}
+                  </span>
+                  <Icon name="chevronRight" size={14} />
+                </button>
+              )}
+            </nav>
+          )}
           <div className="rd-end" />
         </div>
       </div>
@@ -437,47 +448,50 @@ function KeepSheet({ root, tip, onClose, onAsk }: { root: TurnNode; tip: TurnNod
 
 // ---------------- one step: what you asked, what it said, what it ran ----------------
 
-/** The commands a step ran, newest last: the command, the end of its output, and whether it worked. */
+type ToolEvent = Extract<TurnNode['events'][number], { t: 'tool' }>;
+
+/** The commands a step ran: one line each with how it went; click one for the end of its output. Failures open on their own. */
 function Commands({ node }: { node: TurnNode }) {
-  const cmds = node.events.filter((e): e is Extract<TurnNode['events'][number], { t: 'tool' }> => e.t === 'tool' && e.name === 'Bash');
+  const cmds = node.events.filter((e): e is ToolEvent => e.t === 'tool' && e.name === 'Bash');
   if (!cmds.length) return null;
-  const shown = cmds.slice(-4);
   const tail = (r: string) =>
     r
       .split('\n')
       .filter((l) => l.trim())
-      .slice(-4)
+      .slice(-6)
       .join('\n')
-      .slice(-420);
+      .slice(-600);
   return (
-    <div className="ss-cmds">
-      {cmds.length > shown.length && <div className="ss-cmds-more">{cmds.length - shown.length} earlier command{cmds.length - shown.length === 1 ? '' : 's'} in “How it got there”</div>}
-      {shown.map((e) => {
-        const cmd = String((e.input as any)?.command ?? '').split('\n')[0];
-        const out = e.result ? tail(e.result) : '';
-        return (
-          <div key={e.id} className="ss-cmd">
-            <div className="ss-cmd-line">
-              <span className="ss-cmd-p">$</span>
-              <code title={String((e.input as any)?.command ?? '')}>{cmd}</code>
-              {e.result == null ? <span className="ss-cmd-r run">running</span> : e.isError ? <span className="ss-cmd-r fail">✕ failed</span> : <span className="ss-cmd-r ok">✓</span>}
-            </div>
-            {out && <pre className="ss-cmd-out">{out}</pre>}
-          </div>
-        );
-      })}
-    </div>
+    <section className="sv-sec">
+      <h3>
+        Ran <span>{cmds.length} command{cmds.length === 1 ? '' : 's'}</span>
+      </h3>
+      <div className="sv-cmds">
+        {cmds.map((e) => {
+          const full = String((e.input as any)?.command ?? '');
+          const out = e.result ? tail(e.result) : '';
+          return (
+            <details key={e.id} className={`sv-cmd ${e.isError ? 'fail' : e.result == null ? 'run' : 'ok'}`} open={!!e.isError}>
+              <summary title={full}>
+                <span className="sv-cmd-mark">{e.result == null ? <span className="spinner" /> : e.isError ? '✕' : '✓'}</span>
+                <code>{full.split('\n')[0]}</code>
+                {out && <Icon name="chevronRight" size={12} className="fr-caret" />}
+              </summary>
+              {out && <pre>{out}</pre>}
+            </details>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
 function StepSection({
   node,
   n,
-  on,
-  last,
+  total,
   from,
   others,
-  onPoint,
   onBranchHere,
   onRedo,
   onGo,
@@ -485,11 +499,9 @@ function StepSection({
 }: {
   node: TurnNode;
   n: number;
-  on: boolean;
-  last: boolean;
+  total: number;
   from: boolean;
   others: TurnNode[];
-  onPoint: () => void;
   onBranchHere: () => void;
   onRedo: () => void;
   onGo: (id: string) => void;
@@ -497,114 +509,111 @@ function StepSection({
 }) {
   const { branches } = useStore();
   const branch = branches[node.branchId];
-  const [long, setLong] = useState(false);
   const working = isLive(node);
   const final = [...node.events].reverse().find((e) => e.t === 'text' && e.text.trim());
   const tools = node.events.filter((e) => e.t === 'tool').length;
   const edited = [...new Set(node.events.flatMap((e) => (e.t === 'tool' ? [editsOf(e)?.path].filter((p): p is string => !!p) : [])))];
   const copy = () => final?.t === 'text' && navigator.clipboard?.writeText(final.text).then(() => toast('Copied'), () => toast('Could not copy', 'error'));
   return (
-    <article className={`ss ${on ? 'on' : ''} ${last ? 'last' : ''} ${from ? 'from' : ''} st-${node.status}`} data-step={node.id} onPointerDown={onPoint} style={{ ['--branch' as any]: branchColor(node.branchId) }}>
-      <div className="ss-rail">
-        <span className="ss-num">{n}</span>
-        <span className="ss-line" />
+    <article className={`sv ${from ? 'from' : ''} st-${node.status}`} data-step={node.id} style={{ ['--branch' as any]: branchColor(node.branchId) }}>
+      <div className="sv-eyebrow">
+        <span className="sv-n">
+          Step {n} of {total}
+        </span>
+        {working ? <LiveLine node={node} /> : <span className={`ss-status s-${node.status}`}>{STATUS_LABEL[node.status]}</span>}
+        <span>{timeAgo(node.finishedAt ?? node.createdAt)}</span>
+        {node.durationMs ? <span>{took(node.durationMs)}</span> : null}
+        <DiffStat s={node.diffStat} />
       </div>
-      <div className="ss-main">
-        <div className="ss-head">
-          <span className="ss-label">{stepLabel(node)}</span>
-          <span className="ss-meta">
-            {working ? <LiveLine node={node} /> : <span className={`ss-status s-${node.status}`}>{STATUS_LABEL[node.status]}</span>}
-            <span>{timeAgo(node.finishedAt ?? node.createdAt)}</span>
-            {node.durationMs ? <span>{took(node.durationMs)}</span> : null}
-            <DiffStat s={node.diffStat} />
-          </span>
+      <h2 className="sv-title">{stepLabel(node)}</h2>
+      <blockquote className="sv-you" title="What you asked">
+        {node.prompt}
+      </blockquote>
+      <Attachments list={node.attachments} label={node.prompt} />
+      {!!node.comments?.length && <CardComments node={node} roomy />}
+      {node.pending && (
+        <div className="ss-pending">
+          <Permission node={node} p={node.pending} />
         </div>
-        <div className={`ss-you ${long ? 'open' : ''}`} onClick={() => setLong(!long)}>
-          <span className="ss-you-tag">You</span>
-          <span className="ss-you-text">{node.prompt}</span>
-        </div>
-        <Attachments list={node.attachments} label={node.prompt} />
-        {!!node.comments?.length && <CardComments node={node} roomy />}
-        <div className="ss-answer">
-          {final && final.t === 'text' ? <Md text={final.text} partial={working && final.partial} /> : <div className="ss-quiet">{working ? 'Working on it…' : 'Finished without a message.'}</div>}
-          {node.error && <div className="error-box">{node.error}</div>}
-        </div>
-        {node.pending && (
-          <div className="ss-pending">
-            <Permission node={node} p={node.pending} />
-          </div>
-        )}
-        <Commands node={node} />
-        {edited.length > 0 && (
+      )}
+      <div className="sv-answer">
+        {final && final.t === 'text' ? <Md text={final.text} partial={working && final.partial} /> : <div className="ss-quiet">{working ? 'Working on it…' : 'Finished without a message.'}</div>}
+        {node.error && <div className="error-box">{node.error}</div>}
+      </div>
+      <Commands node={node} />
+      {edited.length > 0 && (
+        <section className="sv-sec">
+          <h3>
+            Edited <span>{edited.length} file{edited.length === 1 ? '' : 's'}</span>
+          </h3>
           <div className="ss-edits">
-            <span>Edited</span>
             {edited.map((p) => (
               <button key={p} onClick={() => dispatchEvent(new CustomEvent('forkspace:file', { detail: p }))} title={`${p}\nShow its changes`}>
                 {p.split('/').pop()}
               </button>
             ))}
           </div>
-        )}
-        <AsideList node={node} onBranch={onBranch} />
-        {!working && (
-          <div className="ss-acts">
-            {node.sessionId && (
-              <button onClick={onBranchHere} title="Try something different from this point. Your other work stays as it is.">
-                <Icon name="branch" size={12} /> Branch from here
-              </button>
-            )}
-            {node.parentId && (
-              <button onClick={onRedo} title="Run this step again as a new branch, to compare">
-                <Icon name="refresh" size={12} /> Redo this step
-              </button>
-            )}
-            {final && (
-              <button onClick={copy} title="Copy what it said">
-                <Icon name="copy" size={12} /> Copy
-              </button>
+        </section>
+      )}
+      <AsideList node={node} onBranch={onBranch} />
+      {!working && (
+        <div className="ss-acts sv-acts">
+          {node.sessionId && (
+            <button onClick={onBranchHere} title="Try something different from this point. Your other work stays as it is.">
+              <Icon name="branch" size={12} /> Branch from here
+            </button>
+          )}
+          {node.parentId && (
+            <button onClick={onRedo} title="Run this step again as a new branch, to compare">
+              <Icon name="refresh" size={12} /> Redo this step
+            </button>
+          )}
+          {final && (
+            <button onClick={copy} title="Copy what it said">
+              <Icon name="copy" size={12} /> Copy
+            </button>
+          )}
+        </div>
+      )}
+      {others.length > 0 && (
+        <div className="ss-forks">
+          <span>Branched here</span>
+          {others.map((k) => (
+            <button key={k.id} onClick={() => onGo(k.id)} style={{ ['--branch' as any]: branchColor(k.branchId) }} title={k.prompt}>
+              <span className="ss-fork-dot" />
+              <span className="ellipsis">{branches[k.branchId]?.purpose || stepLabel(k)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {tools > 0 && (
+        <details className="ss-how sv-how">
+          <summary>
+            <Icon name="chevronRight" size={12} className="fr-caret" />
+            Everything it did <span className="faint">· {tools} action{tools === 1 ? '' : 's'}</span>
+          </summary>
+          <div className="ds-steps">
+            {node.events.map((e, i) =>
+              e.t === 'text' ? (
+                <Md key={i} text={e.text} />
+              ) : e.t === 'thinking' ? (
+                <details key={i} className="block">
+                  <summary>Thinking</summary>
+                  <div className="md faint">{e.text}</div>
+                </details>
+              ) : (
+                <details key={i} className="block">
+                  <summary>
+                    <ToolLine e={e} cwd={branch?.cwd} />
+                  </summary>
+                  {editsOf(e) ? <ToolDiff e={e} cwd={branch?.cwd} /> : <pre className="pre">{JSON.stringify(e.input, null, 2)}</pre>}
+                  {e.result != null && <pre className={`pre ${e.isError ? 'err' : ''}`}>{e.result}</pre>}
+                </details>
+              ),
             )}
           </div>
-        )}
-        {tools > 0 && (
-          <details className="ss-how">
-            <summary>
-              <Icon name="chevronRight" size={12} className="fr-caret" />
-              How it got there <span className="faint">· {tools} action{tools === 1 ? '' : 's'}</span>
-            </summary>
-            <div className="ds-steps">
-              {node.events.map((e, i) =>
-                e.t === 'text' ? (
-                  <Md key={i} text={e.text} />
-                ) : e.t === 'thinking' ? (
-                  <details key={i} className="block">
-                    <summary>Thinking</summary>
-                    <div className="md faint">{e.text}</div>
-                  </details>
-                ) : (
-                  <details key={i} className="block">
-                    <summary>
-                      <ToolLine e={e} cwd={branch?.cwd} />
-                    </summary>
-                    {editsOf(e) ? <ToolDiff e={e} cwd={branch?.cwd} /> : <pre className="pre">{JSON.stringify(e.input, null, 2)}</pre>}
-                    {e.result != null && <pre className={`pre ${e.isError ? 'err' : ''}`}>{e.result}</pre>}
-                  </details>
-                ),
-              )}
-            </div>
-          </details>
-        )}
-        {others.length > 0 && (
-          <div className="ss-forks">
-            <span>Branched here</span>
-            {others.map((k) => (
-              <button key={k.id} onClick={() => onGo(k.id)} style={{ ['--branch' as any]: branchColor(k.branchId) }} title={k.prompt}>
-                <span className="ss-fork-dot" />
-                <span className="ellipsis">{branches[k.branchId]?.purpose || stepLabel(k)}</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+        </details>
+      )}
     </article>
   );
 }
