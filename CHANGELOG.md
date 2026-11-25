@@ -3,6 +3,10 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.58.0
+
+- **A sticky note on every task.** Add a note at the top of the step list, or press N. It stays in view, saves as you type, and shows when you hover the tab. The agent never sees it
+
 ## 0.57.0
 
 - **Tags you can see.** A tab shows its tag's name as a coloured pill and a band of that colour across its top. Header chips are filled with their colour
