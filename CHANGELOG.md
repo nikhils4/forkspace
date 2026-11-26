@@ -3,6 +3,13 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.61.0
+
+- **Cleaner tags on tabs.** The colour band follows the tab's own shape, with a light wash of the tag's colour, and splits into one colour per tag. Titles get their full width back; tag names show on hover and in the header
+- **Header tags no longer slide under the status**
+- **The open tab curves the same on both sides** and joins the page below it
+- Tabs fade out cleanly behind the "needs you" buttons at the edges
+
 ## 0.60.0
 
 - **Calmer while it works.** The "Working on…" bar is gone, so the page stops jumping. Stop is its own button in the header
