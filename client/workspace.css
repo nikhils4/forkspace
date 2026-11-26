@@ -783,6 +783,7 @@
   }
 }
 .tk-x {
+  position: relative;
   flex: none;
   align-self: center;
   width: 20px;
@@ -836,13 +837,13 @@
 }
 .tk-edge.right {
   right: 0;
-  padding-left: 28px;
-  background: linear-gradient(to right, transparent, var(--tabbar) 28px);
+  padding: 0 4px 0 40px;
+  background: linear-gradient(to right, transparent, var(--tabbar) 36px);
 }
 .tk-edge.left {
   left: 0;
-  padding-right: 28px;
-  background: linear-gradient(to left, transparent, var(--tabbar) 28px);
+  padding: 0 40px 0 4px;
+  background: linear-gradient(to left, transparent, var(--tabbar) 36px);
 }
 .tk-beacon {
   pointer-events: auto;
@@ -2221,38 +2222,43 @@
   border-radius: 50%;
   background: var(--tg, var(--text-3));
 }
-/* A tagged tab: a band of the first tag's colour across its top, and the tag's name as a pill. */
-.tk.tagged .tk-main {
-  box-shadow: inset 0 3px 0 var(--tg);
+/* A tagged tab: a colour band across its top, in the tab's own shape (one segment per tag), and a
+   light wash of the first colour when it isn't the open tab. */
+.tk-band {
+  position: absolute;
+  inset: 0;
   border-radius: 10px 10px 0 0;
+  overflow: hidden;
+  pointer-events: none;
 }
-.tg-pill {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  max-width: 88px;
-  height: 18px;
-  margin-left: auto;
-  padding: 0 7px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--tg) 16%, transparent);
-  color: color-mix(in srgb, var(--tg) 82%, var(--text));
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
-  white-space: nowrap;
+.tk:not(.on) .tk-band {
+  background: color-mix(in srgb, var(--tg1) 10%, transparent);
 }
-.tg-more {
-  flex: none;
-  opacity: 0.75;
+.tk-band::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--band);
+}
+.tk:not(.on) .tk-band::before {
+  opacity: 0.85;
+}
+/* Tagged tabs sit apart on their own; no divider needed beside them. */
+.tk.tagged::after,
+.tk:has(+ .tk.tagged)::after {
+  display: none;
+}
+.tk.tagged:not(.on) + .tk.tagged:not(.on) {
+  margin-left: 2px;
 }
 .tg-chips {
+  flex: none;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-width: 0;
 }
 .tg-chip {
   display: inline-flex;

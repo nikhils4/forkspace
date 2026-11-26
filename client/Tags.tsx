@@ -10,16 +10,23 @@ export const tagsOf = (board: Board | undefined, root: TurnNode): TaskTag[] => {
   return (root.tags ?? []).map((id) => all.find((t) => t.id === id)).filter((t): t is TaskTag => !!t);
 };
 
-/** The first tag's name as a coloured pill, plus a count of the rest. For a tab. */
-export function TagPill({ tags }: { tags: TaskTag[] }) {
+export const TAG_HEX: Record<string, string> = {
+  red: '#e5484d',
+  orange: '#f76b15',
+  amber: '#e2a336',
+  green: '#30a46c',
+  teal: '#12a594',
+  blue: '#0090ff',
+  violet: '#8e4ec6',
+  pink: '#d6409f',
+  grey: '#8b8d98',
+};
+/** A tab's colour band: one even segment per tag (up to 3), drawn in the tab's own shape. */
+export function TagBand({ tags }: { tags: TaskTag[] }) {
   if (!tags.length) return null;
-  const [first, ...rest] = tags;
-  return (
-    <span className={`tg-pill tg-${first.color}`} title={tags.map((t) => t.name).join(', ')}>
-      <span className="ellipsis">{first.name}</span>
-      {rest.length > 0 && <span className="tg-more">+{rest.length}</span>}
-    </span>
-  );
+  const cs = tags.slice(0, 3).map((t) => TAG_HEX[t.color] ?? TAG_HEX.grey);
+  const band = cs.length === 1 ? cs[0] : `linear-gradient(to right, ${cs.map((c, i) => `${c} ${(i * 100) / cs.length}% ${((i + 1) * 100) / cs.length}%`).join(', ')})`;
+  return <span className="tk-band" style={{ ['--band' as any]: band, ['--tg1' as any]: cs[0] }} aria-hidden />;
 }
 
 /** Named chips, for the task's header. Click to change. */

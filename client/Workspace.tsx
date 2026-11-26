@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Board, CanvasNode, TurnNode } from '../shared/types.ts';
 import { ContextMenu, type MenuItem } from './ContextMenu.tsx';
-import { TagPill, TagPicker, tagsOf } from './Tags.tsx';
+import { TagBand, TagPicker, tagsOf } from './Tags.tsx';
 import { Icon, type IconName } from './icons.tsx';
 import { useReady } from './review.ts';
 import { STAGE_LABEL, threadsOf, type Stage, type ThreadRow } from './status.ts';
@@ -323,10 +323,11 @@ export function TaskTabs({
             return (
               <div
                 key={t.root.id}
-                className={`tk ${on ? 'on' : ''} stage-${t.stage} ${isFinished(t) ? 'done' : ''} ${t.root.discarded ? 'discarded' : ''} ${tags.length ? `tagged tg-${tags[0].color}` : ''}`}
+                className={`tk ${on ? 'on' : ''} stage-${t.stage} ${isFinished(t) ? 'done' : ''} ${t.root.discarded ? 'discarded' : ''} ${tags.length ? 'tagged' : ''}`}
                 data-id={t.root.id}
                 data-alert={alert ?? undefined}
               >
+                <TagBand tags={tags} />
                 <button
                   className="tk-main"
                   role="tab"
@@ -334,7 +335,7 @@ export function TaskTabs({
                   onClick={() => renaming !== t.root.id && onPick(tipFrom(nodes, t.root.id))}
                   onContextMenu={(e) => (e.preventDefault(), setTabMenu({ x: e.clientX, y: e.clientY, t }))}
                   onAuxClick={(e) => e.button === 1 && isFinished(t) && close(t)}
-                  title={`${t.title}\n${taskWord(t)}${t.root.memo ? `\n\nNote: ${t.root.memo.slice(0, 200)}` : ''}`}
+                  title={`${t.title}\n${taskWord(t)}${tags.length ? `\nTags: ${tags.map((x) => x.name).join(', ')}` : ''}${t.root.memo ? `\n\nNote: ${t.root.memo.slice(0, 200)}` : ''}`}
                 >
                   <span className="tk-title">
                     <StatusIcon kind={statusKind(t)} size={13} fresh={alert === 'ready'} />
@@ -356,7 +357,6 @@ export function TaskTabs({
                     ) : (
                       <span className="ellipsis">{t.title}</span>
                     )}
-                    <TagPill tags={tags} />
                   </span>
                 </button>
                 <button className="tk-x" onClick={() => close(t)} title={isFinished(t) ? 'Close tab (it stays in History)' : 'Mark done and close'} aria-label={`Close ${t.title}`}>
