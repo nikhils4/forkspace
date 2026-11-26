@@ -3,6 +3,11 @@
 Each version here is a release. Forkspace shows these notes in Settings when an update is ready.
 To cut one: add a section below, then run `npm run release -- <version>`.
 
+## 0.60.0
+
+- **Calmer while it works.** The "Working on…" bar is gone, so the page stops jumping. Stop is its own button in the header
+- **Stays with the newest text.** While a step works, the page follows the bottom. Scroll up and it stays put; Latest brings you back
+
 ## 0.59.0
 
 - **Steps show what Claude sent, as sent.** No more summary cards on top. Its messages and thinking appear in order, the tools it used stay as one quiet line between them, and its plan shows where it wrote it
