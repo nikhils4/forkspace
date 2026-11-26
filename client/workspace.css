@@ -630,7 +630,9 @@
 .tk-strip {
   flex: 1;
   min-width: 0;
-  height: 100%;
+  /* Reaches over the bar's bottom border so the open tab joins the page below it. */
+  height: calc(100% + 1px);
+  margin-bottom: -1px;
   display: flex;
   align-items: flex-end;
   gap: 0;
@@ -692,21 +694,23 @@
     inset 1px 0 0 var(--border),
     inset -1px 0 0 var(--border);
 }
-/* Curved feet where the open tab meets the page. */
-.tk.on .tk-main::before,
-.tk.on .tk-main::after {
+/* Curved feet where the open tab meets the page: on the tab itself, so both sides match. */
+.tk-strip .tk.on::before,
+.tk-strip .tk.on::after {
   content: '';
+  display: block;
   position: absolute;
+  top: auto;
   bottom: 0;
   width: 10px;
   height: 10px;
   pointer-events: none;
 }
-.tk.on .tk-main::before {
+.tk-strip .tk.on::before {
   left: -10px;
   background: radial-gradient(circle at 0 0, transparent 9.5px, var(--bg) 10px);
 }
-.tk.on .tk-main::after {
+.tk-strip .tk.on::after {
   right: -10px;
   background: radial-gradient(circle at 100% 0, transparent 9.5px, var(--bg) 10px);
 }
@@ -2247,8 +2251,8 @@
   opacity: 0.85;
 }
 /* Tagged tabs sit apart on their own; no divider needed beside them. */
-.tk.tagged::after,
-.tk:has(+ .tk.tagged)::after {
+.tk.tagged:not(.on)::after,
+.tk:not(.on):has(+ .tk.tagged)::after {
   display: none;
 }
 .tk.tagged:not(.on) + .tk.tagged:not(.on) {
