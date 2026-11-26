@@ -8,7 +8,7 @@ import { ContextMenu, type MenuItem } from './ContextMenu.tsx';
 import { parseDiff } from './Drawer.tsx';
 import { Icon } from './icons.tsx';
 import { TaskMemo, editMemo } from './Memo.tsx';
-import { DiffStat, LiveLine, Permission, STATUS_LABEL, branchColor } from './nodes.tsx';
+import { DiffStat, Permission, STATUS_LABEL, branchColor } from './nodes.tsx';
 import { useReady } from './review.ts';
 import { StepStory } from './StepStory.tsx';
 import { TagChips, TagPicker, tagsOf } from './Tags.tsx';
@@ -230,6 +230,7 @@ export function ThreadReader({
   const [branchFrom, setBranchFrom] = useState<string | null>(null);
   const [keeping, setKeeping] = useState<KeepMode | null>(null);
   const [tagging, setTagging] = useState<{ x: number; y: number } | null>(null);
+  const liveStep = threadSteps(nodes, root.id).find((t) => t.status === 'running');
   const board = boards.find((b) => b.id === root.boardId);
   const [jump, setJump] = useState<{ x: number; y: number } | null>(null);
   // The step list opens at the step you're on.
@@ -245,9 +246,42 @@ export function ThreadReader({
   // scrolling through everything in between.
   const scroller = useRef<HTMLDivElement>(null);
   const select = (id: string) => onSelect(id);
+  // While a step is working, stay with its newest text as long as you're at the bottom. Scroll up
+  // and it leaves you be; "Latest" brings you back.
+  const follow = useRef(false);
+  const [away, setAway] = useState(false);
+  const stepLive = isLive(step);
   useLayoutEffect(() => {
-    if (scroller.current) scroller.current.scrollTop = 0;
+    const el = scroller.current;
+    if (!el) return;
+    follow.current = stepLive;
+    setAway(false);
+    el.scrollTop = stepLive ? el.scrollHeight : 0;
   }, [stepId]);
+  useEffect(() => {
+    const el = scroller.current;
+    const doc = el?.querySelector('.rd-doc');
+    if (!el || !doc || !stepLive) return;
+    const ro = new ResizeObserver(() => {
+      if (follow.current) el.scrollTop = el.scrollHeight;
+    });
+    ro.observe(doc);
+    return () => ro.disconnect();
+  }, [stepId, stepLive]);
+  const onScroll = () => {
+    const el = scroller.current;
+    if (!el) return;
+    const atEnd = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+    follow.current = atEnd;
+    setAway(stepLive && !atEnd);
+  };
+  const toLatest = () => {
+    const el = scroller.current;
+    if (!el) return;
+    follow.current = true;
+    setAway(false);
+    el.scrollTop = el.scrollHeight;
+  };
   // When the step you're reading is the latest and a new one starts after it, follow along.
   const lastTip = useRef(tip.id);
   useEffect(() => {
@@ -311,6 +345,11 @@ export function ThreadReader({
             </span>
           )}
           <span className="spacer" />
+          {liveStep && (
+            <button className="btn sm rd-stop" onClick={() => send({ type: 'stop', nodeId: liveStep.id })} title="Stop it here. You can carry on with a new message">
+              <span className="rd-stop-sq" /> Stop
+            </button>
+          )}
           {row && <KeepButton row={row} tip={tip} onKeep={setKeeping} />}
           {path.length > 1 && (
             <button
@@ -345,7 +384,7 @@ export function ThreadReader({
           />
         )}
       </header>
-      <div className="rd-scroll" ref={scroller}>
+      <div className="rd-scroll" ref={scroller} onScroll={onScroll}>
         <SelectionAsk scroller={scroller} node={step} onBranch={(p) => onBranch(step.id, p)} />
         <div className={`rd-doc sv-doc go-${dir}`} key={stepId}>
           {index >= 0 && (
@@ -390,6 +429,11 @@ export function ThreadReader({
         </div>
       </div>
       <div className="rd-composer">
+        {away && (
+          <button className="rd-latest" onClick={toLatest}>
+            <Icon name="chevronDown" size={13} /> Latest
+          </button>
+        )}
         {branchFrom ? (
           <div className="rd-branching" style={{ ['--branch' as any]: branchColor(target.branchId) }}>
             <Icon name="branch" size={12} />
@@ -423,7 +467,6 @@ function CallBar({ row, onJump }: { row: ThreadRow; onJump: (id: string) => void
   const root = row.root;
   const steps = threadSteps(nodes, root.id);
   const waiting = steps.find((t) => t.status === 'waiting');
-  const running = steps.find((t) => t.status === 'running');
   if (root.completed) return null;
   if (waiting)
     return (
@@ -435,19 +478,6 @@ function CallBar({ row, onJump }: { row: ThreadRow; onJump: (id: string) => void
         <span className="spacer" />
         <button className="btn sm primary" onClick={() => onJump(waiting.id)}>
           Show me
-        </button>
-      </div>
-    );
-  if (running)
-    return (
-      <div className="call working">
-        <StatusIcon kind="working" size={16} />
-        <span>
-          Working on “{stepLabel(running)}” · <span className="faint">{currentActivity(running) || 'thinking'}</span>
-        </span>
-        <span className="spacer" />
-        <button className="btn sm ghost" onClick={() => send({ type: 'stop', nodeId: running.id })}>
-          Stop
         </button>
       </div>
     );
@@ -625,7 +655,7 @@ function StepSection({
         <div className="sv-head-text">
           <h2 className="sv-title">{stepLabel(node)}</h2>
           <div className="sv-meta">
-            {working ? <LiveLine node={node} /> : <span className={`sv-state s-${node.status}`}>{STATUS_LABEL[node.status]}</span>}
+            {working ? <span className="sv-state s-running">{node.status === 'waiting' ? 'Needs you' : 'Working'}</span> : <span className={`sv-state s-${node.status}`}>{STATUS_LABEL[node.status]}</span>}
             <span title={new Date(node.finishedAt ?? node.createdAt).toLocaleString()}>
               <Icon name="clock" size={12} /> {timeAgo(node.finishedAt ?? node.createdAt)}
             </span>

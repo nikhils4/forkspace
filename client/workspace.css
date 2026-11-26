@@ -2820,3 +2820,39 @@
 .cp-send:hover {
   filter: brightness(1.08);
 }
+
+/* Stop: its own button in the header while a step works. */
+.rd-stop {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.rd-stop-sq {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--err, #e5484d);
+}
+/* Back to the newest text, when you scrolled up while it works. */
+.rd-composer {
+  position: relative;
+}
+.rd-latest {
+  position: absolute;
+  left: 50%;
+  top: -40px;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--border-2);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font: 500 12.5px var(--font, inherit);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.18);
+  cursor: pointer;
+}
